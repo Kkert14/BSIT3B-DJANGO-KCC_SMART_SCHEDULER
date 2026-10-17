@@ -1,0 +1,374 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  <div class="page-header d-print-none" aria-label="Page header">
+    <div class="container-xl">
+      <div class="row align-items-center">
+        <div class="col">
+          <div class="page-pretitle">Overview</div>
+          <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
+            <h2 class="page-title mb-0">Class Schedules</h2>
+          </div>
+          <h2 class="page-title mb-0 d-md-none">Class Schedules</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+  <br>
+
+  <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-1">
+    <form method="GET" class="w-100" style="max-width: 420px;">
+      <div class="input-group">
+        <span class="input-group-text"><i class="ti ti-search"></i></span>
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by subject, section, teacher, or room...">
+        {% if query %}
+        <a href="{% url 'schedule:schedule_list' %}" class="btn btn-outline-secondary">Clear</a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+
+    <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="create">
+      <i class='fas fa-plus-circle me-2'></i> Add Schedule
+    </button>
+  </div>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="scheduleToastContainer" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+    <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
+      <div class="d-flex">
+        <div class="toast-body">{{ message }}</div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div id="scheduleAlert" class="alert alert-danger d-none" role="alert"></div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        All Schedules
+        {% if query %}
+        <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table text-nowrap" id="scheduleTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Academic Year</th>
+            <th>Semester</th>
+            <th>Teacher</th>
+            <th>Subject</th>
+            <th>Section</th>
+            <th>Room</th>
+            <th>Type</th>
+            <th>Day</th>
+            <th>Time</th>
+            <th class="w-1">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleTableBody">
+        {% for schedule in schedules %}
+        <tr data-row-id="{{ schedule.id }}">
+            <td class="text-muted">{{ forloop.counter0|add:schedules.start_index }}</td>
+            <td class="text-muted">{{ schedule.academic_year }}</td>
+            <td>{{ schedule.semester }}</td>
+            <td class="text-muted">{{ schedule.teacher.first_name }} {{ schedule.teacher.last_name }}</td>
+            <td class="fw-semibold">{{ schedule.subject.code }}</td>
+            <td class="text-muted">{{ schedule.section.name }}</td>
+            <td class="text-muted">{{ schedule.room.room_name }}</td>
+            <td><span class="badge bg-primary-lt text-primary">{{ schedule.class_type }}</span></td>
+            <td class="text-muted">{{ schedule.get_day_of_week_display }}</td>
+            <td>{{ schedule.start_time|time:"H:i" }} — {{ schedule.end_time|time:"H:i" }}</td>
+            <td>
+              <div class="d-flex gap-1">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="edit" data-id="{{ schedule.id }}" data-academic-year="{{ schedule.academic_year }}" data-semester="{{ schedule.semester }}" data-teacher="{{ schedule.teacher.id }}" data-subject="{{ schedule.subject.id }}" data-section="{{ schedule.section.id }}" data-room="{{ schedule.room.id }}" data-class-type="{{ schedule.class_type }}" data-day-of-week="{{ schedule.day_of_week }}" data-start-time="{{ schedule.start_time }}" data-end-time="{{ schedule.end_time }}" title="Edit">
+                  <i class="fas fa-edit text-primary"></i>
+                </button>
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteScheduleModal" data-id="{{ schedule.id }}" data-name="{{ schedule.subject.code }} — {{ schedule.section.name }}" title="Delete">
+                  <i class="fas fa-trash-alt text-danger"></i>
+                </button>
+              </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="11">
+                <div class="empty py-5">
+                    <div class="empty-icon">
+                        <i class="fas fa-calendar-alt fa-2x text-muted"></i>
+                    </div>
+                    <p class="empty-title">No schedules found</p>
+                    <p class="empty-subtitle">Try adjusting your search or add a new schedule.</p>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if schedules.paginator.num_pages > 1 %}
+    <div class="card-footer d-flex align-items-center">
+      <p class="m-0 text-muted">
+        Showing <span class="fw-medium">{{ schedules.start_index }}</span>
+        to <span class="fw-medium">{{ schedules.end_index }}</span>
+        of <span class="fw-medium">{{ schedules.paginator.count }}</span> records
+      </p>
+      <ul class="pagination m-0 ms-auto">
+        {% if schedules.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ schedules.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+            <i class="ti ti-chevron-left"></i> prev
+          </a>
+        </li>
+        {% endif %}
+        {% for num in schedules.paginator.page_range %}
+        <li class="page-item {% if schedules.number == num %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if schedules.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ schedules.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+            next <i class="ti ti-chevron-right"></i>
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="scheduleModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="scheduleModalTitle">Add Schedule</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="scheduleForm">
+        {% csrf_token %}
+        <input type="hidden" name="id" id="schedule_id">
+        <div class="modal-body">
+          <div id="scheduleFormError" class="alert alert-danger d-none"></div>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Academic Year</label>
+              <input type="text" name="academic_year" id="schedule_academic_year" class="form-control" placeholder="2026-2027" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Semester</label>
+              <select name="semester" id="schedule_semester" class="form-select" required>
+                <option value="1">1st Semester</option>
+                <option value="2">2nd Semester</option>
+                <option value="3">Summer</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Teacher</label>
+              <select name="teacher" id="schedule_teacher" class="form-select" required>
+                <option value="">Select teacher</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}">{{ t.employee_number }} — {{ t.first_name }} {{ t.last_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Subject</label>
+              <select name="subject" id="schedule_subject" class="form-select" required>
+                <option value="">Select subject</option>
+                {% for s in subjects %}
+                <option value="{{ s.id }}">{{ s.code }} — {{ s.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Section</label>
+              <select name="section" id="schedule_section" class="form-select" required>
+                <option value="">Select section</option>
+                {% for sec in sections %}
+                <option value="{{ sec.id }}">{{ sec.name }} ({{ sec.program.code }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Room</label>
+              <select name="room" id="schedule_room" class="form-select" required>
+                <option value="">Select room</option>
+                {% for r in rooms %}
+                <option value="{{ r.id }}">{{ r.building.code }} — {{ r.room_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Class Type</label>
+              <select name="class_type" id="schedule_class_type" class="form-select" required>
+                <option value="Lecture">Lecture</option>
+                <option value="Laboratory">Laboratory</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Day of Week</label>
+              <select name="day_of_week" id="schedule_day_of_week" class="form-select" required>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+                <option value="7">Sunday</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Start Time</label>
+              <input type="time" name="start_time" id="schedule_start_time" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">End Time</label>
+              <input type="time" name="end_time" id="schedule_end_time" class="form-control" required>
+            </div>
+          </div>
+          <div class="alert alert-info mt-3">
+            <small>
+              <strong>Conflict rules:</strong> a teacher, room, or section cannot be double-booked for the same day and overlapping time.
+              Lecture/Lab time per subject per section cannot exceed the subject's weekly hours.
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="scheduleSubmitBtn">Save Schedule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="deleteScheduleModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Delete Schedule</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Are you sure you want to delete <strong id="deleteScheduleName"></strong>?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteScheduleBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const modalEl = document.getElementById('scheduleModal');
+  const deleteModalEl = document.getElementById('deleteScheduleModal');
+  const form = document.getElementById('scheduleForm');
+  const alertBox = document.getElementById('scheduleAlert');
+  const title = document.getElementById('scheduleModalTitle');
+  const submitBtn = document.getElementById('scheduleSubmitBtn');
+  const deleteBtn = document.getElementById('confirmDeleteScheduleBtn');
+  const deleteName = document.getElementById('deleteScheduleName');
+  let currentId = null;
+
+  document.querySelectorAll('#scheduleToastContainer .toast').forEach(function(toastEl) {
+    bootstrap.Toast.getOrCreateInstance(toastEl).show();
+  });
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('schedule_id').value = '';
+    title.textContent = 'Add Schedule';
+    submitBtn.textContent = 'Save Schedule';
+    alertBox.classList.add('d-none');
+    alertBox.textContent = '';
+    currentId = null;
+  }
+
+  modalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) {
+      resetForm();
+      return;
+    }
+    const mode = button.getAttribute('data-mode');
+    if (mode === 'edit') {
+      title.textContent = 'Edit Schedule';
+      submitBtn.textContent = 'Update Schedule';
+      currentId = button.getAttribute('data-id');
+      document.getElementById('schedule_id').value = currentId;
+      document.getElementById('schedule_academic_year').value = button.getAttribute('data-academic-year');
+      document.getElementById('schedule_semester').value = button.getAttribute('data-semester');
+      document.getElementById('schedule_teacher').value = button.getAttribute('data-teacher');
+      document.getElementById('schedule_subject').value = button.getAttribute('data-subject');
+      document.getElementById('schedule_section').value = button.getAttribute('data-section');
+      document.getElementById('schedule_room').value = button.getAttribute('data-room');
+      document.getElementById('schedule_class_type').value = button.getAttribute('data-class-type');
+      document.getElementById('schedule_day_of_week').value = button.getAttribute('data-day-of-week');
+      document.getElementById('schedule_start_time').value = button.getAttribute('data-start-time');
+      document.getElementById('schedule_end_time').value = button.getAttribute('data-end-time');
+    } else {
+      resetForm();
+    }
+  });
+
+  deleteModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (button) {
+      currentId = button.getAttribute('data-id');
+      deleteName.textContent = button.getAttribute('data-name');
+    }
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(form);
+
+    fetch('{% url "schedule:schedule_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        alertBox.textContent = data.error;
+        alertBox.classList.remove('d-none');
+        return;
+      }
+      window.location.reload();
+    })
+    .catch(() => {
+      alertBox.textContent = 'Something went wrong.';
+      alertBox.classList.remove('d-none');
+    });
+  });
+
+  deleteBtn.addEventListener('click', function() {
+    if (!currentId) return;
+    fetch('/schedules/ajax/delete/' + currentId + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'deleted') {
+        window.location.reload();
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

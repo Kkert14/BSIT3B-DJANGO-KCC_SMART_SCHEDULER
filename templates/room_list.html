@@ -1,0 +1,321 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  <div class="page-header d-print-none" aria-label="Page header">
+    <div class="container-xl">
+      <div class="row align-items-center">
+        <div class="col">
+          <div class="page-pretitle">Overview</div>
+          <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
+            <h2 class="page-title mb-0">Rooms</h2>
+          </div>
+          <h2 class="page-title mb-0 d-md-none">Rooms</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+  <br>
+
+  <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-1">
+    <form method="GET" class="w-100" style="max-width: 420px;">
+      <div class="input-group">
+        <span class="input-group-text"><i class="ti ti-search"></i></span>
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by room name or building...">
+        {% if query %}
+        <a href="{% url 'rooms:room_list' %}" class="btn btn-outline-secondary">Clear</a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+
+    <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#roomModal" data-mode="create">
+      <i class='fas fa-plus-circle me-2'></i> Add Room
+    </button>
+  </div>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="roomToastContainer" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+    <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
+      <div class="d-flex">
+        <div class="toast-body">{{ message }}</div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div id="roomAlert" class="alert alert-danger d-none" role="alert"></div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        All Rooms
+        {% if query %}
+        <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table text-nowrap" id="roomTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Building</th>
+            <th>Room Name</th>
+            <th>Type</th>
+            <th>Capacity</th>
+            <th>Status</th>
+            <th class="w-1">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="roomTableBody">
+        {% for room in rooms %}
+        <tr data-row-id="{{ room.id }}">
+            <td class="text-muted">{{ forloop.counter0|add:rooms.start_index }}</td>
+            <td class="text-muted">{{ room.building.code }}</td>
+            <td class="fw-semibold">{{ room.room_name }}</td>
+            <td class="text-muted">{{ room.room_type }}</td>
+            <td>{{ room.capacity }}</td>
+            <td>
+              {% if room.is_active %}
+              <span class="badge bg-success-lt text-success">Active</span>
+              {% else %}
+              <span class="badge bg-danger-lt text-danger">Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#roomModal" data-mode="edit" data-id="{{ room.id }}" data-building="{{ room.building.id }}" data-room-name="{{ room.room_name }}" data-room-type="{{ room.room_type }}" data-capacity="{{ room.capacity }}" data-active="{{ room.is_active|yesno:'true,false' }}" title="Edit">
+                  <i class="fas fa-edit text-primary"></i>
+                </button>
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteRoomModal" data-id="{{ room.id }}" data-name="{{ room.room_name }}" title="Delete">
+                  <i class="fas fa-trash-alt text-danger"></i>
+                </button>
+              </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7">
+                <div class="empty py-5">
+                    <div class="empty-icon">
+                        <i class="fas fa-door-open fa-2x text-muted"></i>
+                    </div>
+                    <p class="empty-title">No rooms found</p>
+                    <p class="empty-subtitle">Try adjusting your search or add a new room.</p>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if rooms.paginator.num_pages > 1 %}
+    <div class="card-footer d-flex align-items-center">
+      <p class="m-0 text-muted">
+        Showing <span class="fw-medium">{{ rooms.start_index }}</span>
+        to <span class="fw-medium">{{ rooms.end_index }}</span>
+        of <span class="fw-medium">{{ rooms.paginator.count }}</span> records
+      </p>
+      <ul class="pagination m-0 ms-auto">
+        {% if rooms.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ rooms.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+            <i class="ti ti-chevron-left"></i> prev
+          </a>
+        </li>
+        {% endif %}
+        {% for num in rooms.paginator.page_range %}
+        <li class="page-item {% if rooms.number == num %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if rooms.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ rooms.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+            next <i class="ti ti-chevron-right"></i>
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="roomModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="roomModalTitle">Add Room</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="roomForm">
+        {% csrf_token %}
+        <input type="hidden" name="id" id="room_id">
+        <div class="modal-body">
+          <div id="roomFormError" class="alert alert-danger d-none"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Building</label>
+              <select name="building" id="room_building" class="form-select" required>
+                <option value="">Select building</option>
+                {% for b in buildings %}
+                <option value="{{ b.id }}">{{ b.code }} — {{ b.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Room Name</label>
+              <input type="text" name="room_name" id="room_room_name" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Type</label>
+              <select name="room_type" id="room_room_type" class="form-select">
+                <option value="Classroom">Classroom</option>
+                <option value="Laboratory">Laboratory</option>
+                <option value="Lecture Hall">Lecture Hall</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Capacity</label>
+              <input type="number" name="capacity" id="room_capacity" class="form-control" min="1" required>
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" name="is_active" id="room_is_active">
+                <label class="form-check-label" for="room_is_active">Active</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="roomSubmitBtn">Save Room</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="deleteRoomModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Delete Room</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Are you sure you want to delete <strong id="deleteRoomName"></strong>?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteRoomBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const modalEl = document.getElementById('roomModal');
+  const deleteModalEl = document.getElementById('deleteRoomModal');
+  const form = document.getElementById('roomForm');
+  const alertBox = document.getElementById('roomAlert');
+  const title = document.getElementById('roomModalTitle');
+  const submitBtn = document.getElementById('roomSubmitBtn');
+  const deleteBtn = document.getElementById('confirmDeleteRoomBtn');
+  const deleteName = document.getElementById('deleteRoomName');
+  let currentId = null;
+
+  document.querySelectorAll('#roomToastContainer .toast').forEach(function(toastEl) {
+    bootstrap.Toast.getOrCreateInstance(toastEl).show();
+  });
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('room_id').value = '';
+    title.textContent = 'Add Room';
+    submitBtn.textContent = 'Save Room';
+    alertBox.classList.add('d-none');
+    alertBox.textContent = '';
+    currentId = null;
+    document.getElementById('room_is_active').checked = true;
+    document.getElementById('room_room_type').value = 'Classroom';
+  }
+
+  modalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) {
+      resetForm();
+      return;
+    }
+    const mode = button.getAttribute('data-mode');
+    if (mode === 'edit') {
+      title.textContent = 'Edit Room';
+      submitBtn.textContent = 'Update Room';
+      currentId = button.getAttribute('data-id');
+      document.getElementById('room_id').value = currentId;
+      document.getElementById('room_building').value = button.getAttribute('data-building');
+      document.getElementById('room_room_name').value = button.getAttribute('data-room-name');
+      document.getElementById('room_room_type').value = button.getAttribute('data-room-type');
+      document.getElementById('room_capacity').value = button.getAttribute('data-capacity');
+      document.getElementById('room_is_active').checked = button.getAttribute('data-active') === 'true';
+    } else {
+      resetForm();
+    }
+  });
+
+  deleteModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (button) {
+      currentId = button.getAttribute('data-id');
+      deleteName.textContent = button.getAttribute('data-name');
+    }
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(form);
+    formData.set('is_active', document.getElementById('room_is_active').checked ? 'true' : 'false');
+
+    fetch('{% url "rooms:room_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        alertBox.textContent = data.error;
+        alertBox.classList.remove('d-none');
+        return;
+      }
+      window.location.reload();
+    })
+    .catch(() => {
+      alertBox.textContent = 'Something went wrong.';
+      alertBox.classList.remove('d-none');
+    });
+  });
+
+  deleteBtn.addEventListener('click', function() {
+    if (!currentId) return;
+    fetch('/rooms/ajax/delete/' + currentId + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'deleted') {
+        window.location.reload();
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

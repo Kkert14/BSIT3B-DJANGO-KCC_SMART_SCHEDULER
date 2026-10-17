@@ -24,6 +24,13 @@ urlpatterns = [
     path('', include('apps.core.urls')),
     path('users/', include('apps.users.urls')),
     path('info/', include('apps.info.urls')),
+    path('buildings/', include('apps.building.urls')),
+    path('programs/', include('apps.program.urls')),
+    path('rooms/', include('apps.rooms.urls')),
+    path('teachers/', include('apps.teacher.urls')),
+    path('sections/', include('apps.section.urls')),
+    path('subjects/', include('apps.subject.urls')),
+    path('schedules/', include('apps.schedule.urls')),
 ]
 
 if settings.DEBUG:

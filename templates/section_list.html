@@ -1,0 +1,322 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  <div class="page-header d-print-none" aria-label="Page header">
+    <div class="container-xl">
+      <div class="row align-items-center">
+        <div class="col">
+          <div class="page-pretitle">Overview</div>
+          <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
+            <h2 class="page-title mb-0">Sections</h2>
+          </div>
+          <h2 class="page-title mb-0 d-md-none">Sections</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+  <br>
+
+  <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-1">
+    <form method="GET" class="w-100" style="max-width: 420px;">
+      <div class="input-group">
+        <span class="input-group-text"><i class="ti ti-search"></i></span>
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by section name or program...">
+        {% if query %}
+        <a href="{% url 'section:section_list' %}" class="btn btn-outline-secondary">Clear</a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+
+    <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="create">
+      <i class='fas fa-plus-circle me-2'></i> Add Section
+    </button>
+  </div>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="sectionToastContainer" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+    <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
+      <div class="d-flex">
+        <div class="toast-body">{{ message }}</div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div id="sectionAlert" class="alert alert-danger d-none" role="alert"></div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        All Sections
+        {% if query %}
+        <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table text-nowrap" id="sectionTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Section</th>
+            <th>Program</th>
+            <th>Year Level</th>
+            <th>Academic Year</th>
+            <th>Capacity</th>
+            <th>Status</th>
+            <th class="w-1">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="sectionTableBody">
+        {% for section in sections %}
+        <tr data-row-id="{{ section.id }}">
+            <td class="text-muted">{{ forloop.counter0|add:sections.start_index }}</td>
+            <td class="fw-semibold">{{ section.name }}</td>
+            <td class="text-muted">{{ section.program.code }}</td>
+            <td>{{ section.year_level }}</td>
+            <td class="text-muted">{{ section.academic_year }}</td>
+            <td>{{ section.capacity }}</td>
+            <td>
+              {% if section.is_active %}
+              <span class="badge bg-success-lt text-success">Active</span>
+              {% else %}
+              <span class="badge bg-danger-lt text-danger">Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-name="{{ section.name }}" data-year-level="{{ section.year_level }}" data-academic-year="{{ section.academic_year }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
+                  <i class="fas fa-edit text-primary"></i>
+                </button>
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSectionModal" data-id="{{ section.id }}" data-name="{{ section.name }}" title="Delete">
+                  <i class="fas fa-trash-alt text-danger"></i>
+                </button>
+              </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8">
+                <div class="empty py-5">
+                    <div class="empty-icon">
+                        <i class="fas fa-layer-group fa-2x text-muted"></i>
+                    </div>
+                    <p class="empty-title">No sections found</p>
+                    <p class="empty-subtitle">Try adjusting your search or add a new section.</p>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if sections.paginator.num_pages > 1 %}
+    <div class="card-footer d-flex align-items-center">
+      <p class="m-0 text-muted">
+        Showing <span class="fw-medium">{{ sections.start_index }}</span>
+        to <span class="fw-medium">{{ sections.end_index }}</span>
+        of <span class="fw-medium">{{ sections.paginator.count }}</span> records
+      </p>
+      <ul class="pagination m-0 ms-auto">
+        {% if sections.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ sections.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+            <i class="ti ti-chevron-left"></i> prev
+          </a>
+        </li>
+        {% endif %}
+        {% for num in sections.paginator.page_range %}
+        <li class="page-item {% if sections.number == num %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if sections.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ sections.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+            next <i class="ti ti-chevron-right"></i>
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="sectionModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="sectionModalTitle">Add Section</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="sectionForm">
+        {% csrf_token %}
+        <input type="hidden" name="id" id="section_id">
+        <div class="modal-body">
+          <div id="sectionFormError" class="alert alert-danger d-none"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Program</label>
+              <select name="program" id="section_program" class="form-select" required>
+                <option value="">Select program</option>
+                {% for p in programs %}
+                <option value="{{ p.id }}">{{ p.code }} — {{ p.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Section Name</label>
+              <input type="text" name="name" id="section_name" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Year Level</label>
+              <input type="number" name="year_level" id="section_year_level" class="form-control" min="1" max="6" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Academic Year</label>
+              <input type="text" name="academic_year" id="section_academic_year" class="form-control" placeholder="2026-2027" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Capacity</label>
+              <input type="number" name="capacity" id="section_capacity" class="form-control" min="1" required>
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" name="is_active" id="section_is_active">
+                <label class="form-check-label" for="section_is_active">Active</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="sectionSubmitBtn">Save Section</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="deleteSectionModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Delete Section</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Are you sure you want to delete <strong id="deleteSectionName"></strong>?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteSectionBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const modalEl = document.getElementById('sectionModal');
+  const deleteModalEl = document.getElementById('deleteSectionModal');
+  const form = document.getElementById('sectionForm');
+  const alertBox = document.getElementById('sectionAlert');
+  const title = document.getElementById('sectionModalTitle');
+  const submitBtn = document.getElementById('sectionSubmitBtn');
+  const deleteBtn = document.getElementById('confirmDeleteSectionBtn');
+  const deleteName = document.getElementById('deleteSectionName');
+  let currentId = null;
+
+  document.querySelectorAll('#sectionToastContainer .toast').forEach(function(toastEl) {
+    bootstrap.Toast.getOrCreateInstance(toastEl).show();
+  });
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('section_id').value = '';
+    title.textContent = 'Add Section';
+    submitBtn.textContent = 'Save Section';
+    alertBox.classList.add('d-none');
+    alertBox.textContent = '';
+    currentId = null;
+    document.getElementById('section_is_active').checked = true;
+  }
+
+  modalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) {
+      resetForm();
+      return;
+    }
+    const mode = button.getAttribute('data-mode');
+    if (mode === 'edit') {
+      title.textContent = 'Edit Section';
+      submitBtn.textContent = 'Update Section';
+      currentId = button.getAttribute('data-id');
+      document.getElementById('section_id').value = currentId;
+      document.getElementById('section_program').value = button.getAttribute('data-program');
+      document.getElementById('section_name').value = button.getAttribute('data-name');
+      document.getElementById('section_year_level').value = button.getAttribute('data-year-level');
+      document.getElementById('section_academic_year').value = button.getAttribute('data-academic-year');
+      document.getElementById('section_capacity').value = button.getAttribute('data-capacity');
+      document.getElementById('section_is_active').checked = button.getAttribute('data-active') === 'true';
+    } else {
+      resetForm();
+    }
+  });
+
+  deleteModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (button) {
+      currentId = button.getAttribute('data-id');
+      deleteName.textContent = button.getAttribute('data-name');
+    }
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(form);
+    formData.set('is_active', document.getElementById('section_is_active').checked ? 'true' : 'false');
+
+    fetch('{% url "section:section_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        alertBox.textContent = data.error;
+        alertBox.classList.remove('d-none');
+        return;
+      }
+      window.location.reload();
+    })
+    .catch(() => {
+      alertBox.textContent = 'Something went wrong.';
+      alertBox.classList.remove('d-none');
+    });
+  });
+
+  deleteBtn.addEventListener('click', function() {
+    if (!currentId) return;
+    fetch('/sections/ajax/delete/' + currentId + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'deleted') {
+        window.location.reload();
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -12,6 +12,14 @@ from django.views.decorators.http import require_http_methods
 
 User = get_user_model()
 
+from apps.schedule.models import Schedule
+from apps.building.models import Building
+from apps.program.models import Program
+from apps.teacher.models import Teacher
+from apps.subject.models import Subject
+from apps.section.models import Section
+from apps.rooms.models import Room
+
 MAX_FAILED_ATTEMPTS = 5
 LOCK_DURATION = timedelta(minutes=1)
 INVALID_LOGIN_MESSAGE = 'Invalid username or password.'
@@ -140,7 +148,76 @@ def logout_view(request):
 
 @login_required(login_url='login')
 def home(request):
-    return render(request, 'home.html')
+    schedules = Schedule.objects.select_related(
+        'teacher', 'subject', 'section', 'room'
+    ).order_by('day_of_week', 'start_time')
+
+    # Standard academic time slots (start_time -> end_time)
+    time_slots = [
+        ('07:00', '08:00'),
+        ('08:00', '09:00'),
+        ('09:00', '10:00'),
+        ('10:00', '11:00'),
+        ('11:00', '12:00'),
+        ('12:00', '13:00'),
+        ('13:00', '14:00'),
+        ('14:00', '15:00'),
+        ('15:00', '16:00'),
+        ('16:00', '17:00'),
+        ('17:00', '18:00'),
+    ]
+
+    DAYS = [
+        (1, 'Monday'),
+        (2, 'Tuesday'),
+        (3, 'Wednesday'),
+        (4, 'Thursday'),
+        (5, 'Friday'),
+        (6, 'Saturday'),
+        (7, 'Sunday'),
+    ]
+
+    # Build lookup: (day_number, time_key) -> schedule
+    schedule_lookup = {}
+    for s in schedules:
+        key = f'{s.start_time.strftime("%H:%M")}-{s.end_time.strftime("%H:%M")}'
+        schedule_lookup[(s.day_of_week, key)] = s
+
+    # Build timetable rows: each row = one time slot with 7 day cells
+    timetable_rows = []
+    for start, end in time_slots:
+        key = f'{start}-{end}'
+        cells = []
+        for day_num, day_name in DAYS:
+            sched = schedule_lookup.get((day_num, key))
+            cells.append({
+                'day_num': day_num,
+                'day_name': day_name,
+                'schedule': sched,
+            })
+        timetable_rows.append({
+            'start': start,
+            'end': end,
+            'key': key,
+            'cells': cells,
+        })
+
+    stats = {
+        'total_buildings': Building.objects.count(),
+        'total_programs': Program.objects.count(),
+        'total_teachers': Teacher.objects.count(),
+        'total_sections': Section.objects.count(),
+        'total_subjects': Subject.objects.count(),
+        'total_rooms': Room.objects.count(),
+        'total_schedules': Schedule.objects.count(),
+    }
+
+    return render(request, 'home.html', {
+        'timetable_rows': timetable_rows,
+        'DAYS': DAYS,
+        'time_slots': time_slots,
+        'stats': stats,
+    })
 
 
 @require_http_methods(['GET', 'POST'])

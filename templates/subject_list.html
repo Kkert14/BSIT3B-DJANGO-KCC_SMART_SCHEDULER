@@ -1,0 +1,347 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  <div class="page-header d-print-none" aria-label="Page header">
+    <div class="container-xl">
+      <div class="row align-items-center">
+        <div class="col">
+          <div class="page-pretitle">Overview</div>
+          <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
+            <h2 class="page-title mb-0">Subjects</h2>
+          </div>
+          <h2 class="page-title mb-0 d-md-none">Subjects</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+  <br>
+
+  <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-1">
+    <form method="GET" class="w-100" style="max-width: 420px;">
+      <div class="input-group">
+        <span class="input-group-text"><i class="ti ti-search"></i></span>
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by code or name...">
+        {% if query %}
+        <a href="{% url 'subject:subject_list' %}" class="btn btn-outline-secondary">Clear</a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+
+    <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#subjectModal" data-mode="create">
+      <i class='fas fa-plus-circle me-2'></i> Add Subject
+    </button>
+  </div>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="subjectToastContainer" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+    <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
+      <div class="d-flex">
+        <div class="toast-body">{{ message }}</div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div id="subjectAlert" class="alert alert-danger d-none" role="alert"></div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        All Subjects
+        {% if query %}
+        <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table text-nowrap" id="subjectTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Program</th>
+            <th>Year</th>
+            <th>Sem</th>
+            <th>Units</th>
+            <th>Lec/Lab</th>
+            <th>Prerequisite</th>
+            <th class="w-1">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="subjectTableBody">
+        {% for subject in subjects %}
+        <tr data-row-id="{{ subject.id }}">
+            <td class="text-muted">{{ forloop.counter0|add:subjects.start_index }}</td>
+            <td class="fw-semibold">{{ subject.code }}</td>
+            <td class="text-muted">{{ subject.name }}</td>
+            <td class="text-muted">{{ subject.program.code }}</td>
+            <td>{{ subject.year_level }}</td>
+            <td>{{ subject.semester }}</td>
+            <td>{{ subject.units }}</td>
+            <td class="text-muted">{{ subject.lec_hours }} / {{ subject.lab_hours }}</td>
+            <td class="text-muted">
+              {% if subject.prerequisite %}{{ subject.prerequisite.code }}{% else %}—{% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#subjectModal" data-mode="edit" data-id="{{ subject.id }}" data-program="{{ subject.program.id }}" data-code="{{ subject.code }}" data-name="{{ subject.name }}" data-units="{{ subject.units }}" data-lec-hours="{{ subject.lec_hours }}" data-lab-hours="{{ subject.lab_hours }}" data-academic-year="{{ subject.academic_year }}" data-year-level="{{ subject.year_level }}" data-semester="{{ subject.semester }}" data-prerequisite="{{ subject.prerequisite_id_display }}" title="Edit">
+                  <i class="fas fa-edit text-primary"></i>
+                </button>
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSubjectModal" data-id="{{ subject.id }}" data-code="{{ subject.code }}" title="Delete">
+                  <i class="fas fa-trash-alt text-danger"></i>
+                </button>
+              </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="10">
+                <div class="empty py-5">
+                    <div class="empty-icon">
+                        <i class="fas fa-book fa-2x text-muted"></i>
+                    </div>
+                    <p class="empty-title">No subjects found</p>
+                    <p class="empty-subtitle">Try adjusting your search or add a new subject.</p>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if subjects.paginator.num_pages > 1 %}
+    <div class="card-footer d-flex align-items-center">
+      <p class="m-0 text-muted">
+        Showing <span class="fw-medium">{{ subjects.start_index }}</span>
+        to <span class="fw-medium">{{ subjects.end_index }}</span>
+        of <span class="fw-medium">{{ subjects.paginator.count }}</span> records
+      </p>
+      <ul class="pagination m-0 ms-auto">
+        {% if subjects.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ subjects.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+            <i class="ti ti-chevron-left"></i> prev
+          </a>
+        </li>
+        {% endif %}
+        {% for num in subjects.paginator.page_range %}
+        <li class="page-item {% if subjects.number == num %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if subjects.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ subjects.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+            next <i class="ti ti-chevron-right"></i>
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="subjectModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="subjectModalTitle">Add Subject</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="subjectForm">
+        {% csrf_token %}
+        <input type="hidden" name="id" id="subject_id">
+        <div class="modal-body">
+          <div id="subjectFormError" class="alert alert-danger d-none"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Program</label>
+              <select name="program" id="subject_program" class="form-select" required>
+                <option value="">Select program</option>
+                {% for p in programs %}
+                <option value="{{ p.id }}">{{ p.code }} — {{ p.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Code</label>
+              <input type="text" name="code" id="subject_code" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Name</label>
+              <input type="text" name="name" id="subject_name" class="form-control" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Units</label>
+              <input type="number" name="units" id="subject_units" class="form-control" step="0.1" min="0" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Lecture Hrs</label>
+              <input type="number" name="lec_hours" id="subject_lec_hours" class="form-control" min="0" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Lab Hrs</label>
+              <input type="number" name="lab_hours" id="subject_lab_hours" class="form-control" min="0" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Academic Year</label>
+              <input type="text" name="academic_year" id="subject_academic_year" class="form-control" placeholder="2026-2027" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Year Level</label>
+              <input type="number" name="year_level" id="subject_year_level" class="form-control" min="1" max="6" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Semester</label>
+              <select name="semester" id="subject_semester" class="form-select" required>
+                <option value="1">1st Semester</option>
+                <option value="2">2nd Semester</option>
+                <option value="3">Summer</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Prerequisite <span class="text-muted">(optional)</span></label>
+              <select name="prerequisite" id="subject_prerequisite" class="form-select">
+                <option value="">None</option>
+                {% for s in all_subjects %}
+                <option value="{{ s.id }}">{{ s.code }} — {{ s.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="subjectSubmitBtn">Save Subject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="deleteSubjectModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Delete Subject</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Are you sure you want to delete <strong id="deleteSubjectName"></strong>?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteSubjectBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const modalEl = document.getElementById('subjectModal');
+  const deleteModalEl = document.getElementById('deleteSubjectModal');
+  const form = document.getElementById('subjectForm');
+  const alertBox = document.getElementById('subjectAlert');
+  const title = document.getElementById('subjectModalTitle');
+  const submitBtn = document.getElementById('subjectSubmitBtn');
+  const deleteBtn = document.getElementById('confirmDeleteSubjectBtn');
+  const deleteName = document.getElementById('deleteSubjectName');
+  let currentId = null;
+
+  document.querySelectorAll('#subjectToastContainer .toast').forEach(function(toastEl) {
+    bootstrap.Toast.getOrCreateInstance(toastEl).show();
+  });
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('subject_id').value = '';
+    title.textContent = 'Add Subject';
+    submitBtn.textContent = 'Save Subject';
+    alertBox.classList.add('d-none');
+    alertBox.textContent = '';
+    currentId = null;
+  }
+
+  modalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) {
+      resetForm();
+      return;
+    }
+    const mode = button.getAttribute('data-mode');
+    if (mode === 'edit') {
+      title.textContent = 'Edit Subject';
+      submitBtn.textContent = 'Update Subject';
+      currentId = button.getAttribute('data-id');
+      document.getElementById('subject_id').value = currentId;
+      document.getElementById('subject_program').value = button.getAttribute('data-program');
+      document.getElementById('subject_code').value = button.getAttribute('data-code');
+      document.getElementById('subject_name').value = button.getAttribute('data-name');
+      document.getElementById('subject_units').value = button.getAttribute('data-units');
+      document.getElementById('subject_lec_hours').value = button.getAttribute('data-lec-hours');
+      document.getElementById('subject_lab_hours').value = button.getAttribute('data-lab-hours');
+      document.getElementById('subject_academic_year').value = button.getAttribute('data-academic-year');
+      document.getElementById('subject_year_level').value = button.getAttribute('data-year-level');
+      document.getElementById('subject_semester').value = button.getAttribute('data-semester');
+      document.getElementById('subject_prerequisite').value = button.getAttribute('data-prerequisite');
+    } else {
+      resetForm();
+    }
+  });
+
+  deleteModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (button) {
+      currentId = button.getAttribute('data-id');
+      deleteName.textContent = button.getAttribute('data-code');
+    }
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(form);
+
+    fetch('{% url "subject:subject_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        alertBox.textContent = data.error;
+        alertBox.classList.remove('d-none');
+        return;
+      }
+      window.location.reload();
+    })
+    .catch(() => {
+      alertBox.textContent = 'Something went wrong.';
+      alertBox.classList.remove('d-none');
+    });
+  });
+
+  deleteBtn.addEventListener('click', function() {
+    if (!currentId) return;
+    fetch('/subjects/ajax/delete/' + currentId + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'deleted') {
+        window.location.reload();
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

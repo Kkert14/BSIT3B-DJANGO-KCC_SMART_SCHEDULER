@@ -41,6 +41,13 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.users',
     'apps.info',
+    'apps.building',
+    'apps.program',
+    'apps.rooms',
+    'apps.schedule',
+    'apps.section',
+    'apps.subject',
+    'apps.teacher',
 ]
 
 MIDDLEWARE = [
@@ -79,7 +86,7 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'smart_sched',
+        'NAME': 'smart_scheduler',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': 'localhost',
