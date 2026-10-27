@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import IntegrityError
 
+from apps.curriculum.models import Semester
 from apps.teacher.models import Teacher
 from apps.subject.models import Subject
 from apps.section.models import Section
@@ -55,7 +56,7 @@ def _time_duration_hours(start, end):
     return (datetime.combine(dummy, end) - datetime.combine(dummy, start)).total_seconds() / 3600.0
 
 
-def _check_schedule_conflicts(academic_year, semester, teacher, subject, section, room,
+def _check_schedule_conflicts(semester, teacher, subject, section, room,
                               class_type, day_of_week, start_time, end_time, exclude_id=None):
     """Validate scheduling conflicts. Returns a dict with 'conflicts' list and 'suggestions', or None if valid."""
     conflicts = []
@@ -74,7 +75,6 @@ def _check_schedule_conflicts(academic_year, semester, teacher, subject, section
         }
 
     base_qs = Schedule.objects.filter(
-        academic_year=academic_year,
         semester=semester,
         day_of_week=day_of_week,
     )
@@ -187,7 +187,6 @@ def _check_schedule_conflicts(academic_year, semester, teacher, subject, section
             if other_day == day_of_week:
                 continue
             day_conflict = Schedule.objects.filter(
-                academic_year=academic_year,
                 semester=semester,
                 day_of_week=other_day,
             ).filter(
@@ -227,7 +226,6 @@ def _check_schedule_conflicts(academic_year, semester, teacher, subject, section
 
     # Subject time limit per section (Lecture / Laboratory)
     existing_same = Schedule.objects.filter(
-        academic_year=academic_year,
         semester=semester,
         subject=subject,
         section=section,
@@ -261,18 +259,15 @@ def _check_schedule_conflicts(academic_year, semester, teacher, subject, section
 @login_required(login_url='login')
 def schedule_list_page(request):
     # Get filter parameters
-    filter_academic_year = request.GET.get('academic_year', '').strip()
     filter_semester = request.GET.get('semester', '').strip()
     query = request.GET.get('q', '').strip()
 
     # Base queryset — ALL schedules, ordered by day and time
     schedules_list = Schedule.objects.select_related(
-        'teacher', 'subject', 'section', 'room'
+        'teacher', 'subject', 'section', 'room', 'semester__curriculum'
     ).order_by('day_of_week', 'start_time')
 
     # Apply filters
-    if filter_academic_year:
-        schedules_list = schedules_list.filter(academic_year=filter_academic_year)
     if filter_semester:
         schedules_list = schedules_list.filter(semester=filter_semester)
     if query:
@@ -283,11 +278,11 @@ def schedule_list_page(request):
             Q(teacher__first_name__icontains=query) |
             Q(teacher__last_name__icontains=query) |
             Q(room__room_name__icontains=query) |
-            Q(academic_year__icontains=query)
+            Q(semester__curriculum__academic_year__icontains=query)
         )
 
-    # Get distinct academic years for the filter dropdown
-    academic_years = Schedule.objects.values_list('academic_year', flat=True).distinct().order_by('-academic_year')
+    # Get distinct semesters for the filter dropdown
+    semesters = Semester.objects.select_related('curriculum').all().order_by('curriculum__academic_year', 'semester_number')
 
     SEMESTER_CHOICES = [
         (1, '1st Semester'),
@@ -378,9 +373,8 @@ def schedule_list_page(request):
         'sections': sections,
         'rooms': rooms,
         'stats': stats,
-        'filter_academic_year': filter_academic_year,
         'filter_semester': filter_semester,
-        'academic_years': academic_years,
+        'semesters': semesters,
         'semester_choices': SEMESTER_CHOICES,
     })
 
@@ -389,7 +383,7 @@ def schedule_list_page(request):
 def schedule_list_ajax(request):
     query = request.GET.get('q', '').strip()
     schedules_list = Schedule.objects.select_related(
-        'teacher', 'subject', 'section', 'room'
+        'teacher', 'subject', 'section', 'room', 'semester__curriculum'
     ).all()
     if query:
         schedules_list = schedules_list.filter(
@@ -399,13 +393,13 @@ def schedule_list_ajax(request):
             Q(teacher__first_name__icontains=query) |
             Q(teacher__last_name__icontains=query) |
             Q(room__room_name__icontains=query) |
-            Q(academic_year__icontains=query)
+            Q(semester__curriculum__academic_year__icontains=query)
         )
     paginator = Paginator(schedules_list, 10)
     page_number = request.GET.get('page', 1)
     schedules = paginator.get_page(page_number)
     data = list(schedules.object_list.values(
-        'id', 'academic_year', 'semester', 'class_type', 'day_of_week',
+        'id', 'semester_id', 'class_type', 'day_of_week',
         'start_time', 'end_time', 'teacher_id', 'subject_id', 'section_id', 'room_id',
     ))
     for item in data:
@@ -413,14 +407,19 @@ def schedule_list_ajax(request):
         sid = item.pop('subject_id')
         sec_id = item.pop('section_id')
         rid = item.pop('room_id')
+        sem_id = item.pop('semester_id')
         teacher = Teacher.objects.filter(pk=tid).first()
         subject = Subject.objects.filter(pk=sid).first()
         section = Section.objects.filter(pk=sec_id).first()
         room = Room.objects.filter(pk=rid).first()
+        semester = Semester.objects.filter(pk=sem_id).first()
         item['teacher'] = str(teacher) if teacher else ''
         item['subject'] = str(subject) if subject else ''
         item['section'] = str(section) if section else ''
         item['room'] = str(room) if room else ''
+        item['semester'] = str(semester) if semester else ''
+        item['semester_number'] = semester.semester_number if semester else None
+        item['academic_year'] = semester.curriculum.academic_year if semester else ''
         item['start_time'] = item['start_time'].strftime('%H:%M') if item['start_time'] else ''
         item['end_time'] = item['end_time'].strftime('%H:%M') if item['end_time'] else ''
     return JsonResponse({
@@ -436,12 +435,13 @@ def schedule_list_ajax(request):
 @login_required(login_url='login')
 def schedule_get_ajax(request, pk):
     schedule = get_object_or_404(
-        Schedule.objects.select_related('teacher', 'subject', 'section', 'room'), pk=pk
+        Schedule.objects.select_related('teacher', 'subject', 'section', 'room', 'semester__curriculum'), pk=pk
     )
     return JsonResponse({
         'id': schedule.id,
-        'academic_year': schedule.academic_year,
-        'semester': schedule.semester,
+        'semester': schedule.semester.id,
+        'semester_number': schedule.semester.semester_number,
+        'academic_year': schedule.semester.curriculum.academic_year,
         'teacher': schedule.teacher.id,
         'teacher_name': str(schedule.teacher),
         'subject': schedule.subject.id,
@@ -467,8 +467,7 @@ def schedule_save_ajax(request):
     else:
         schedule = Schedule()
 
-    academic_year = request.POST.get('academic_year', '').strip()
-    semester = request.POST.get('semester', '').strip()
+    semester_id = request.POST.get('semester', '').strip()
     teacher_id = request.POST.get('teacher', '').strip()
     subject_id = request.POST.get('subject', '').strip()
     section_id = request.POST.get('section', '').strip()
@@ -478,14 +477,12 @@ def schedule_save_ajax(request):
     start_time = _parse_time(request.POST.get('start_time', ''))
     end_time = _parse_time(request.POST.get('end_time', ''))
 
-    if not academic_year:
-        return JsonResponse({'error': 'Academic year is required.'}, status=400)
-    if not semester:
+    if not semester_id:
         return JsonResponse({'error': 'Semester is required.'}, status=400)
     try:
-        semester = int(semester)
-    except (ValueError, TypeError):
-        return JsonResponse({'error': 'Semester must be a number.'}, status=400)
+        semester = Semester.objects.get(pk=int(semester_id))
+    except (Semester.DoesNotExist, ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid semester.'}, status=400)
 
     try:
         teacher = Teacher.objects.get(pk=int(teacher_id))
@@ -518,14 +515,13 @@ def schedule_save_ajax(request):
         return JsonResponse({'error': 'End time is required.'}, status=400)
 
     conflict = _check_schedule_conflicts(
-        academic_year, semester, teacher, subject, section, room,
+        semester, teacher, subject, section, room,
         class_type, day_of_week, start_time, end_time,
         exclude_id=schedule.id if schedule.pk else None,
     )
     if conflict:
         return JsonResponse(conflict, status=conflict['status'])
 
-    schedule.academic_year = academic_year
     schedule.semester = semester
     schedule.teacher = teacher
     schedule.subject = subject
@@ -545,8 +541,9 @@ def schedule_save_ajax(request):
     return JsonResponse({
         'status': 'success',
         'id': schedule.id,
-        'academic_year': schedule.academic_year,
-        'semester': schedule.semester,
+        'semester': schedule.semester.id,
+        'semester_number': schedule.semester.semester_number,
+        'academic_year': schedule.semester.curriculum.academic_year,
         'teacher': schedule.teacher.id,
         'teacher_name': str(schedule.teacher),
         'subject': schedule.subject.id,
@@ -596,12 +593,12 @@ def _resolve_unique(queryset, description, disambiguate_hint=''):
 @admin_required
 def schedule_export_excel(request):
     schedules = Schedule.objects.select_related(
-        'teacher', 'subject', 'section', 'room'
+        'teacher', 'subject', 'section', 'room', 'semester__curriculum'
     ).all().order_by('day_of_week', 'start_time')
     wb = queryset_to_excel(
         schedules,
         [
-            'academic_year', 'semester',
+            'semester__curriculum__code', 'semester__semester_number',
             'teacher__employee_number',
             'subject__code', 'subject__program__code',
             'section__name', 'section__program__code',
@@ -630,8 +627,8 @@ def schedule_import_excel(request):
     created = 0
     errors = []
     for idx, row in enumerate(data, start=2):
-        academic_year = get_str(row, 'academic_year')
-        semester = get_str(row, 'semester')
+        curriculum_code = get_str(row, 'semester_curriculum_code')
+        semester_number = get_str(row, 'semester_semester_number')
         teacher_emp = get_str(row, 'teacher__employee_number')
         subject_code = get_str(row, 'subject__code')
         subject_program_code = get_str(row, 'subject__program__code')
@@ -644,14 +641,20 @@ def schedule_import_excel(request):
         start = parse_time(get_value(row, 'start_time'))
         end = parse_time(get_value(row, 'end_time'))
 
-        if not all([academic_year, semester, teacher_emp, subject_code, section_name, room_name, class_type, day_of_week, start, end]):
+        if not all([curriculum_code, semester_number, teacher_emp, subject_code, section_name, room_name, class_type, day_of_week, start, end]):
             errors.append(f'Row {idx}: all fields are required.')
             continue
 
         try:
-            semester_val = int(semester)
+            semester_val = int(semester_number)
         except ValueError:
             errors.append(f'Row {idx}: semester must be a number.')
+            continue
+
+        try:
+            semester = Semester.objects.get(curriculum__code=curriculum_code, semester_number=semester_val)
+        except Semester.DoesNotExist:
+            errors.append(f'Row {idx}: semester {semester_val} in curriculum "{curriculum_code}" not found.')
             continue
 
         try:
@@ -663,13 +666,9 @@ def schedule_import_excel(request):
         # Subject codes repeat across programs, so narrow the lookup down with
         # whichever extra columns the spreadsheet provides.
         try:
-            subject_qs = Subject.objects.filter(code=subject_code)
+            subject_qs = Subject.objects.filter(code=subject_code, semester=semester)
             if subject_program_code:
                 subject_qs = subject_qs.filter(program__code=subject_program_code)
-            else:
-                subject_qs = subject_qs.filter(
-                    academic_year=academic_year, semester=semester_val
-                )
             subject = _resolve_unique(
                 subject_qs,
                 f'subject with code "{subject_code}"',
@@ -681,11 +680,9 @@ def schedule_import_excel(request):
 
         # Section names repeat across programs and year levels too.
         try:
-            section_qs = Section.objects.filter(name=section_name)
+            section_qs = Section.objects.filter(name=section_name, semester=semester)
             if section_program_code:
                 section_qs = section_qs.filter(program__code=section_program_code)
-            else:
-                section_qs = section_qs.filter(academic_year=academic_year)
             section = _resolve_unique(
                 section_qs,
                 f'section with name "{section_name}"',
@@ -722,8 +719,7 @@ def schedule_import_excel(request):
         # Imported rows go through the same conflict validation as rows added
         # through the UI, so a spreadsheet cannot create double bookings.
         existing = Schedule.objects.filter(
-            academic_year=academic_year,
-            semester=semester_val,
+            semester=semester,
             teacher=teacher,
             subject=subject,
             section=section,
@@ -731,7 +727,7 @@ def schedule_import_excel(request):
             day_of_week=day_of_week_val,
         ).first()
         conflict = _check_schedule_conflicts(
-            academic_year, semester_val, teacher, subject, section, room,
+            semester, teacher, subject, section, room,
             class_type, day_of_week_val, start, end,
             exclude_id=existing.id if existing else None,
         )
@@ -741,8 +737,7 @@ def schedule_import_excel(request):
 
         try:
             schedule, created_flag = Schedule.objects.update_or_create(
-                academic_year=academic_year,
-                semester=semester_val,
+                semester=semester,
                 teacher=teacher,
                 subject=subject,
                 section=section,

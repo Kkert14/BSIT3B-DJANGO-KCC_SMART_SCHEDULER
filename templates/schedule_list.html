@@ -34,20 +34,11 @@
     <div class="card-body py-2">
       <form method="GET" class="row g-3 align-items-end">
         <div class="col-auto">
-          <label class="form-label small mb-0">Academic Year</label>
-          <select name="academic_year" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="">All Years</option>
-            {% for ay in academic_years %}
-            <option value="{{ ay }}" {% if filter_academic_year == ay %}selected{% endif %}>{{ ay }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-auto">
-          <label class="form-label small mb-0">Semester</label>
+          <label class="form-label small mb-0">Curriculum / Semester</label>
           <select name="semester" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="">All Semesters</option>
-            {% for sem_val, sem_label in semester_choices %}
-            <option value="{{ sem_val }}" {% if filter_semester|stringformat:"s" == sem_val|stringformat:"s" %}selected{% endif %}>{{ sem_label }}</option>
+            <option value="">All</option>
+            {% for sem in semesters %}
+            <option value="{{ sem.id }}" {% if filter_semester|stringformat:"s" == sem.id|stringformat:"s" %}selected{% endif %}>{{ sem.curriculum.code }} — Sem {{ sem.semester_number }}</option>
             {% endfor %}
           </select>
         </div>
@@ -58,7 +49,7 @@
             <option value="standard" {% if request.COOKIES.time_format == 'standard' %}selected{% endif %}>Standard (12h)</option>
           </select>
         </div>
-        {% if filter_academic_year or filter_semester %}
+        {% if filter_semester %}
         <div class="col-auto">
           <a href="{% url 'schedule:schedule_list' %}" class="btn btn-outline-secondary btn-sm">Clear Filters</a>
         </div>
@@ -202,7 +193,7 @@
               <th>Section</th>
               <th>Teacher</th>
               <th>Room</th>
-              <th>Year / Sem</th>
+              <th>Curriculum / Semester</th>
               <th>Day</th>
               <th>Time</th>
               <th class="text-center">Type</th>
@@ -218,7 +209,7 @@
             <td class="text-muted">{{ sched.section.name }}</td>
             <td class="text-muted">{{ sched.teacher.first_name }} {{ sched.teacher.last_name }}</td>
             <td class="text-muted">{{ sched.room.room_name }}</td>
-            <td class="text-muted">{{ sched.academic_year }} — Sem {{ sched.semester }}</td>
+            <td class="text-muted">{{ sched.semester.curriculum.code }} — Sem {{ sched.semester.semester_number }}</td>
             <td class="text-muted">{{ sched.get_day_of_week_display }}</td>
             <td><span class="time-display">{{ sched.start_time|time:"H:i" }} — {{ sched.end_time|time:"H:i" }}</span></td>
             <td class="text-center">
@@ -227,7 +218,7 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="edit" data-id="{{ sched.id }}" data-academic-year="{{ sched.academic_year }}" data-semester="{{ sched.semester }}" data-teacher="{{ sched.teacher.id }}" data-subject="{{ sched.subject.id }}" data-section="{{ sched.section.id }}" data-room="{{ sched.room.id }}" data-class-type="{{ sched.class_type }}" data-day-of-week="{{ sched.day_of_week }}" data-start-time="{{ sched.start_time }}" data-end-time="{{ sched.end_time }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="edit" data-id="{{ sched.id }}" data-semester="{{ sched.semester.id }}" data-curriculum="{{ sched.semester.curriculum.code }}" data-semester-number="{{ sched.semester.semester_number }}" data-teacher="{{ sched.teacher.id }}" data-subject="{{ sched.subject.id }}" data-section="{{ sched.section.id }}" data-room="{{ sched.room.id }}" data-class-type="{{ sched.class_type }}" data-day-of-week="{{ sched.day_of_week }}" data-start-time="{{ sched.start_time }}" data-end-time="{{ sched.end_time }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteScheduleModal" data-id="{{ sched.id }}" data-name="{{ sched.subject.code }} — {{ sched.section.name }}" title="Delete">
@@ -253,19 +244,19 @@
         <ul class="pagination m-0 ms-auto">
           {% if schedules.has_previous %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ schedules.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if filter_academic_year %}&academic_year={{ filter_academic_year }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">
+            <a class="page-link" href="?page={{ schedules.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">
               <i class="ti ti-chevron-left"></i> prev
             </a>
           </li>
           {% endif %}
           {% for num in schedules.paginator.page_range %}
           <li class="page-item {% if schedules.number == num %}active{% endif %}">
-            <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if filter_academic_year %}&academic_year={{ filter_academic_year }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">{{ num }}</a>
+            <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">{{ num }}</a>
           </li>
           {% endfor %}
           {% if schedules.has_next %}
           <li class="page-item">
-            <a class="page-link" href="?page={{ schedules.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if filter_academic_year %}&academic_year={{ filter_academic_year }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">
+            <a class="page-link" href="?page={{ schedules.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">
               next <i class="ti ti-chevron-right"></i>
             </a>
           </li>
@@ -389,15 +380,12 @@
           </div>
           <div class="row g-3">
             <div class="col-6">
-              <label class="form-label">Academic Year</label>
-              <input type="text" name="academic_year" id="schedule_academic_year" class="form-control" placeholder="2026-2027" required>
-            </div>
-            <div class="col-6">
-              <label class="form-label">Semester</label>
+              <label class="form-label">Curriculum / Semester</label>
               <select name="semester" id="schedule_semester" class="form-select" required>
-                <option value="1">1st Semester</option>
-                <option value="2">2nd Semester</option>
-                <option value="3">Summer</option>
+                <option value="">Select curriculum &amp; semester</option>
+                {% for sem in semesters %}
+                <option value="{{ sem.id }}">{{ sem.curriculum.code }} — Sem {{ sem.semester_number }} ({{ sem.curriculum.academic_year }})</option>
+                {% endfor %}
               </select>
             </div>
             <div class="col-6">
@@ -673,7 +661,6 @@
     }
     currentId = button.getAttribute('data-id');
     document.getElementById('schedule_id').value = currentId;
-    document.getElementById('schedule_academic_year').value = button.getAttribute('data-academic-year');
     document.getElementById('schedule_semester').value = button.getAttribute('data-semester');
     document.getElementById('schedule_teacher').value = button.getAttribute('data-teacher');
     document.getElementById('schedule_subject').value = button.getAttribute('data-subject');
@@ -805,7 +792,7 @@
           </div>
           <div class="alert alert-info">
             <small>
-              <strong>Required columns:</strong> academic_year, semester, teacher__employee_number, subject__code, section__name, room__room_name, class_type, day_of_week, start_time, end_time<br>
+              <strong>Required columns:</strong> curriculum_code, semester_number, teacher__employee_number, subject__code, section__name, room__room_name, class_type, day_of_week, start_time, end_time<br>
               Example: 2026-2027, 1, 2, BSMA101, BSMA-1A, Lab 6, Lecture, 1, 08:00, 09:00
             </small>
           </div>

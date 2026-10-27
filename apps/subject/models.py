@@ -1,5 +1,8 @@
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+from apps.curriculum.models import Semester
+from apps.program.models import Program
 
 
 class Subject(models.Model):
@@ -9,19 +12,17 @@ class Subject(models.Model):
     lec_hours = models.PositiveSmallIntegerField(default=0)
     lab_hours = models.PositiveSmallIntegerField(default=0)
     program = models.ForeignKey(
-        'program.Program',
+        Program,
         on_delete=models.RESTRICT,
         related_name='subjects',
     )
-    academic_year = models.CharField(
-        max_length=9,
-        validators=[RegexValidator(r'^[0-9]{4}-[0-9]{4}$')],
+    semester = models.ForeignKey(
+        Semester,
+        on_delete=models.RESTRICT,
+        related_name='subjects',
     )
     year_level = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(6)]
-    )
-    semester = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(3)]
     )
     prerequisite = models.ForeignKey(
         'self',
@@ -33,7 +34,7 @@ class Subject(models.Model):
 
     class Meta:
         db_table = 'subjects'
-        unique_together = [['program', 'code', 'academic_year', 'semester']]
+        unique_together = [['program', 'code', 'semester']]
         ordering = ['program__code', 'code']
 
     def __str__(self):

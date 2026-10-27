@@ -100,7 +100,7 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#subjectModal" data-mode="edit" data-id="{{ subject.id }}" data-program="{{ subject.program.id }}" data-code="{{ subject.code }}" data-name="{{ subject.name }}" data-units="{{ subject.units }}" data-lec-hours="{{ subject.lec_hours }}" data-lab-hours="{{ subject.lab_hours }}" data-academic-year="{{ subject.academic_year }}" data-year-level="{{ subject.year_level }}" data-semester="{{ subject.semester }}" data-prerequisite="{{ subject.prerequisite_id_display }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#subjectModal" data-mode="edit" data-id="{{ subject.id }}" data-program="{{ subject.program.id }}" data-code="{{ subject.code }}" data-name="{{ subject.name }}" data-units="{{ subject.units }}" data-lec-hours="{{ subject.lec_hours }}" data-lab-hours="{{ subject.lab_hours }}" data-semester="{{ subject.semester.id }}" data-curriculum="{{ subject.semester.curriculum.code }}" data-semester-number="{{ subject.semester.semester_number }}" data-year-level="{{ subject.year_level }}" data-prerequisite="{{ subject.prerequisite_id_display }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSubjectModal" data-id="{{ subject.id }}" data-code="{{ subject.code }}" title="Delete">
@@ -203,20 +203,17 @@
               <input type="number" name="lab_hours" id="subject_lab_hours" class="form-control" min="0" required>
             </div>
             <div class="col-4">
-              <label class="form-label">Academic Year</label>
-              <input type="text" name="academic_year" id="subject_academic_year" class="form-control" placeholder="2026-2027" required>
+              <label class="form-label">Curriculum / Semester</label>
+              <select name="semester" id="subject_semester" class="form-select" required>
+                <option value="">Select curriculum &amp; semester</option>
+                {% for sem in semesters %}
+                <option value="{{ sem.id }}">{{ sem.curriculum.code }} — Sem {{ sem.semester_number }} ({{ sem.curriculum.academic_year }})</option>
+                {% endfor %}
+              </select>
             </div>
             <div class="col-4">
               <label class="form-label">Year Level</label>
               <input type="number" name="year_level" id="subject_year_level" class="form-control" min="1" max="6" required>
-            </div>
-            <div class="col-4">
-              <label class="form-label">Semester</label>
-              <select name="semester" id="subject_semester" class="form-select" required>
-                <option value="1">1st Semester</option>
-                <option value="2">2nd Semester</option>
-                <option value="3">Summer</option>
-              </select>
             </div>
             <div class="col-12">
               <label class="form-label">Prerequisite <span class="text-muted">(optional)</span></label>
@@ -301,7 +298,6 @@
       document.getElementById('subject_units').value = button.getAttribute('data-units');
       document.getElementById('subject_lec_hours').value = button.getAttribute('data-lec-hours');
       document.getElementById('subject_lab_hours').value = button.getAttribute('data-lab-hours');
-      document.getElementById('subject_academic_year').value = button.getAttribute('data-academic-year');
       document.getElementById('subject_year_level').value = button.getAttribute('data-year-level');
       document.getElementById('subject_semester').value = button.getAttribute('data-semester');
       document.getElementById('subject_prerequisite').value = button.getAttribute('data-prerequisite');
@@ -425,7 +421,7 @@
           </div>
           <div class="alert alert-info">
             <small>
-              <strong>Required columns:</strong> program_code, code, name, units, lec_hours, lab_hours, academic_year, year_level, semester<br>
+              <strong>Required columns:</strong> program_code, code, name, units, lec_hours, lab_hours, curriculum_code, semester_number, year_level<br>
               Optional: prerequisite_code<br>
               Example: BSMA, BSMA101, Mathematics Orientation, 3.0, 3, 0, 2026-2027, 1, 1,
             </small>

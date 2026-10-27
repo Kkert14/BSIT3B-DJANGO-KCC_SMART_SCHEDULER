@@ -7,6 +7,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import IntegrityError
 
+from apps.curriculum.models import Semester
 from apps.program.models import Program
 from .models import Subject
 from apps.users.decorators import admin_required, admin_required_api
@@ -24,22 +25,25 @@ from apps.utils.import_export import (
 @login_required(login_url='login')
 def subject_list_page(request):
     query = request.GET.get('q', '').strip()
-    subjects_list = Subject.objects.select_related('program', 'prerequisite').all()
+    subjects_list = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all()
     if query:
         subjects_list = subjects_list.filter(
             Q(code__icontains=query) |
             Q(name__icontains=query) |
-            Q(program__code__icontains=query)
+            Q(program__code__icontains=query) |
+            Q(semester__curriculum__academic_year__icontains=query)
         )
     paginator = Paginator(subjects_list, 10)
     page_number = request.GET.get('page', 1)
     subjects = paginator.get_page(page_number)
     programs = Program.objects.filter(is_active=True).order_by('code')
+    semesters = Semester.objects.select_related('curriculum').all().order_by('curriculum__academic_year', 'semester_number')
     all_subjects = Subject.objects.all().order_by('code')
     return render(request, 'subject_list.html', {
         'subjects': subjects,
         'query': query,
         'programs': programs,
+        'semesters': semesters,
         'all_subjects': all_subjects,
     })
 
@@ -47,24 +51,29 @@ def subject_list_page(request):
 @login_required(login_url='login')
 def subject_list_ajax(request):
     query = request.GET.get('q', '').strip()
-    subjects_list = Subject.objects.select_related('program', 'prerequisite').all()
+    subjects_list = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all()
     if query:
         subjects_list = subjects_list.filter(
             Q(code__icontains=query) |
             Q(name__icontains=query) |
-            Q(program__code__icontains=query)
+            Q(program__code__icontains=query) |
+            Q(semester__curriculum__academic_year__icontains=query)
         )
     paginator = Paginator(subjects_list, 10)
     page_number = request.GET.get('page', 1)
     subjects = paginator.get_page(page_number)
     data = list(subjects.object_list.values(
         'id', 'code', 'name', 'units', 'lec_hours', 'lab_hours',
-        'program_id', 'academic_year', 'year_level', 'semester',
+        'program_id', 'semester_id', 'year_level',
         'prerequisite_id',
     ))
     for item in data:
         program = Program.objects.filter(pk=item.pop('program_id')).first()
         item['program'] = str(program) if program else ''
+        semester = Semester.objects.filter(pk=item.pop('semester_id')).first()
+        item['semester'] = str(semester) if semester else ''
+        item['semester_number'] = semester.semester_number if semester else None
+        item['academic_year'] = semester.curriculum.academic_year if semester else ''
         prereq_id = item.pop('prerequisite_id')
         if prereq_id:
             prereq = Subject.objects.filter(pk=prereq_id).first()
@@ -83,7 +92,7 @@ def subject_list_ajax(request):
 
 @login_required(login_url='login')
 def subject_get_ajax(request, pk):
-    subject = get_object_or_404(Subject.objects.select_related('program', 'prerequisite'), pk=pk)
+    subject = get_object_or_404(Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum'), pk=pk)
     return JsonResponse({
         'id': subject.id,
         'program': subject.program.id,
@@ -93,9 +102,10 @@ def subject_get_ajax(request, pk):
         'units': str(subject.units),
         'lec_hours': subject.lec_hours,
         'lab_hours': subject.lab_hours,
-        'academic_year': subject.academic_year,
+        'semester': subject.semester.id,
+        'semester_number': subject.semester.semester_number,
+        'academic_year': subject.semester.curriculum.academic_year,
         'year_level': subject.year_level,
-        'semester': subject.semester,
         'prerequisite': subject.prerequisite.id if subject.prerequisite else None,
         'prerequisite_name': str(subject.prerequisite) if subject.prerequisite else None,
     })
@@ -117,9 +127,8 @@ def subject_save_ajax(request):
     units = request.POST.get('units', '').strip()
     lec_hours = request.POST.get('lec_hours', '').strip()
     lab_hours = request.POST.get('lab_hours', '').strip()
-    academic_year = request.POST.get('academic_year', '').strip()
+    semester_id = request.POST.get('semester', '').strip()
     year_level = request.POST.get('year_level', '').strip()
-    semester = request.POST.get('semester', '').strip()
     prerequisite_id = request.POST.get('prerequisite', '').strip()
 
     if not program_id:
@@ -147,20 +156,18 @@ def subject_save_ajax(request):
         lab_hours = int(lab_hours) if lab_hours else 0
     except (ValueError, TypeError):
         return JsonResponse({'error': 'Laboratory hours must be a number.'}, status=400)
-    if not academic_year:
-        return JsonResponse({'error': 'Academic year is required.'}, status=400)
+    if not semester_id:
+        return JsonResponse({'error': 'Semester is required.'}, status=400)
+    try:
+        semester = Semester.objects.get(pk=int(semester_id))
+    except (Semester.DoesNotExist, ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid semester.'}, status=400)
     if not year_level:
         return JsonResponse({'error': 'Year level is required.'}, status=400)
     try:
         year_level = int(year_level)
     except (ValueError, TypeError):
         return JsonResponse({'error': 'Year level must be a number.'}, status=400)
-    if not semester:
-        return JsonResponse({'error': 'Semester is required.'}, status=400)
-    try:
-        semester = int(semester)
-    except (ValueError, TypeError):
-        return JsonResponse({'error': 'Semester must be a number.'}, status=400)
 
     prerequisite = None
     if prerequisite_id:
@@ -172,12 +179,12 @@ def subject_save_ajax(request):
             return JsonResponse({'error': 'A subject cannot be its own prerequisite.'}, status=400)
 
     dup_qs = Subject.objects.filter(
-        program=program, code=code, academic_year=academic_year, semester=semester
+        program=program, code=code, semester=semester
     )
     if subject_id:
         dup_qs = dup_qs.exclude(pk=subject_id)
     if dup_qs.exists():
-        return JsonResponse({'error': 'A subject with this code already exists in this program/year/semester.'}, status=400)
+        return JsonResponse({'error': 'A subject with this code already exists in this program/semester.'}, status=400)
 
     subject.program = program
     subject.code = code
@@ -185,9 +192,8 @@ def subject_save_ajax(request):
     subject.units = units
     subject.lec_hours = lec_hours
     subject.lab_hours = lab_hours
-    subject.academic_year = academic_year
-    subject.year_level = year_level
     subject.semester = semester
+    subject.year_level = year_level
     subject.prerequisite = prerequisite
 
     try:
@@ -206,9 +212,10 @@ def subject_save_ajax(request):
         'units': str(subject.units),
         'lec_hours': subject.lec_hours,
         'lab_hours': subject.lab_hours,
-        'academic_year': subject.academic_year,
+        'semester': subject.semester.id,
+        'semester_number': subject.semester.semester_number,
+        'academic_year': subject.semester.curriculum.academic_year,
         'year_level': subject.year_level,
-        'semester': subject.semester,
         'prerequisite': subject.prerequisite.id if subject.prerequisite else None,
         'prerequisite_name': str(subject.prerequisite) if subject.prerequisite else None,
     })
@@ -228,10 +235,10 @@ def subject_delete_ajax(request, pk):
 @login_required(login_url='login')
 @admin_required
 def subject_export_excel(request):
-    subjects = Subject.objects.select_related('program', 'prerequisite').all().order_by('program__code', 'code')
+    subjects = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all().order_by('program__code', 'code')
     wb = queryset_to_excel(
         subjects,
-        ['program__code', 'code', 'name', 'units', 'lec_hours', 'lab_hours', 'academic_year', 'year_level', 'semester', 'prerequisite__code'],
+        ['program__code', 'code', 'name', 'units', 'lec_hours', 'lab_hours', 'semester__curriculum__academic_year', 'semester__semester_number', 'year_level', 'semester__curriculum__code', 'prerequisite__code'],
         sheet_name='Subjects',
         title='Subjects Export',
     )
@@ -260,19 +267,25 @@ def subject_import_excel(request):
         units = get_str(row, 'units')
         lec_hours = get_str(row, 'lec_hours')
         lab_hours = get_str(row, 'lab_hours')
-        academic_year = get_str(row, 'academic_year')
+        curriculum_code = get_str(row, 'semester_curriculum_code')
+        semester_number = get_str(row, 'semester_semester_number')
         year_level = get_str(row, 'year_level')
-        semester = get_str(row, 'semester')
         prereq_code = get_str(row, 'prerequisite_code')
 
-        if not program_code or not code or not name or not units or not academic_year or not year_level or not semester:
-            errors.append(f'Row {idx}: program_code, code, name, units, academic_year, year_level, and semester are required.')
+        if not program_code or not code or not name or not units or not curriculum_code or not semester_number or not year_level:
+            errors.append(f'Row {idx}: program_code, code, name, units, semester_curriculum_code, semester_semester_number, year_level, and units are required.')
             continue
 
         try:
             program = Program.objects.get(code=program_code)
         except Program.DoesNotExist:
             errors.append(f'Row {idx}: program with code "{program_code}" not found.')
+            continue
+
+        try:
+            semester = Semester.objects.get(curriculum__code=curriculum_code, semester_number=int(semester_number))
+        except (Semester.DoesNotExist, ValueError):
+            errors.append(f'Row {idx}: semester {semester_number} in curriculum "{curriculum_code}" not found.')
             continue
 
         try:
@@ -299,12 +312,6 @@ def subject_import_excel(request):
             errors.append(f'Row {idx}: year_level must be a number.')
             continue
 
-        try:
-            semester_val = int(semester)
-        except ValueError:
-            errors.append(f'Row {idx}: semester must be a number.')
-            continue
-
         prerequisite = None
         if prereq_code:
             try:
@@ -317,8 +324,7 @@ def subject_import_excel(request):
             subject, created_flag = Subject.objects.update_or_create(
                 program=program,
                 code=code,
-                academic_year=academic_year,
-                semester=semester_val,
+                semester=semester,
                 defaults={
                     'name': name,
                     'units': units_val,

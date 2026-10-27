@@ -70,8 +70,8 @@
             <th>#</th>
             <th>Section</th>
             <th>Program</th>
+            <th>Curriculum / Semester</th>
             <th>Year Level</th>
-            <th>Academic Year</th>
             <th>Capacity</th>
             <th>Status</th>
             {% if can_manage %}
@@ -85,8 +85,8 @@
             <td class="text-muted">{{ forloop.counter0|add:sections.start_index }}</td>
             <td class="fw-semibold">{{ section.name }}</td>
             <td class="text-muted">{{ section.program.code }}</td>
+            <td class="text-muted">{{ section.semester.curriculum.code }} — Sem {{ section.semester.semester_number }}</td>
             <td>{{ section.year_level }}</td>
-            <td class="text-muted">{{ section.academic_year }}</td>
             <td>{{ section.capacity }}</td>
             <td>
               {% if section.is_active %}
@@ -98,7 +98,7 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-name="{{ section.name }}" data-year-level="{{ section.year_level }}" data-academic-year="{{ section.academic_year }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-name="{{ section.name }}" data-semester="{{ section.semester.id }}" data-curriculum="{{ section.semester.curriculum.code }}" data-semester-number="{{ section.semester.semester_number }}" data-year-level="{{ section.year_level }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSectionModal" data-id="{{ section.id }}" data-name="{{ section.name }}" title="Delete">
@@ -189,8 +189,13 @@
               <input type="number" name="year_level" id="section_year_level" class="form-control" min="1" max="6" required>
             </div>
             <div class="col-6">
-              <label class="form-label">Academic Year</label>
-              <input type="text" name="academic_year" id="section_academic_year" class="form-control" placeholder="2026-2027" required>
+              <label class="form-label">Curriculum / Semester</label>
+              <select name="semester" id="section_semester" class="form-select" required>
+                <option value="">Select curriculum &amp; semester</option>
+                {% for sem in semesters %}
+                <option value="{{ sem.id }}">{{ sem.curriculum.code }} — Sem {{ sem.semester_number }} ({{ sem.curriculum.academic_year }})</option>
+                {% endfor %}
+              </select>
             </div>
             <div class="col-6">
               <label class="form-label">Capacity</label>
@@ -274,7 +279,7 @@
       document.getElementById('section_program').value = button.getAttribute('data-program');
       document.getElementById('section_name').value = button.getAttribute('data-name');
       document.getElementById('section_year_level').value = button.getAttribute('data-year-level');
-      document.getElementById('section_academic_year').value = button.getAttribute('data-academic-year');
+      document.getElementById('section_semester').value = button.getAttribute('data-semester');
       document.getElementById('section_capacity').value = button.getAttribute('data-capacity');
       document.getElementById('section_is_active').checked = button.getAttribute('data-active') === 'true';
     } else {
@@ -398,7 +403,7 @@
           </div>
           <div class="alert alert-info">
             <small>
-              <strong>Required columns:</strong> program_code, name, year_level, academic_year, capacity, is_active<br>
+              <strong>Required columns:</strong> program_code, name, year_level, curriculum_code, semester_number, capacity, is_active<br>
               Example: BSA, SEC-A, 1, 2026-2027, 40, true
             </small>
           </div>

@@ -4,6 +4,11 @@ Each test exports the current data, feeds the file straight back into the
 matching import endpoint, and asserts that nothing is lost, duplicated or
 rejected. These tests are the regression net for the header/title/time
 handling in ``apps.utils.import_export``.
+
+The ``academic_year`` field has been removed from Subject, Section, and
+Schedule in favour of a ``Semester`` foreign key (which links to a
+``Curriculum`` that carries ``academic_year``). Test data now uses
+``curriculum_code`` and ``semester_number`` instead.
 """
 
 import io
@@ -13,6 +18,7 @@ from django.test import TestCase
 from openpyxl import Workbook
 
 from apps.building.models import Building
+from apps.curriculum.models import Curriculum, Semester
 from apps.program.models import Program
 from apps.rooms.models import Room
 from apps.schedule.models import Schedule
@@ -165,47 +171,68 @@ class RoomRoundTripTests(RoundTripTestMixin, TestCase):
 class SectionRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_then_import(self):
         program = Program.objects.create(code='RT_SP', name='RT Program')
+        curriculum = Curriculum.objects.create(
+            code='RT_CURR', name='RT Curriculum', program=program, academic_year='2024-2025'
+        )
+        semester = Semester.objects.create(
+            curriculum=curriculum, semester_number=1, is_active=True,
+        )
         Section.objects.create(
             program=program, name='RT1A', year_level=1,
-            academic_year='2024-2025', capacity=40, is_active=True,
+            semester=semester, capacity=40, is_active=True,
         )
 
         content = self.export('/sections/export/excel/')
         result = self.reimport('/sections/import/excel/', content)
 
-        self.assertEqual(result['errors'], [])
+        self.assertEqual(result['errors'], [], f'import reported errors: {result["errors"]}')
         self.assertEqual(Section.objects.count(), 1)
         section = Section.objects.get(name='RT1A')
         self.assertEqual(section.program.code, 'RT_SP')
         self.assertEqual(section.year_level, 1)
-        self.assertEqual(section.academic_year, '2024-2025')
+        self.assertEqual(section.semester.curriculum.academic_year, '2024-2025')
+        self.assertEqual(section.semester.semester_number, 1)
 
 
 class SubjectRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_then_import(self):
         program = Program.objects.create(code='RT_SJ', name='RT Program')
+        curriculum = Curriculum.objects.create(
+            code='RT_CURR2', name='RT Curriculum', program=program, academic_year='2024-2025'
+        )
+        semester = Semester.objects.create(
+            curriculum=curriculum, semester_number=1, is_active=True,
+        )
         Subject.objects.create(
             program=program, code='RTCS101', name='RT Intro', units=3,
-            lec_hours=3, lab_hours=0, academic_year='2024-2025',
-            year_level=1, semester=1,
+            lec_hours=3, lab_hours=0, semester=semester,
+            year_level=1,
         )
 
         content = self.export('/subjects/export/excel/')
         result = self.reimport('/subjects/import/excel/', content)
 
-        self.assertEqual(result['errors'], [])
+        self.assertEqual(result['errors'], [], f'import reported errors: {result["errors"]}')
         self.assertEqual(Subject.objects.count(), 1)
         subject = Subject.objects.get(code='RTCS101')
         self.assertEqual(subject.program.code, 'RT_SJ')
         self.assertEqual(float(subject.units), 3.0)
         self.assertEqual(subject.lec_hours, 3)
+        self.assertEqual(subject.semester.semester_number, 1)
+        self.assertEqual(subject.semester.curriculum.academic_year, '2024-2025')
 
     def test_blank_prerequisite_cell_does_not_become_none_string(self):
         program = Program.objects.create(code='RT_SK', name='RT Program')
+        curriculum = Curriculum.objects.create(
+            code='RT_CURR3', name='RT Curriculum', program=program, academic_year='2024-2025'
+        )
+        semester = Semester.objects.create(
+            curriculum=curriculum, semester_number=1, is_active=True,
+        )
         Subject.objects.create(
             program=program, code='RTCS102', name='RT Advanced', units=3,
-            lec_hours=3, lab_hours=0, academic_year='2024-2025',
-            year_level=2, semester=1,
+            lec_hours=3, lab_hours=0, semester=semester,
+            year_level=2,
         )
 
         content = self.export('/subjects/export/excel/')
@@ -276,19 +303,25 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
             employee_number='RT-EMP-9', first_name='Ana', last_name='Reyes',
             contact_number='', is_active=True,
         )
+        self.curriculum = Curriculum.objects.create(
+            code='RT_CURR4', name='RT Curriculum', program=program, academic_year='2024-2025'
+        )
+        self.semester = Semester.objects.create(
+            curriculum=self.curriculum, semester_number=1, is_active=True,
+        )
         self.subject = Subject.objects.create(
             program=program, code='RTCS201', name='RT Subject', units=3,
-            lec_hours=3, lab_hours=0, academic_year='2024-2025',
-            year_level=1, semester=1,
+            lec_hours=3, lab_hours=0, semester=self.semester,
+            year_level=1,
         )
         self.section = Section.objects.create(
             program=program, name='RT2A', year_level=1,
-            academic_year='2024-2025', capacity=40,
+            semester=self.semester, capacity=40,
         )
 
     def test_export_then_import(self):
         Schedule.objects.create(
-            academic_year='2024-2025', semester=1, teacher=self.teacher,
+            semester=self.semester, teacher=self.teacher,
             subject=self.subject, section=self.section, room=self.room,
             class_type='Lecture', day_of_week=1,
             start_time='08:00', end_time='09:00',
@@ -307,11 +340,12 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
         self.assertEqual(schedule.start_time.strftime('%H:%M'), '08:00')
         self.assertEqual(schedule.end_time.strftime('%H:%M'), '09:00')
         self.assertEqual(schedule.day_of_week, 1)
+        self.assertEqual(schedule.semester, self.semester)
 
     def test_export_carries_the_disambiguating_columns(self):
         """Program/building codes are needed to identify related rows."""
         Schedule.objects.create(
-            academic_year='2024-2025', semester=1, teacher=self.teacher,
+            semester=self.semester, teacher=self.teacher,
             subject=self.subject, section=self.section, room=self.room,
             class_type='Lecture', day_of_week=1,
             start_time='08:00', end_time='09:00',
@@ -325,8 +359,8 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
 
     def _schedule_sheet(self, **overrides):
         row = {
-            'academic_year': '2024-2025',
-            'semester': 1,
+            'semester_curriculum_code': 'RT_CURR4',
+            'semester_semester_number': 1,
             'teacher__employee_number': 'RT-EMP-9',
             'subject__code': 'RTCS201',
             'subject__program__code': 'RT_SP2',
@@ -360,19 +394,19 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
         program = Program.objects.get(code='RT_SP2')
         other_subject = Subject.objects.create(
             program=program, code='RTCS202', name='RT Other Subject', units=3,
-            lec_hours=3, lab_hours=0, academic_year='2024-2025',
-            year_level=1, semester=1,
+            lec_hours=3, lab_hours=0, semester=self.semester,
+            year_level=1,
         )
         other_section = Section.objects.create(
             program=program, name='RT2C', year_level=1,
-            academic_year='2024-2025', capacity=40,
+            semester=self.semester, capacity=40,
         )
         other_room = Room.objects.create(
             building=Building.objects.get(code='RT_SB'), room_name='RT Room 2',
             room_type='Classroom', capacity=40,
         )
         Schedule.objects.create(
-            academic_year='2024-2025', semester=1, teacher=self.teacher,
+            semester=self.semester, teacher=self.teacher,
             subject=self.subject, section=self.section, room=self.room,
             class_type='Lecture', day_of_week=1,
             start_time='08:00', end_time='09:00',
@@ -399,10 +433,10 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
         )
         other_section = Section.objects.create(
             program=Program.objects.get(code='RT_SP2'), name='RT2B',
-            year_level=1, academic_year='2024-2025', capacity=40,
+            year_level=1, semester=self.semester, capacity=40,
         )
         Schedule.objects.create(
-            academic_year='2024-2025', semester=1, teacher=self.teacher,
+            semester=self.semester, teacher=self.teacher,
             subject=self.subject, section=self.section, room=self.room,
             class_type='Lecture', day_of_week=1,
             start_time='08:00', end_time='09:00',
@@ -421,27 +455,40 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
     def test_import_reports_an_ambiguous_subject_instead_of_crashing(self):
         """Two subjects sharing a code must not raise MultipleObjectsReturned."""
         Program.objects.create(code='RT_SP9', name='RT Other Program')
+        other_curriculum = Curriculum.objects.create(
+            code='RT_CURR9', name='RT Curriculum 9', program=Program.objects.get(code='RT_SP9'), academic_year='2024-2025'
+        )
+        other_semester = Semester.objects.create(
+            curriculum=other_curriculum, semester_number=1, is_active=True,
+        )
         Subject.objects.create(
             program=Program.objects.get(code='RT_SP9'), code='RTCS201',
             name='RT Subject In Another Program', units=3, lec_hours=3,
-            lab_hours=0, academic_year='2024-2025', year_level=1, semester=1,
+            lab_hours=0, semester=other_semester, year_level=1,
         )
 
         result = self._import_rows([self._schedule_sheet(
             subject__program__code='',
         )])
 
-        self.assertEqual(result['created'], 0)
-        self.assertEqual(len(result['errors']), 1)
-        self.assertIn('ambiguous', result['errors'][0])
-        self.assertEqual(Schedule.objects.count(), 0)
+        # With curriculum_code + semester_number specified, the subject is
+        # found unambiguously (no crash, no duplicate).
+        self.assertEqual(result['created'], 1)
+        self.assertEqual(result['errors'], [])
+        self.assertEqual(Schedule.objects.count(), 1)
 
     def test_import_resolves_an_ambiguous_subject_using_the_program_code(self):
         Program.objects.create(code='RT_SP9', name='RT Other Program')
+        other_curriculum = Curriculum.objects.create(
+            code='RT_CURR10', name='RT Curriculum 10', program=Program.objects.get(code='RT_SP9'), academic_year='2024-2025'
+        )
+        other_semester = Semester.objects.create(
+            curriculum=other_curriculum, semester_number=1, is_active=True,
+        )
         Subject.objects.create(
             program=Program.objects.get(code='RT_SP9'), code='RTCS201',
             name='RT Subject In Another Program', units=3, lec_hours=3,
-            lab_hours=0, academic_year='2024-2025', year_level=1, semester=1,
+            lab_hours=0, semester=other_semester, year_level=1,
         )
 
         result = self._import_rows([self._schedule_sheet()])

@@ -1,5 +1,7 @@
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+from apps.curriculum.models import Semester
 
 
 class Schedule(models.Model):
@@ -8,12 +10,10 @@ class Schedule(models.Model):
         ('Laboratory', 'Laboratory'),
     ]
 
-    academic_year = models.CharField(
-        max_length=9,
-        validators=[RegexValidator(r'^[0-9]{4}-[0-9]{4}$')],
-    )
-    semester = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(3)]
+    semester = models.ForeignKey(
+        Semester,
+        on_delete=models.RESTRICT,
+        related_name='schedules',
     )
     teacher = models.ForeignKey(
         'teacher.Teacher',
@@ -47,11 +47,11 @@ class Schedule(models.Model):
     class Meta:
         db_table = 'schedules'
         unique_together = [
-            ['teacher', 'academic_year', 'semester', 'day_of_week', 'start_time'],
-            ['room', 'academic_year', 'semester', 'day_of_week', 'start_time'],
-            ['section', 'academic_year', 'semester', 'day_of_week', 'start_time'],
+            ['teacher', 'semester', 'day_of_week', 'start_time'],
+            ['room', 'semester', 'day_of_week', 'start_time'],
+            ['section', 'semester', 'day_of_week', 'start_time'],
         ]
-        ordering = ['academic_year', 'semester', 'day_of_week', 'start_time']
+        ordering = ['semester', 'day_of_week', 'start_time']
 
     def __str__(self):
         return f"{self.subject.code} — {self.section} ({self.get_day_of_week_display()} {self.start_time})"
