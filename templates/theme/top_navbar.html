@@ -1,6 +1,7 @@
 {% if request.user.is_authenticated %}
 <nav class="navbar navbar-expand-lg navbar-dark dh-top-navbar">
   <div class="container-fluid">
+    <!-- Hamburger toggle -->
     <button
       class="navbar-toggler"
       type="button"
@@ -13,11 +14,12 @@
       <span class="navbar-toggler-icon"></span>
     </button>
 
-    <a class="navbar-brand me-auto" href=".">
+    <!-- Brand -->
+    <a class="navbar-brand me-2 d-flex align-items-center" href=".">
       <span class="dh-brand-mark">
         <i class="fa-solid fa-shield-halved"></i>
       </span>
-      <span class="lh-1">
+      <span class="lh-1 ms-2">
         <span class="text-warning">Smart</span><span class="dh-brand-name">Scheduler</span>
         <span class="dh-brand-sub">Management System</span>
       </span>
@@ -66,6 +68,9 @@
         {% endfor %}
       </ul>
     </div>
+
+    <!-- Flex spacer to push nothing (keeps items left-aligned) -->
+    <div class="flex-grow-1"></div>
   </div>
 </nav>
 {% endif %}
