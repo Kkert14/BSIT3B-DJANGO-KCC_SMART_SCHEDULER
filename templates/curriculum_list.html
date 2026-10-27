@@ -1,0 +1,69 @@
+{% extends 'theme/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="card-title mb-0">Curricula</h5>
+    <a href="{% url 'admin:index' %}" class="btn btn-sm btn-outline-secondary">
+      <i class="fas fa-database me-1"></i> Django Admin
+    </a>
+  </div>
+  <div class="card-body">
+    {% if not curricula %}
+      <div class="text-muted text-center py-4">
+        <p>No curricula defined yet.</p>
+        <p class="small">Create one via <a href="{% url 'admin:index' %}">Django Admin</a>, then activate a semester here.</p>
+      </div>
+    {% else %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Program</th>
+              <th>Academic Year</th>
+              <th>Semesters</th>
+              <th class="text-end">Active</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cur in curricula %}
+            <tr>
+              <td><strong>{{ cur.code }}</strong></td>
+              <td>{{ cur.name }}</td>
+              <td>{{ cur.program.code }} — {{ cur.program.name }}</td>
+              <td>{{ cur.academic_year }}</td>
+              <td>
+                {% for sem in cur.semesters.all %}
+                  <span class="badge bg-{% if active_semester and active_semester.pk == sem.pk %}primary{% else %}secondary{% endif %}">
+                    Sem {{ sem.semester_number }}{% if active_semester and active_semester.pk == sem.pk %} (active){% endif %}
+                  </span>
+                {% empty %}
+                  <span class="text-muted">None</span>
+                {% endfor %}
+              </td>
+              <td class="text-end">
+                {% if active_curriculum and active_curriculum.pk == cur.pk %}
+                  <span class="badge bg-success">Active</span>
+                {% else %}
+                  <a
+                    href="{% url 'curriculum:set_active_semester' cur.semesters.first.id %}"
+                    class="btn btn-sm btn-outline-primary"
+                    {% if not cur.semesters.exists %}disabled{% endif %}
+                    title="Activate first semester"
+                  >
+                    Activate
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
