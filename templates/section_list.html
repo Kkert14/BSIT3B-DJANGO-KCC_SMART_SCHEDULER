@@ -98,7 +98,7 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-name="{{ section.name }}" data-semester="{{ section.semester.id }}" data-curriculum="{{ section.semester.curriculum.code }}" data-semester-number="{{ section.semester.semester_number }}" data-year-level="{{ section.year_level }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-program-code="{{ section.program.program_code }}" data-program-name="{{ section.program.program_description }}" data-name="{{ section.name }}" data-semester="{{ section.semester.id }}" data-curriculum="{{ section.semester.curriculum.code }}" data-semester-number="{{ section.semester.semester_number }}" data-year-level="{{ section.year_level }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSectionModal" data-id="{{ section.id }}" data-name="{{ section.name }}" title="Delete">
@@ -173,20 +173,72 @@
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label">Program</label>
-              <select name="program" id="section_program" class="form-select" required>
-                <option value="">Select program</option>
+              <input
+                type="text"
+                list="program_datalist"
+                name="program_search"
+                id="section_program_search"
+                class="form-control"
+                placeholder="Type to search program..."
+                required
+              />
+              <input type="hidden" name="program" id="section_program_id" required />
+              <datalist id="program_datalist">
                 {% for p in programs %}
-                <option value="{{ p.id }}">{{ p.code }} — {{ p.name }}</option>
+                <option value="{{ p.program_code }} — {{ p.program_description }}" data-id="{{ p.id }}"></option>
                 {% endfor %}
-              </select>
+              </datalist>
             </div>
             <div class="col-6">
               <label class="form-label">Section Name</label>
-              <input type="text" name="name" id="section_name" class="form-control" required>
+              <input
+                type="text"
+                list="section_datalist"
+                name="name"
+                id="section_name"
+                class="form-control"
+                placeholder="Type section name or select A-Z..."
+                required
+              />
+              <datalist id="section_datalist">
+                <option value="A"></option>
+                <option value="B"></option>
+                <option value="C"></option>
+                <option value="D"></option>
+                <option value="E"></option>
+                <option value="F"></option>
+                <option value="G"></option>
+                <option value="H"></option>
+                <option value="I"></option>
+                <option value="J"></option>
+                <option value="K"></option>
+                <option value="L"></option>
+                <option value="M"></option>
+                <option value="N"></option>
+                <option value="O"></option>
+                <option value="P"></option>
+                <option value="Q"></option>
+                <option value="R"></option>
+                <option value="S"></option>
+                <option value="T"></option>
+                <option value="U"></option>
+                <option value="V"></option>
+                <option value="W"></option>
+                <option value="X"></option>
+                <option value="Y"></option>
+                <option value="Z"></option>
+              </datalist>
             </div>
             <div class="col-6">
               <label class="form-label">Year Level</label>
-              <input type="number" name="year_level" id="section_year_level" class="form-control" min="1" max="6" required>
+              <select name="year_level" id="section_year_level" class="form-select" required>
+                <option value="">Select year level</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
             </div>
             <div class="col-6">
               <label class="form-label">Curriculum / Semester</label>
@@ -256,6 +308,8 @@
   function resetForm() {
     form.reset();
     document.getElementById('section_id').value = '';
+    document.getElementById('section_program_search').value = '';
+    document.getElementById('section_program_id').value = '';
     title.textContent = 'Add Section';
     submitBtn.textContent = 'Save Section';
     alertBox.classList.add('d-none');
@@ -263,6 +317,27 @@
     currentId = null;
     document.getElementById('section_is_active').checked = true;
   }
+
+  // Sync hidden program ID when user types/selects from datalist
+  const programSearchInput = document.getElementById('section_program_search');
+  const programIdInput = document.getElementById('section_program_id');
+  const programDatalist = document.getElementById('program_datalist');
+
+  function syncProgramId() {
+    const searchText = programSearchInput.value.trim();
+    const options = programDatalist.options;
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].value === searchText) {
+        programIdInput.value = options[i].getAttribute('data-id') || '';
+        return;
+      }
+    }
+    // No exact match found - clear the ID (user may be typing something new)
+    programIdInput.value = '';
+  }
+
+  programSearchInput.addEventListener('input', syncProgramId);
+  programSearchInput.addEventListener('change', syncProgramId);
 
   modalEl.addEventListener('show.bs.modal', function(event) {
     const button = event.relatedTarget;
@@ -276,7 +351,11 @@
       submitBtn.textContent = 'Update Section';
       currentId = button.getAttribute('data-id');
       document.getElementById('section_id').value = currentId;
-      document.getElementById('section_program').value = button.getAttribute('data-program');
+      // Populate searchable program field
+      const progCode = button.getAttribute('data-program-code') || '';
+      const progName = button.getAttribute('data-program-name') || '';
+      document.getElementById('section_program_search').value = progCode + ' — ' + progName;
+      document.getElementById('section_program_id').value = button.getAttribute('data-program') || '';
       document.getElementById('section_name').value = button.getAttribute('data-name');
       document.getElementById('section_year_level').value = button.getAttribute('data-year-level');
       document.getElementById('section_semester').value = button.getAttribute('data-semester');
