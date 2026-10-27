@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
@@ -9,6 +9,16 @@ from django.db.models import Q
 from django.db import IntegrityError
 
 from .models import Teacher
+from apps.users.decorators import admin_required, admin_required_api
+from apps.utils.import_export import (
+    excel_to_dict_list,
+    get_str,
+    get_value,
+    parse_bool,
+    parse_time,
+    queryset_to_excel,
+    workbook_to_response,
+)
 
 User = get_user_model()
 
@@ -82,6 +92,7 @@ def teacher_get_ajax(request, pk):
     })
 
 
+@admin_required_api
 @login_required(login_url='login')
 @require_POST
 def teacher_save_ajax(request):
@@ -150,6 +161,78 @@ def teacher_save_ajax(request):
     })
 
 
+@login_required(login_url='login')
+@admin_required
+def teacher_export_excel(request):
+    teachers = Teacher.objects.select_related('user').all().order_by('employee_number')
+    wb = queryset_to_excel(
+        teachers,
+        ['employee_number', 'first_name', 'last_name', 'contact_number', 'user__username', 'is_active'],
+        sheet_name='Teachers',
+        title='Teachers Export',
+    )
+    return workbook_to_response(wb, 'teachers_export.xlsx')
+
+
+@admin_required_api
+@login_required(login_url='login')
+@require_POST
+def teacher_import_excel(request):
+    if 'file' not in request.FILES:
+        return JsonResponse({'error': 'No file uploaded.'}, status=400)
+
+    uploaded_file = request.FILES['file']
+    try:
+        data = excel_to_dict_list(uploaded_file.read())
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
+
+    created = 0
+    errors = []
+    for idx, row in enumerate(data, start=2):
+        employee_number = get_str(row, 'employee_number')
+        first_name = get_str(row, 'first_name')
+        last_name = get_str(row, 'last_name')
+        contact_number = get_str(row, 'contact_number')
+        username = get_str(row, 'user__username')
+        is_active = parse_bool(get_value(row, 'is_active'))
+
+        if not employee_number or not first_name or not last_name:
+            errors.append(f'Row {idx}: employee_number, first_name, and last_name are required.')
+            continue
+
+        user = None
+        if username:
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                errors.append(f'Row {idx}: user with username "{username}" not found.')
+                continue
+
+        try:
+            teacher, created_flag = Teacher.objects.update_or_create(
+                employee_number=employee_number,
+                defaults={
+                    'user': user,
+                    'first_name': first_name,
+                    'last_name': last_name,
+                    'contact_number': contact_number,
+                    'is_active': is_active,
+                },
+            )
+            if created_flag:
+                created += 1
+        except Exception as e:
+            errors.append(f'Row {idx}: {str(e)}')
+
+    return JsonResponse({
+        'status': 'success',
+        'created': created,
+        'errors': errors,
+    })
+
+
+@admin_required_api
 @login_required(login_url='login')
 @require_POST
 def teacher_delete_ajax(request, pk):

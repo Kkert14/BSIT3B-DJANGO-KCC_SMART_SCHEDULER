@@ -28,9 +28,17 @@
       </div>
     </form>
 
+    {% if can_manage %}
     <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#buildingModal" data-mode="create">
       <i class='fas fa-plus-circle me-2'></i> Add Building
     </button>
+    <button type="button" class="btn btn-outline-success mt-n4" onclick="location.href='{% url "building:building_export_excel" %}'">
+      <i class="fas fa-download me-1"></i> Export Excel
+    </button>
+    <button type="button" class="btn btn-outline-primary mt-n4" data-bs-toggle="modal" data-bs-target="#buildingImportModal">
+      <i class="fas fa-upload me-1"></i> Import Excel
+    </button>
+    {% endif %}
   </div>
 
   <div class="toast-container position-fixed top-0 end-0 p-3" id="buildingToastContainer" aria-live="polite" aria-atomic="true">
@@ -63,7 +71,9 @@
             <th>Code</th>
             <th>Name</th>
             <th>Status</th>
+            {% if can_manage %}
             <th class="w-1">Actions</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody id="buildingTableBody">
@@ -79,6 +89,7 @@
               <span class="badge bg-danger-lt text-danger">Inactive</span>
               {% endif %}
             </td>
+            {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#buildingModal" data-mode="edit" data-id="{{ building.id }}" data-code="{{ building.code }}" data-name="{{ building.name }}" data-active="{{ building.is_active|yesno:'true,false' }}" title="Edit">
@@ -89,10 +100,11 @@
                 </button>
               </div>
             </td>
+            {% endif %}
         </tr>
         {% empty %}
         <tr>
-            <td colspan="5">
+            <td colspan="{% if can_manage %}5{% else %}4{% endif %}">
                 <div class="empty py-5">
                     <div class="empty-icon">
                         <i class="fas fa-building fa-2x text-muted"></i>
@@ -195,7 +207,6 @@
     </div>
   </div>
 </div>
-{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -291,6 +302,87 @@
       }
     });
   });
+
+  // Import Excel
+  const importForm = document.getElementById('buildingImportForm');
+  const importError = document.getElementById('buildingImportError');
+  const importResult = document.getElementById('buildingImportResult');
+  const importBtn = document.getElementById('buildingImportBtn');
+
+  if (importForm) {
+    importForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(importForm);
+      importBtn.disabled = true;
+      importError.classList.add('d-none');
+      importResult.classList.add('d-none');
+      importError.textContent = '';
+      importResult.textContent = '';
+
+      fetch('{% url "building:building_import_excel" %}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        importBtn.disabled = false;
+        if (data.error) {
+          importError.textContent = data.error;
+          importError.classList.remove('d-none');
+          return;
+        }
+        importResult.innerHTML = '<strong>Import complete!</strong> Created: ' + data.created;
+        if (data.errors && data.errors.length) {
+          importResult.innerHTML += '<br><strong>Errors:</strong><br>' + data.errors.join('<br>');
+        }
+        importResult.classList.remove('d-none');
+        setTimeout(() => {
+          bootstrap.Modal.getInstance(document.getElementById('buildingImportModal')).hide();
+          window.location.reload();
+        }, 2000);
+      })
+      .catch(() => {
+        importBtn.disabled = false;
+        importError.textContent = 'Something went wrong.';
+        importError.classList.remove('d-none');
+      });
+    });
+  }
 })();
 </script>
+{% endblock %}
+
+<!-- Building Import Modal -->
+<div class="modal modal-blur fade" id="buildingImportModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Buildings from Excel</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="buildingImportForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div id="buildingImportError" class="alert alert-danger d-none"></div>
+          <div id="buildingImportResult" class="alert alert-success d-none"></div>
+          <div class="mb-3">
+            <label class="form-label">Select Excel File (.xlsx)</label>
+            <input type="file" name="file" id="buildingImportFile" class="form-control" accept=".xlsx" required>
+          </div>
+          <div class="alert alert-info">
+            <small>
+              <strong>Required columns:</strong> code, name, is_active (true/false)<br>
+              Example: COLLEGE, College Building, true
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="buildingImportBtn">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

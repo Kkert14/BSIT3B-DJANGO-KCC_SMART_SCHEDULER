@@ -40,5 +40,10 @@ class Subject(models.Model):
         return f"{self.code} — {self.name}"
 
     @property
+    def total_weekly_hours(self):
+        """Total contact hours per week (Lecture + Laboratory)."""
+        return (self.lec_hours or 0) + (self.lab_hours or 0)
+
+    @property
     def prerequisite_id_display(self):
         return self.prerequisite.id if self.prerequisite else ""

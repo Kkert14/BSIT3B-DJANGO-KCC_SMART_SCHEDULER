@@ -33,6 +33,12 @@
              data-mode="create">
             <i class="ti ti-plus me-1"></i> Add User
           </button>
+          <button type="button" class="btn btn-outline-success mt-n4" onclick="location.href='{% url "users:user_export_excel" %}'">
+            <i class="fas fa-download me-1"></i> Export Excel
+          </button>
+          <button type="button" class="btn btn-outline-primary mt-n4" data-bs-toggle="modal" data-bs-target="#userImportModal">
+            <i class="fas fa-upload me-1"></i> Import Excel
+          </button>
         </div>
       </div>
 
@@ -116,12 +122,12 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if u.is_superuser %}
-                            <span class="badge bg-purple-lt text-purple">Superuser</span>
-                            {% elif u.is_staff %}
-                            <span class="badge bg-warning-lt text-warning">Staff</span>
+                            {% if u.profile.role == 'admin' %}
+                            <span class="badge bg-purple-lt text-purple">Administrator</span>
+                            {% elif u.profile.role == 'teacher' %}
+                            <span class="badge bg-blue-lt text-blue">Teacher</span>
                             {% else %}
-                            <span class="badge bg-secondary-lt text-secondary">User</span>
+                            <span class="badge bg-secondary-lt text-secondary">Student</span>
                             {% endif %}
                         </td>
                         <td>
@@ -137,8 +143,8 @@
                                    data-last="{{ u.last_name }}"
                                    data-email="{{ u.email }}"
                                    data-active="{{ u.is_active|yesno:'true,false' }}"
-                                   data-staff="{{ u.is_staff|yesno:'true,false' }}"
-                                   title="Edit">
+                                   data-role="{{ u.profile.role }}"
+                                    title="Edit">
                                     <i class="ti ti-pencil text-primary"></i>
                                 </a>
                                 <a href="#"
@@ -246,12 +252,13 @@
                                 <label class="form-check-label" for="edit_is_active">Active</label>
                             </div>
                         </div>
-                        <div class="col-6">
+                        <div class="col-12">
                             <label class="form-label">Role</label>
-                            <div class="form-check form-switch mt-1">
-                                <input class="form-check-input" type="checkbox" name="is_staff" id="edit_is_staff">
-                                <label class="form-check-label" for="edit_is_staff">Staff</label>
-                            </div>
+                            <select name="role" id="edit_role" class="form-select">
+                                <option value="student">Student</option>
+                                <option value="teacher">Teacher</option>
+                                <option value="admin">Administrator</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -340,7 +347,7 @@
             document.getElementById('edit_last_name').value   = btn.dataset.last;
             document.getElementById('edit_email').value       = btn.dataset.email;
             document.getElementById('edit_is_active').checked = btn.dataset.active === 'true';
-            document.getElementById('edit_is_staff').checked  = btn.dataset.staff === 'true';
+            document.getElementById('edit_role').value        = btn.dataset.role || 'student';
         } else {
             modalTitle.textContent = 'Add User';
             document.getElementById('edit_id').value = '';
@@ -360,7 +367,7 @@
 
         const formData = new FormData(editForm);
         formData.set('is_active', document.getElementById('edit_is_active').checked ? 'true' : 'false');
-        formData.set('is_staff',  document.getElementById('edit_is_staff').checked ? 'true' : 'false');
+        formData.set('role', document.getElementById('edit_role').value);
 
         fetch(SAVE_URL, {
             method: 'POST',
@@ -424,6 +431,87 @@
             deleteTargetId = null;
         });
     });
+
+    // Import Excel
+    const importForm = document.getElementById('userImportForm');
+    const importError = document.getElementById('userImportError');
+    const importResult = document.getElementById('userImportResult');
+    const importBtn = document.getElementById('userImportBtn');
+
+    if (importForm) {
+        importForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(importForm);
+            importBtn.disabled = true;
+            importError.classList.add('d-none');
+            importResult.classList.add('d-none');
+            importError.textContent = '';
+            importResult.textContent = '';
+
+            fetch('{% url "users:user_import_excel" %}', {
+                method: 'POST',
+                headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                importBtn.disabled = false;
+                if (data.error) {
+                    importError.textContent = data.error;
+                    importError.classList.remove('d-none');
+                    return;
+                }
+                importResult.innerHTML = '<strong>Import complete!</strong> Created: ' + data.created;
+                if (data.errors && data.errors.length) {
+                    importResult.innerHTML += '<br><strong>Errors:</strong><br>' + data.errors.join('<br>');
+                }
+                importResult.classList.remove('d-none');
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('userImportModal')).hide();
+                    window.location.reload();
+                }, 2000);
+            })
+            .catch(() => {
+                importBtn.disabled = false;
+                importError.textContent = 'Something went wrong.';
+                importError.classList.remove('d-none');
+            });
+        });
+    }
 })();
 </script>
+
+<!-- User Import Modal -->
+<div class="modal modal-blur fade" id="userImportModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Users from Excel</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="userImportForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div id="userImportError" class="alert alert-danger d-none"></div>
+          <div id="userImportResult" class="alert alert-success d-none"></div>
+          <div class="mb-3">
+            <label class="form-label">Select Excel File (.xlsx)</label>
+            <input type="file" name="file" id="userImportFile" class="form-control" accept=".xlsx" required>
+          </div>
+          <div class="alert alert-info">
+            <small>
+              <strong>Required columns:</strong> username, first_name, last_name, email, profile__role, is_active<br>
+              Role options: admin, teacher, student<br>
+              Example: jdoe, John, Doe, jdoe@school.edu, teacher, true
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="userImportBtn">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

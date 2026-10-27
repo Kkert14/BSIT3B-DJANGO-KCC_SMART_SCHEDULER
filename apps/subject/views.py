@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -9,6 +9,16 @@ from django.db import IntegrityError
 
 from apps.program.models import Program
 from .models import Subject
+from apps.users.decorators import admin_required, admin_required_api
+from apps.utils.import_export import (
+    excel_to_dict_list,
+    get_str,
+    get_value,
+    parse_bool,
+    parse_time,
+    queryset_to_excel,
+    workbook_to_response,
+)
 
 
 @login_required(login_url='login')
@@ -91,6 +101,7 @@ def subject_get_ajax(request, pk):
     })
 
 
+@admin_required_api
 @login_required(login_url='login')
 @require_POST
 def subject_save_ajax(request):
@@ -203,6 +214,7 @@ def subject_save_ajax(request):
     })
 
 
+@admin_required_api
 @login_required(login_url='login')
 @require_POST
 def subject_delete_ajax(request, pk):
@@ -211,3 +223,118 @@ def subject_delete_ajax(request, pk):
     subject.delete()
     messages.success(request, f'Subject "{code}" has been deleted successfully.')
     return JsonResponse({'status': 'deleted'})
+
+
+@login_required(login_url='login')
+@admin_required
+def subject_export_excel(request):
+    subjects = Subject.objects.select_related('program', 'prerequisite').all().order_by('program__code', 'code')
+    wb = queryset_to_excel(
+        subjects,
+        ['program__code', 'code', 'name', 'units', 'lec_hours', 'lab_hours', 'academic_year', 'year_level', 'semester', 'prerequisite__code'],
+        sheet_name='Subjects',
+        title='Subjects Export',
+    )
+    return workbook_to_response(wb, 'subjects_export.xlsx')
+
+
+@admin_required_api
+@login_required(login_url='login')
+@require_POST
+def subject_import_excel(request):
+    if 'file' not in request.FILES:
+        return JsonResponse({'error': 'No file uploaded.'}, status=400)
+
+    uploaded_file = request.FILES['file']
+    try:
+        data = excel_to_dict_list(uploaded_file.read())
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
+
+    created = 0
+    errors = []
+    for idx, row in enumerate(data, start=2):
+        program_code = get_str(row, 'program_code')
+        code = get_str(row, 'code')
+        name = get_str(row, 'name')
+        units = get_str(row, 'units')
+        lec_hours = get_str(row, 'lec_hours')
+        lab_hours = get_str(row, 'lab_hours')
+        academic_year = get_str(row, 'academic_year')
+        year_level = get_str(row, 'year_level')
+        semester = get_str(row, 'semester')
+        prereq_code = get_str(row, 'prerequisite_code')
+
+        if not program_code or not code or not name or not units or not academic_year or not year_level or not semester:
+            errors.append(f'Row {idx}: program_code, code, name, units, academic_year, year_level, and semester are required.')
+            continue
+
+        try:
+            program = Program.objects.get(code=program_code)
+        except Program.DoesNotExist:
+            errors.append(f'Row {idx}: program with code "{program_code}" not found.')
+            continue
+
+        try:
+            units_val = float(units)
+        except ValueError:
+            errors.append(f'Row {idx}: units must be a number.')
+            continue
+
+        try:
+            lec_hours_val = int(lec_hours) if lec_hours else 0
+        except ValueError:
+            errors.append(f'Row {idx}: lec_hours must be a number.')
+            continue
+
+        try:
+            lab_hours_val = int(lab_hours) if lab_hours else 0
+        except ValueError:
+            errors.append(f'Row {idx}: lab_hours must be a number.')
+            continue
+
+        try:
+            year_level_val = int(year_level)
+        except ValueError:
+            errors.append(f'Row {idx}: year_level must be a number.')
+            continue
+
+        try:
+            semester_val = int(semester)
+        except ValueError:
+            errors.append(f'Row {idx}: semester must be a number.')
+            continue
+
+        prerequisite = None
+        if prereq_code:
+            try:
+                prerequisite = Subject.objects.get(code=prereq_code, program=program)
+            except Subject.DoesNotExist:
+                errors.append(f'Row {idx}: prerequisite subject "{prereq_code}" not found in program "{program_code}".')
+                continue
+
+        try:
+            subject, created_flag = Subject.objects.update_or_create(
+                program=program,
+                code=code,
+                academic_year=academic_year,
+                semester=semester_val,
+                defaults={
+                    'name': name,
+                    'units': units_val,
+                    'lec_hours': lec_hours_val,
+                    'lab_hours': lab_hours_val,
+                    'year_level': year_level_val,
+                    'prerequisite': prerequisite,
+                },
+            )
+            if created_flag:
+                created += 1
+        except Exception as e:
+            errors.append(f'Row {idx}: {str(e)}')
+
+    return JsonResponse({
+        'status': 'success',
+        'created': created,
+        'errors': errors,
+    })

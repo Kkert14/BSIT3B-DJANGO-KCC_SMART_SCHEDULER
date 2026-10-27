@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -9,6 +9,16 @@ from django.db import IntegrityError
 
 from apps.building.models import Building
 from .models import Room
+from apps.users.decorators import admin_required, admin_required_api
+from apps.utils.import_export import (
+    excel_to_dict_list,
+    get_str,
+    get_value,
+    parse_bool,
+    parse_time,
+    queryset_to_excel,
+    workbook_to_response,
+)
 
 
 @login_required(login_url='login')
@@ -77,6 +87,7 @@ def room_get_ajax(request, pk):
     })
 
 
+@admin_required_api
 @login_required(login_url='login')
 @require_POST
 def room_save_ajax(request):
@@ -138,6 +149,76 @@ def room_save_ajax(request):
     })
 
 
+@login_required(login_url='login')
+@admin_required
+def room_export_excel(request):
+    rooms = Room.objects.select_related('building').all().order_by('building__code', 'room_name')
+    wb = queryset_to_excel(
+        rooms,
+        ['building__code', 'room_name', 'room_type', 'capacity', 'is_active'],
+        sheet_name='Rooms',
+        title='Rooms Export',
+    )
+    return workbook_to_response(wb, 'rooms_export.xlsx')
+
+
+@admin_required_api
+@login_required(login_url='login')
+@require_POST
+def room_import_excel(request):
+    if 'file' not in request.FILES:
+        return JsonResponse({'error': 'No file uploaded.'}, status=400)
+
+    uploaded_file = request.FILES['file']
+    try:
+        data = excel_to_dict_list(uploaded_file.read())
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
+
+    created = 0
+    errors = []
+    for idx, row in enumerate(data, start=2):
+        building_code = get_str(row, 'building_code')
+        room_name = get_str(row, 'room_name')
+        room_type = get_str(row, 'room_type', 'Classroom')
+        capacity = get_str(row, 'capacity')
+        is_active = parse_bool(get_value(row, 'is_active'))
+
+        if not building_code or not room_name:
+            errors.append(f'Row {idx}: building_code and room_name are required.')
+            continue
+
+        try:
+            building = Building.objects.get(code=building_code)
+        except Building.DoesNotExist:
+            errors.append(f'Row {idx}: building with code "{building_code}" not found.')
+            continue
+
+        try:
+            capacity_val = int(capacity) if capacity else 1
+        except ValueError:
+            errors.append(f'Row {idx}: capacity must be a number.')
+            continue
+
+        try:
+            room, created_flag = Room.objects.update_or_create(
+                building=building,
+                room_name=room_name,
+                defaults={'room_type': room_type, 'capacity': capacity_val, 'is_active': is_active},
+            )
+            if created_flag:
+                created += 1
+        except Exception as e:
+            errors.append(f'Row {idx}: {str(e)}')
+
+    return JsonResponse({
+        'status': 'success',
+        'created': created,
+        'errors': errors,
+    })
+
+
+@admin_required_api
 @login_required(login_url='login')
 @require_POST
 def room_delete_ajax(request, pk):

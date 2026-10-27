@@ -11,4 +11,6 @@ urlpatterns = [
     path('ajax/get/<int:pk>/', views.user_get_ajax, name='user_get_ajax'),
     path('ajax/save/', views.user_save_ajax, name='user_save_ajax'),
     path('ajax/delete/<int:pk>/', views.user_delete_ajax, name='user_delete_ajax'),
+    path('export/excel/', views.user_export_excel, name='user_export_excel'),
+    path('import/excel/', views.user_import_excel, name='user_import_excel'),
 ]

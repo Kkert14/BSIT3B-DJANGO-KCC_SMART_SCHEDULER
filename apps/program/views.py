@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -8,6 +8,16 @@ from django.db.models import Q
 from django.db import IntegrityError
 
 from .models import Program
+from apps.users.decorators import admin_required, admin_required_api
+from apps.utils.import_export import (
+    excel_to_dict_list,
+    get_str,
+    get_value,
+    parse_bool,
+    parse_time,
+    queryset_to_excel,
+    workbook_to_response,
+)
 
 
 @login_required(login_url='login')
@@ -60,6 +70,7 @@ def program_get_ajax(request, pk):
     })
 
 
+@admin_required_api
 @login_required(login_url='login')
 @require_POST
 def program_save_ajax(request):
@@ -105,6 +116,61 @@ def program_save_ajax(request):
     })
 
 
+@login_required(login_url='login')
+@admin_required
+def program_export_excel(request):
+    programs = Program.objects.all().order_by('code')
+    wb = queryset_to_excel(
+        programs,
+        ['code', 'name', 'is_active'],
+        sheet_name='Programs',
+        title='Programs Export',
+    )
+    return workbook_to_response(wb, 'programs_export.xlsx')
+
+
+@admin_required_api
+@login_required(login_url='login')
+@require_POST
+def program_import_excel(request):
+    if 'file' not in request.FILES:
+        return JsonResponse({'error': 'No file uploaded.'}, status=400)
+
+    uploaded_file = request.FILES['file']
+    try:
+        data = excel_to_dict_list(uploaded_file.read())
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
+
+    created = 0
+    errors = []
+    for idx, row in enumerate(data, start=2):
+        code = get_str(row, 'code')
+        name = get_str(row, 'name')
+        is_active = parse_bool(get_value(row, 'is_active'))
+
+        if not code or not name:
+            errors.append(f'Row {idx}: code and name are required.')
+            continue
+
+        try:
+            program, created_flag = Program.objects.update_or_create(
+                code=code,
+                defaults={'name': name, 'is_active': is_active},
+            )
+            if created_flag:
+                created += 1
+        except Exception as e:
+            errors.append(f'Row {idx}: {str(e)}')
+
+    return JsonResponse({
+        'status': 'success',
+        'created': created,
+        'errors': errors,
+    })
+
+
+@admin_required_api
 @login_required(login_url='login')
 @require_POST
 def program_delete_ajax(request, pk):

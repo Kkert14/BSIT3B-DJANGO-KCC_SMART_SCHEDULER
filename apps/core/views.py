@@ -19,6 +19,8 @@ from apps.teacher.models import Teacher
 from apps.subject.models import Subject
 from apps.section.models import Section
 from apps.rooms.models import Room
+from apps.users.decorators import is_admin, is_teacher, is_student
+from apps.users.models import LoginAttempt
 
 MAX_FAILED_ATTEMPTS = 5
 LOCK_DURATION = timedelta(minutes=1)
@@ -26,37 +28,41 @@ INVALID_LOGIN_MESSAGE = 'Invalid username or password.'
 LOCKED_MESSAGE = 'Too many failed attempts. Locked for 1 minute.'
 
 
-def _reset_lock_state(request):
-    request.session['failed_attempts'] = 0
-    request.session['lock_time'] = None
+def _get_lock_state(username):
+    """Return ``(failed_attempts, seconds_remaining)`` for ``username``.
 
-
-def _get_lock_state(request):
-    failed_attempts = request.session.get('failed_attempts', 0)
-    lock_time = request.session.get('lock_time')
-
-    if not lock_time:
-        return failed_attempts, None
-
+    ``seconds_remaining`` is ``None`` when the account is not locked.
+    """
     try:
-        unlock_time = timezone.datetime.fromisoformat(lock_time)
-    except (TypeError, ValueError):
-        _reset_lock_state(request)
+        attempt = LoginAttempt.objects.get(username=username)
+    except LoginAttempt.DoesNotExist:
         return 0, None
 
-    if timezone.now() < unlock_time:
-        remaining = int((unlock_time - timezone.now()).total_seconds())
-        return failed_attempts, remaining
+    if attempt.locked_until is not None:
+        if attempt.is_locked:
+            return attempt.failed_count, attempt.seconds_remaining()
 
-    _reset_lock_state(request)
-    return 0, None
+        # The lock has expired, so the account is usable again.
+        attempt.delete()
+        return 0, None
+
+    # Not locked - keep counting the failures that have not added up yet.
+    return attempt.failed_count, None
 
 
-def _set_lock_state(request):
-    lock_until = timezone.now() + LOCK_DURATION
-    request.session['failed_attempts'] = MAX_FAILED_ATTEMPTS
-    request.session['lock_time'] = lock_until.isoformat()
-    return int(LOCK_DURATION.total_seconds())
+def _register_failure(username):
+    """Record a failed sign-in and lock the account when the limit is hit."""
+    attempt, _ = LoginAttempt.objects.get_or_create(username=username)
+    attempt.failed_count += 1
+    if attempt.failed_count >= MAX_FAILED_ATTEMPTS:
+        attempt.locked_until = timezone.now() + LOCK_DURATION
+    attempt.save()
+    return attempt
+
+
+def _reset_lock_state(username):
+    """Clear the failure counter after a successful sign-in."""
+    LoginAttempt.objects.filter(username=username).delete()
 
 
 def _validate_registration_data(data):
@@ -112,31 +118,31 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
 
-    failed_attempts, remaining = _get_lock_state(request)
-    if remaining is not None:
-        messages.error(request, f'Too many failed attempts. Try again in {remaining} seconds.')
-        return render(request, 'auth/login.html', {'locked': True, 'remaining': remaining})
-
     if request.method == 'GET':
         return render(request, 'auth/login.html')
 
     username = request.POST.get('username', '').strip()
+
+    failed_attempts, remaining = _get_lock_state(username)
+    if remaining is not None:
+        messages.error(request, f'Too many failed attempts. Try again in {remaining} seconds.')
+        return render(request, 'auth/login.html', {'locked': True, 'remaining': remaining})
+
     password = request.POST.get('password', '')
     user = authenticate(request, username=username, password=password)
 
     if user is not None:
-        _reset_lock_state(request)
+        _reset_lock_state(username)
         login(request, user)
         return redirect('dashboard')
 
-    failed_attempts += 1
-    request.session['failed_attempts'] = failed_attempts
-    if failed_attempts >= MAX_FAILED_ATTEMPTS:
-        remaining = _set_lock_state(request)
+    attempt = _register_failure(username)
+    if attempt.failed_count >= MAX_FAILED_ATTEMPTS:
+        remaining = attempt.seconds_remaining()
         messages.error(request, LOCKED_MESSAGE)
         return render(request, 'auth/login.html', {'locked': True, 'remaining': remaining})
 
-    remaining_attempts = MAX_FAILED_ATTEMPTS - failed_attempts
+    remaining_attempts = MAX_FAILED_ATTEMPTS - attempt.failed_count
     messages.error(request, f'{INVALID_LOGIN_MESSAGE} {remaining_attempts} attempts remaining.')
     return render(request, 'auth/login.html')
 
@@ -148,75 +154,53 @@ def logout_view(request):
 
 @login_required(login_url='login')
 def home(request):
-    schedules = Schedule.objects.select_related(
-        'teacher', 'subject', 'section', 'room'
-    ).order_by('day_of_week', 'start_time')
-
-    # Standard academic time slots (start_time -> end_time)
-    time_slots = [
-        ('07:00', '08:00'),
-        ('08:00', '09:00'),
-        ('09:00', '10:00'),
-        ('10:00', '11:00'),
-        ('11:00', '12:00'),
-        ('12:00', '13:00'),
-        ('13:00', '14:00'),
-        ('14:00', '15:00'),
-        ('15:00', '16:00'),
-        ('16:00', '17:00'),
-        ('17:00', '18:00'),
-    ]
-
-    DAYS = [
-        (1, 'Monday'),
-        (2, 'Tuesday'),
-        (3, 'Wednesday'),
-        (4, 'Thursday'),
-        (5, 'Friday'),
-        (6, 'Saturday'),
-        (7, 'Sunday'),
-    ]
-
-    # Build lookup: (day_number, time_key) -> schedule
-    schedule_lookup = {}
-    for s in schedules:
-        key = f'{s.start_time.strftime("%H:%M")}-{s.end_time.strftime("%H:%M")}'
-        schedule_lookup[(s.day_of_week, key)] = s
-
-    # Build timetable rows: each row = one time slot with 7 day cells
-    timetable_rows = []
-    for start, end in time_slots:
-        key = f'{start}-{end}'
-        cells = []
-        for day_num, day_name in DAYS:
-            sched = schedule_lookup.get((day_num, key))
-            cells.append({
-                'day_num': day_num,
-                'day_name': day_name,
-                'schedule': sched,
-            })
-        timetable_rows.append({
-            'start': start,
-            'end': end,
-            'key': key,
-            'cells': cells,
-        })
-
-    stats = {
-        'total_buildings': Building.objects.count(),
-        'total_programs': Program.objects.count(),
-        'total_teachers': Teacher.objects.count(),
-        'total_sections': Section.objects.count(),
-        'total_subjects': Subject.objects.count(),
-        'total_rooms': Room.objects.count(),
-        'total_schedules': Schedule.objects.count(),
-    }
+    # Role-based stats
+    if is_admin(request.user):
+        stats = {
+            'total_buildings': Building.objects.count(),
+            'total_programs': Program.objects.count(),
+            'total_teachers': Teacher.objects.count(),
+            'total_sections': Section.objects.count(),
+            'total_subjects': Subject.objects.count(),
+            'total_rooms': Room.objects.count(),
+            'total_schedules': Schedule.objects.count(),
+        }
+    elif is_teacher(request.user):
+        try:
+            teacher = Teacher.objects.get(user=request.user)
+            stats = {
+                'total_buildings': Building.objects.count(),
+                'total_programs': Program.objects.count(),
+                'total_teachers': Teacher.objects.count(),
+                'total_sections': Section.objects.count(),
+                'total_subjects': Subject.objects.count(),
+                'total_rooms': Room.objects.count(),
+                'total_schedules': Schedule.objects.filter(teacher=teacher).count(),
+            }
+        except Teacher.DoesNotExist:
+            stats = {
+                'total_buildings': 0,
+                'total_programs': 0,
+                'total_teachers': 0,
+                'total_sections': 0,
+                'total_subjects': 0,
+                'total_rooms': 0,
+                'total_schedules': 0,
+            }
+    else:  # student
+        stats = {
+            'total_buildings': Building.objects.count(),
+            'total_programs': Program.objects.count(),
+            'total_teachers': Teacher.objects.count(),
+            'total_sections': Section.objects.count(),
+            'total_subjects': Subject.objects.count(),
+            'total_rooms': Room.objects.count(),
+            'total_schedules': Schedule.objects.count(),
+        }
 
     return render(request, 'home.html', {
-        'timetable_rows': timetable_rows,
-        'DAYS': DAYS,
-        'time_slots': time_slots,
         'stats': stats,
+        'user_role': request.user.profile.role if hasattr(request.user, 'profile') else 'student',
     })
 
 

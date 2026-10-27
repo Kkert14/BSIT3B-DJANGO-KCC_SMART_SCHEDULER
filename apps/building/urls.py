@@ -9,4 +9,6 @@ urlpatterns = [
     path('ajax/get/<int:pk>/', views.building_get_ajax, name='building_get_ajax'),
     path('ajax/save/', views.building_save_ajax, name='building_save_ajax'),
     path('ajax/delete/<int:pk>/', views.building_delete_ajax, name='building_delete_ajax'),
+    path('export/excel/', views.building_export_excel, name='building_export_excel'),
+    path('import/excel/', views.building_import_excel, name='building_import_excel'),
 ]
