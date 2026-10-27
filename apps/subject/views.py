@@ -30,13 +30,13 @@ def subject_list_page(request):
         subjects_list = subjects_list.filter(
             Q(code__icontains=query) |
             Q(name__icontains=query) |
-            Q(program__code__icontains=query) |
+            Q(program__program_code__icontains=query) |
             Q(semester__curriculum__academic_year__icontains=query)
         )
     paginator = Paginator(subjects_list, 10)
     page_number = request.GET.get('page', 1)
     subjects = paginator.get_page(page_number)
-    programs = Program.objects.filter(is_active=True).order_by('code')
+    programs = Program.objects.filter(is_active=True).order_by('program_code')
     semesters = Semester.objects.select_related('curriculum').all().order_by('curriculum__academic_year', 'semester_number')
     all_subjects = Subject.objects.all().order_by('code')
     return render(request, 'subject_list.html', {
@@ -56,7 +56,7 @@ def subject_list_ajax(request):
         subjects_list = subjects_list.filter(
             Q(code__icontains=query) |
             Q(name__icontains=query) |
-            Q(program__code__icontains=query) |
+            Q(program__program_code__icontains=query) |
             Q(semester__curriculum__academic_year__icontains=query)
         )
     paginator = Paginator(subjects_list, 10)
@@ -235,10 +235,10 @@ def subject_delete_ajax(request, pk):
 @login_required(login_url='login')
 @admin_required
 def subject_export_excel(request):
-    subjects = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all().order_by('program__code', 'code')
+    subjects = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all().order_by('program__program_code', 'code')
     wb = queryset_to_excel(
         subjects,
-        ['program__code', 'code', 'name', 'units', 'lec_hours', 'lab_hours', 'semester__curriculum__academic_year', 'semester__semester_number', 'year_level', 'semester__curriculum__code', 'prerequisite__code'],
+        ['program__program_code', 'code', 'name', 'units', 'lec_hours', 'lab_hours', 'semester__curriculum__academic_year', 'semester__semester_number', 'year_level', 'semester__curriculum__code', 'prerequisite__code'],
         sheet_name='Subjects',
         title='Subjects Export',
     )
@@ -261,7 +261,7 @@ def subject_import_excel(request):
     created = 0
     errors = []
     for idx, row in enumerate(data, start=2):
-        program_code = get_str(row, 'program_code')
+        program_code = get_str(row, 'program_program_code')
         code = get_str(row, 'code')
         name = get_str(row, 'name')
         units = get_str(row, 'units')
@@ -273,11 +273,11 @@ def subject_import_excel(request):
         prereq_code = get_str(row, 'prerequisite_code')
 
         if not program_code or not code or not name or not units or not curriculum_code or not semester_number or not year_level:
-            errors.append(f'Row {idx}: program_code, code, name, units, semester_curriculum_code, semester_semester_number, year_level, and units are required.')
+            errors.append(f'Row {idx}: program_program_code, code, name, units, semester_curriculum_code, semester_semester_number, year_level, and units are required.')
             continue
 
         try:
-            program = Program.objects.get(code=program_code)
+            program = Program.objects.get(program_code=program_code)
         except Program.DoesNotExist:
             errors.append(f'Row {idx}: program with code "{program_code}" not found.')
             continue

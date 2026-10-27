@@ -88,7 +88,7 @@
             <td class="text-muted">{{ forloop.counter0|add:subjects.start_index }}</td>
             <td class="fw-semibold">{{ subject.code }}</td>
             <td class="text-muted">{{ subject.name }}</td>
-            <td class="text-muted">{{ subject.program.code }}</td>
+            <td class="text-muted">{{ subject.program.program_code }}</td>
             <td>{{ subject.year_level }}</td>
             <td>{{ subject.semester }}</td>
             <td>{{ subject.units }}</td>
@@ -421,7 +421,7 @@
           </div>
           <div class="alert alert-info">
             <small>
-              <strong>Required columns:</strong> program_code, code, name, units, lec_hours, lab_hours, curriculum_code, semester_number, year_level<br>
+              <strong>Required columns:</strong> program_program_code, code, name, units, lec_hours, lab_hours, semester_curriculum_code, semester_semester_number, year_level<br>
               Optional: prerequisite_code<br>
               Example: BSMA, BSMA101, Mathematics Orientation, 3.0, 3, 0, 2026-2027, 1, 1,
             </small>

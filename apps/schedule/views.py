@@ -600,8 +600,8 @@ def schedule_export_excel(request):
         [
             'semester__curriculum__code', 'semester__semester_number',
             'teacher__employee_number',
-            'subject__code', 'subject__program__code',
-            'section__name', 'section__program__code',
+            'subject__code', 'subject__program__program_code',
+            'section__name', 'section__program__program_code',
             'room__room_name', 'room__building__code',
             'class_type', 'day_of_week', 'start_time', 'end_time',
         ],
@@ -631,9 +631,9 @@ def schedule_import_excel(request):
         semester_number = get_str(row, 'semester_semester_number')
         teacher_emp = get_str(row, 'teacher__employee_number')
         subject_code = get_str(row, 'subject__code')
-        subject_program_code = get_str(row, 'subject__program__code')
+        subject_program_code = get_str(row, 'subject_program_program_code')
         section_name = get_str(row, 'section__name')
-        section_program_code = get_str(row, 'section__program__code')
+        section_program_code = get_str(row, 'section_program_program_code')
         room_name = get_str(row, 'room__room_name')
         building_code = get_str(row, 'room__building__code')
         class_type = get_str(row, 'class_type', 'Lecture')
@@ -668,7 +668,7 @@ def schedule_import_excel(request):
         try:
             subject_qs = Subject.objects.filter(code=subject_code, semester=semester)
             if subject_program_code:
-                subject_qs = subject_qs.filter(program__code=subject_program_code)
+                subject_qs = subject_qs.filter(program__program_code=subject_program_code)
             subject = _resolve_unique(
                 subject_qs,
                 f'subject with code "{subject_code}"',
@@ -682,7 +682,7 @@ def schedule_import_excel(request):
         try:
             section_qs = Section.objects.filter(name=section_name, semester=semester)
             if section_program_code:
-                section_qs = section_qs.filter(program__code=section_program_code)
+                section_qs = section_qs.filter(program__program_code=section_program_code)
             section = _resolve_unique(
                 section_qs,
                 f'section with name "{section_name}"',

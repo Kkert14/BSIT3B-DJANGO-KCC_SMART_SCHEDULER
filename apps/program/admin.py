@@ -5,7 +5,7 @@ from .models import Program
 
 @admin.register(Program)
 class ProgramAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name', 'is_active')
+    list_display = ('program_code', 'program_description', 'is_active')
     list_filter = ('is_active',)
-    search_fields = ('code', 'name')
+    search_fields = ('program_code', 'program_description')
     list_editable = ('is_active',)

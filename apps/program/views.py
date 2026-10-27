@@ -26,7 +26,7 @@ def program_list_page(request):
     programs_list = Program.objects.all()
     if query:
         programs_list = programs_list.filter(
-            Q(code__icontains=query) | Q(name__icontains=query)
+            Q(program_code__icontains=query) | Q(program_description__icontains=query)
         )
     paginator = Paginator(programs_list, 10)
     page_number = request.GET.get('page', 1)
@@ -43,12 +43,12 @@ def program_list_ajax(request):
     programs_list = Program.objects.all()
     if query:
         programs_list = programs_list.filter(
-            Q(code__icontains=query) | Q(name__icontains=query)
+            Q(program_code__icontains=query) | Q(program_description__icontains=query)
         )
     paginator = Paginator(programs_list, 10)
     page_number = request.GET.get('page', 1)
     programs = paginator.get_page(page_number)
-    data = list(programs.object_list.values('id', 'code', 'name', 'is_active'))
+    data = list(programs.object_list.values('id', 'program_code', 'program_description', 'is_active'))
     return JsonResponse({
         'data': data,
         'has_next': programs.has_next(),
@@ -64,8 +64,8 @@ def program_get_ajax(request, pk):
     program = get_object_or_404(Program, pk=pk)
     return JsonResponse({
         'id': program.id,
-        'code': program.code,
-        'name': program.name,
+        'program_code': program.program_code,
+        'program_description': program.program_description,
         'is_active': program.is_active,
     })
 
@@ -80,25 +80,25 @@ def program_save_ajax(request):
     else:
         program = Program()
 
-    code = request.POST.get('code', '').strip()
-    name = request.POST.get('name', '').strip()
+    program_code = request.POST.get('program_code', '').strip()
+    program_description = request.POST.get('program_description', '').strip()
     is_active = request.POST.get('is_active') == 'true'
 
-    if not code:
-        return JsonResponse({'error': 'Code is required.'}, status=400)
-    if not name:
-        return JsonResponse({'error': 'Name is required.'}, status=400)
+    if not program_code:
+        return JsonResponse({'error': 'Program code is required.'}, status=400)
+    if not program_description:
+        return JsonResponse({'error': 'Program description is required.'}, status=400)
 
-    dup_qs = Program.objects.filter(Q(code=code) | Q(name=name))
+    dup_qs = Program.objects.filter(Q(program_code=program_code) | Q(program_description=program_description))
     if program_id:
         dup_qs = dup_qs.exclude(pk=program_id)
-    if dup_qs.filter(code=code).exists():
+    if dup_qs.filter(program_code=program_code).exists():
         return JsonResponse({'error': 'That program code is already taken.'}, status=400)
-    if dup_qs.filter(name=name).exists():
-        return JsonResponse({'error': 'That program name is already in use.'}, status=400)
+    if dup_qs.filter(program_description=program_description).exists():
+        return JsonResponse({'error': 'That program description is already in use.'}, status=400)
 
-    program.code = code
-    program.name = name
+    program.program_code = program_code
+    program.program_description = program_description
     program.is_active = is_active
 
     try:
@@ -106,12 +106,12 @@ def program_save_ajax(request):
     except IntegrityError:
         return JsonResponse({'error': 'Could not save program due to a conflict.'}, status=400)
 
-    messages.success(request, f'Program "{program.code}" has been saved successfully.')
+    messages.success(request, f'Program "{program.program_code}" has been saved successfully.')
     return JsonResponse({
         'status': 'success',
         'id': program.id,
-        'code': program.code,
-        'name': program.name,
+        'program_code': program.program_code,
+        'program_description': program.program_description,
         'is_active': program.is_active,
     })
 
@@ -119,10 +119,10 @@ def program_save_ajax(request):
 @login_required(login_url='login')
 @admin_required
 def program_export_excel(request):
-    programs = Program.objects.all().order_by('code')
+    programs = Program.objects.all().order_by('program_code')
     wb = queryset_to_excel(
         programs,
-        ['code', 'name', 'is_active'],
+        ['program_code', 'program_description', 'is_active'],
         sheet_name='Programs',
         title='Programs Export',
     )
@@ -145,18 +145,18 @@ def program_import_excel(request):
     created = 0
     errors = []
     for idx, row in enumerate(data, start=2):
-        code = get_str(row, 'code')
-        name = get_str(row, 'name')
+        program_code = get_str(row, 'program_code')
+        program_description = get_str(row, 'program_description')
         is_active = parse_bool(get_value(row, 'is_active'))
 
-        if not code or not name:
-            errors.append(f'Row {idx}: code and name are required.')
+        if not program_code or not program_description:
+            errors.append(f'Row {idx}: program_code and program_description are required.')
             continue
 
         try:
             program, created_flag = Program.objects.update_or_create(
-                code=code,
-                defaults={'name': name, 'is_active': is_active},
+                program_code=program_code,
+                defaults={'program_description': program_description, 'is_active': is_active},
             )
             if created_flag:
                 created += 1
@@ -175,7 +175,7 @@ def program_import_excel(request):
 @require_POST
 def program_delete_ajax(request, pk):
     program = get_object_or_404(Program, pk=pk)
-    code = program.code
+    program_code = program.program_code
     program.delete()
-    messages.success(request, f'Program "{code}" has been deleted successfully.')
+    messages.success(request, f'Program "{program_code}" has been deleted successfully.')
     return JsonResponse({'status': 'deleted'})

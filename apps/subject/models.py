@@ -35,7 +35,7 @@ class Subject(models.Model):
     class Meta:
         db_table = 'subjects'
         unique_together = [['program', 'code', 'semester']]
-        ordering = ['program__code', 'code']
+        ordering = ['program__program_code', 'code']
 
     def __str__(self):
         return f"{self.code} — {self.name}"

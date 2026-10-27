@@ -68,8 +68,8 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Code</th>
-            <th>Name</th>
+            <th>Program Code</th>
+            <th>Program Description</th>
             <th>Status</th>
             {% if can_manage %}
             <th class="w-1">Actions</th>
@@ -80,8 +80,8 @@
         {% for program in programs %}
         <tr data-row-id="{{ program.id }}">
             <td class="text-muted">{{ forloop.counter0|add:programs.start_index }}</td>
-            <td class="fw-semibold">{{ program.code }}</td>
-            <td class="text-muted">{{ program.name }}</td>
+            <td class="fw-semibold">{{ program.program_code }}</td>
+            <td class="text-muted">{{ program.program_description }}</td>
             <td>
               {% if program.is_active %}
               <span class="badge bg-success-lt text-success">Active</span>
@@ -92,10 +92,10 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#programModal" data-mode="edit" data-id="{{ program.id }}" data-code="{{ program.code }}" data-name="{{ program.name }}" data-active="{{ program.is_active|yesno:'true,false' }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#programModal" data-mode="edit" data-id="{{ program.id }}" data-program-code="{{ program.program_code }}" data-program-description="{{ program.program_description }}" data-active="{{ program.is_active|yesno:'true,false' }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteProgramModal" data-id="{{ program.id }}" data-code="{{ program.code }}" title="Delete">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteProgramModal" data-id="{{ program.id }}" data-program-code="{{ program.program_code }}" title="Delete">
                   <i class="fas fa-trash-alt text-danger"></i>
                 </button>
               </div>
@@ -166,12 +166,12 @@
           <div id="programFormError" class="alert alert-danger d-none"></div>
           <div class="row g-3">
             <div class="col-12">
-              <label class="form-label">Code</label>
-              <input type="text" name="code" id="program_code" class="form-control" required>
+              <label class="form-label">Program Code</label>
+              <input type="text" name="program_code" id="program_program_code" class="form-control" required>
             </div>
             <div class="col-12">
-              <label class="form-label">Name</label>
-              <input type="text" name="name" id="program_name" class="form-control" required>
+              <label class="form-label">Program Description</label>
+              <input type="text" name="program_description" id="program_program_description" class="form-control" required>
             </div>
             <div class="col-12">
               <div class="form-check form-switch mt-1">
@@ -248,8 +248,8 @@
       submitBtn.textContent = 'Update Program';
       currentId = button.getAttribute('data-id');
       document.getElementById('program_id').value = currentId;
-      document.getElementById('program_code').value = button.getAttribute('data-code');
-      document.getElementById('program_name').value = button.getAttribute('data-name');
+      document.getElementById('program_program_code').value = button.getAttribute('data-program-code');
+      document.getElementById('program_program_description').value = button.getAttribute('data-program-description');
       document.getElementById('program_is_active').checked = button.getAttribute('data-active') === 'true';
     } else {
       resetForm();
@@ -260,7 +260,7 @@
     const button = event.relatedTarget;
     if (button) {
       currentId = button.getAttribute('data-id');
-      deleteName.textContent = button.getAttribute('data-code');
+      deleteName.textContent = button.getAttribute('data-program-code');
     }
   });
 
@@ -372,7 +372,7 @@
           </div>
           <div class="alert alert-info">
             <small>
-              <strong>Required columns:</strong> code, name, is_active (true/false)<br>
+              <strong>Required columns:</strong> program_code, program_description, is_active (true/false)<br>
               Example: BSCS, Bachelor of Science in Computer Science, true
             </small>
           </div>

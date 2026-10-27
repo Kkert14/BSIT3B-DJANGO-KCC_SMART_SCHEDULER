@@ -139,14 +139,14 @@ class BuildingRoundTripTests(RoundTripTestMixin, TestCase):
 
 class ProgramRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_then_import(self):
-        Program.objects.create(code='RT_P1', name='RT Program One', is_active=True)
+        Program.objects.create(program_code='RT_P1', program_description='RT Program One', is_active=True)
 
         content = self.export('/programs/export/excel/')
         result = self.reimport('/programs/import/excel/', content)
 
         self.assertEqual(result['errors'], [])
         self.assertEqual(Program.objects.count(), 1)
-        self.assertEqual(Program.objects.get(code='RT_P1').name, 'RT Program One')
+        self.assertEqual(Program.objects.get(program_code='RT_P1').program_description, 'RT Program One')
 
 
 class RoomRoundTripTests(RoundTripTestMixin, TestCase):
@@ -170,7 +170,7 @@ class RoomRoundTripTests(RoundTripTestMixin, TestCase):
 
 class SectionRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_then_import(self):
-        program = Program.objects.create(code='RT_SP', name='RT Program')
+        program = Program.objects.create(program_code='RT_SP', program_description='RT Program')
         curriculum = Curriculum.objects.create(
             code='RT_CURR', name='RT Curriculum', program=program, academic_year='2024-2025'
         )
@@ -188,7 +188,7 @@ class SectionRoundTripTests(RoundTripTestMixin, TestCase):
         self.assertEqual(result['errors'], [], f'import reported errors: {result["errors"]}')
         self.assertEqual(Section.objects.count(), 1)
         section = Section.objects.get(name='RT1A')
-        self.assertEqual(section.program.code, 'RT_SP')
+        self.assertEqual(section.program.program_code, 'RT_SP')
         self.assertEqual(section.year_level, 1)
         self.assertEqual(section.semester.curriculum.academic_year, '2024-2025')
         self.assertEqual(section.semester.semester_number, 1)
@@ -196,7 +196,7 @@ class SectionRoundTripTests(RoundTripTestMixin, TestCase):
 
 class SubjectRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_then_import(self):
-        program = Program.objects.create(code='RT_SJ', name='RT Program')
+        program = Program.objects.create(program_code='RT_SJ', program_description='RT Program')
         curriculum = Curriculum.objects.create(
             code='RT_CURR2', name='RT Curriculum', program=program, academic_year='2024-2025'
         )
@@ -215,14 +215,14 @@ class SubjectRoundTripTests(RoundTripTestMixin, TestCase):
         self.assertEqual(result['errors'], [], f'import reported errors: {result["errors"]}')
         self.assertEqual(Subject.objects.count(), 1)
         subject = Subject.objects.get(code='RTCS101')
-        self.assertEqual(subject.program.code, 'RT_SJ')
+        self.assertEqual(subject.program.program_code, 'RT_SJ')
         self.assertEqual(float(subject.units), 3.0)
         self.assertEqual(subject.lec_hours, 3)
         self.assertEqual(subject.semester.semester_number, 1)
         self.assertEqual(subject.semester.curriculum.academic_year, '2024-2025')
 
     def test_blank_prerequisite_cell_does_not_become_none_string(self):
-        program = Program.objects.create(code='RT_SK', name='RT Program')
+        program = Program.objects.create(program_code='RT_SK', program_description='RT Program')
         curriculum = Curriculum.objects.create(
             code='RT_CURR3', name='RT Curriculum', program=program, academic_year='2024-2025'
         )
@@ -293,7 +293,7 @@ class UserRoundTripTests(RoundTripTestMixin, TestCase):
 class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
     def setUp(self):
         super().setUp()
-        program = Program.objects.create(code='RT_SP2', name='RT Program')
+        program = Program.objects.create(program_code='RT_SP2', program_description='RT Program')
         building = Building.objects.create(code='RT_SB', name='RT Building')
         self.room = Room.objects.create(
             building=building, room_name='RT Room 1',
@@ -353,8 +353,8 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
         content = self.export('/schedules/export/excel/')
         rows = excel_to_dict_list(content)
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]['subject_program_code'], 'RT_SP2')
-        self.assertEqual(rows[0]['section_program_code'], 'RT_SP2')
+        self.assertEqual(rows[0]['subject_program_program_code'], 'RT_SP2')
+        self.assertEqual(rows[0]['section_program_program_code'], 'RT_SP2')
         self.assertEqual(rows[0]['room_building_code'], 'RT_SB')
 
     def _schedule_sheet(self, **overrides):
@@ -363,9 +363,9 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
             'semester_semester_number': 1,
             'teacher__employee_number': 'RT-EMP-9',
             'subject__code': 'RTCS201',
-            'subject__program__code': 'RT_SP2',
+            'subject_program_program_code': 'RT_SP2',
             'section__name': 'RT2A',
-            'section__program__code': 'RT_SP2',
+            'section_program_program_code': 'RT_SP2',
             'room__room_name': 'RT Room 1',
             'room__building__code': 'RT_SB',
             'class_type': 'Lecture',
@@ -391,7 +391,7 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
 
     def test_import_rejects_a_teacher_double_booking(self):
         """The import must apply the same conflict rules as the UI."""
-        program = Program.objects.get(code='RT_SP2')
+        program = Program.objects.get(program_code='RT_SP2')
         other_subject = Subject.objects.create(
             program=program, code='RTCS202', name='RT Other Subject', units=3,
             lec_hours=3, lab_hours=0, semester=self.semester,
@@ -432,7 +432,7 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
             contact_number='', is_active=True,
         )
         other_section = Section.objects.create(
-            program=Program.objects.get(code='RT_SP2'), name='RT2B',
+            program=Program.objects.get(program_code='RT_SP2'), name='RT2B',
             year_level=1, semester=self.semester, capacity=40,
         )
         Schedule.objects.create(
@@ -454,21 +454,21 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
 
     def test_import_reports_an_ambiguous_subject_instead_of_crashing(self):
         """Two subjects sharing a code must not raise MultipleObjectsReturned."""
-        Program.objects.create(code='RT_SP9', name='RT Other Program')
+        Program.objects.create(program_code='RT_SP9', program_description='RT Other Program')
         other_curriculum = Curriculum.objects.create(
-            code='RT_CURR9', name='RT Curriculum 9', program=Program.objects.get(code='RT_SP9'), academic_year='2024-2025'
+            code='RT_CURR9', name='RT Curriculum 9', program=Program.objects.get(program_code='RT_SP9'), academic_year='2024-2025'
         )
         other_semester = Semester.objects.create(
             curriculum=other_curriculum, semester_number=1, is_active=True,
         )
         Subject.objects.create(
-            program=Program.objects.get(code='RT_SP9'), code='RTCS201',
+            program=Program.objects.get(program_code='RT_SP9'), code='RTCS201',
             name='RT Subject In Another Program', units=3, lec_hours=3,
             lab_hours=0, semester=other_semester, year_level=1,
         )
 
         result = self._import_rows([self._schedule_sheet(
-            subject__program__code='',
+            subject_program_program_code='',
         )])
 
         # With curriculum_code + semester_number specified, the subject is
@@ -478,15 +478,15 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
         self.assertEqual(Schedule.objects.count(), 1)
 
     def test_import_resolves_an_ambiguous_subject_using_the_program_code(self):
-        Program.objects.create(code='RT_SP9', name='RT Other Program')
+        Program.objects.create(program_code='RT_SP9', program_description='RT Other Program')
         other_curriculum = Curriculum.objects.create(
-            code='RT_CURR10', name='RT Curriculum 10', program=Program.objects.get(code='RT_SP9'), academic_year='2024-2025'
+            code='RT_CURR10', name='RT Curriculum 10', program=Program.objects.get(program_code='RT_SP9'), academic_year='2024-2025'
         )
         other_semester = Semester.objects.create(
             curriculum=other_curriculum, semester_number=1, is_active=True,
         )
         Subject.objects.create(
-            program=Program.objects.get(code='RT_SP9'), code='RTCS201',
+            program=Program.objects.get(program_code='RT_SP9'), code='RTCS201',
             name='RT Subject In Another Program', units=3, lec_hours=3,
             lab_hours=0, semester=other_semester, year_level=1,
         )
@@ -495,7 +495,7 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
 
         self.assertEqual(result['errors'], [])
         self.assertEqual(result['created'], 1)
-        self.assertEqual(Schedule.objects.get().subject.program.code, 'RT_SP2')
+        self.assertEqual(Schedule.objects.get().subject.program.program_code, 'RT_SP2')
 
     def test_import_reports_a_missing_related_row(self):
         result = self._import_rows([self._schedule_sheet(

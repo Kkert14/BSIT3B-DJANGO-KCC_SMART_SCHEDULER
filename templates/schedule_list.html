@@ -408,7 +408,7 @@
               <label class="form-label">Section</label>
               <select name="section" id="schedule_section" class="form-select" required>
                 {% for sec in sections %}
-                <option value="{{ sec.id }}">{{ sec.name }} ({{ sec.program.code }})</option>
+                <option value="{{ sec.id }}">{{ sec.name }} ({{ sec.program.program_code }})</option>
                 {% endfor %}
               </select>
             </div>

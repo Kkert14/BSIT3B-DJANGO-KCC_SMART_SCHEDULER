@@ -33,7 +33,7 @@
             <tr>
               <td><strong>{{ cur.code }}</strong></td>
               <td>{{ cur.name }}</td>
-              <td>{{ cur.program.code }} — {{ cur.program.name }}</td>
+              <td>{{ cur.program.program_code }} — {{ cur.program.program_description }}</td>
               <td>{{ cur.academic_year }}</td>
               <td>
                 {% for sem in cur.semesters.all %}

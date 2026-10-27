@@ -26,7 +26,7 @@ class Section(models.Model):
     class Meta:
         db_table = 'sections'
         unique_together = [['semester', 'program', 'year_level', 'name']]
-        ordering = ['semester', 'program__code', 'year_level', 'name']
+        ordering = ['semester', 'program__program_code', 'year_level', 'name']
 
     def __str__(self):
         return self.name

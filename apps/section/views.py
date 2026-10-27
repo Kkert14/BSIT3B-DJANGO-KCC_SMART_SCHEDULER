@@ -29,14 +29,14 @@ def section_list_page(request):
     if query:
         sections_list = sections_list.filter(
             Q(name__icontains=query) |
-            Q(program__code__icontains=query) |
-            Q(program__name__icontains=query) |
+            Q(program__program_code__icontains=query) |
+            Q(program__program_description__icontains=query) |
             Q(semester__curriculum__academic_year__icontains=query)
         )
     paginator = Paginator(sections_list, 10)
     page_number = request.GET.get('page', 1)
     sections = paginator.get_page(page_number)
-    programs = Program.objects.filter(is_active=True).order_by('code')
+    programs = Program.objects.filter(is_active=True).order_by('program_code')
     semesters = Semester.objects.select_related('curriculum').all().order_by('curriculum__academic_year', 'semester_number')
     return render(request, 'section_list.html', {
         'sections': sections,
@@ -53,8 +53,8 @@ def section_list_ajax(request):
     if query:
         sections_list = sections_list.filter(
             Q(name__icontains=query) |
-            Q(program__code__icontains=query) |
-            Q(program__name__icontains=query) |
+            Q(program__program_code__icontains=query) |
+            Q(program__program_description__icontains=query) |
             Q(semester__curriculum__academic_year__icontains=query)
         )
     paginator = Paginator(sections_list, 10)
@@ -181,10 +181,10 @@ def section_save_ajax(request):
 @login_required(login_url='login')
 @admin_required
 def section_export_excel(request):
-    sections = Section.objects.select_related('program', 'semester__curriculum').all().order_by('program__code', 'name')
+    sections = Section.objects.select_related('program', 'semester__curriculum').all().order_by('program__program_code', 'name')
     wb = queryset_to_excel(
         sections,
-        ['program__code', 'name', 'year_level', 'semester__curriculum__code', 'semester__semester_number', 'capacity', 'is_active'],
+        ['program__program_code', 'name', 'year_level', 'semester__curriculum__code', 'semester__semester_number', 'capacity', 'is_active'],
         sheet_name='Sections',
         title='Sections Export',
     )
@@ -207,7 +207,7 @@ def section_import_excel(request):
     created = 0
     errors = []
     for idx, row in enumerate(data, start=2):
-        program_code = get_str(row, 'program_code')
+        program_code = get_str(row, 'program_program_code')
         name = get_str(row, 'name')
         year_level = get_str(row, 'year_level')
         curriculum_code = get_str(row, 'semester_curriculum_code')
@@ -220,7 +220,7 @@ def section_import_excel(request):
             continue
 
         try:
-            program = Program.objects.get(code=program_code)
+            program = Program.objects.get(program_code=program_code)
         except Program.DoesNotExist:
             errors.append(f'Row {idx}: program with code "{program_code}" not found.')
             continue

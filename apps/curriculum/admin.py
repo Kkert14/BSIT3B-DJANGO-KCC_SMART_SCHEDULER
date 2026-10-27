@@ -7,7 +7,7 @@ from .models import Curriculum, Semester
 class CurriculumAdmin(admin.ModelAdmin):
     list_display = ('code', 'name', 'program', 'academic_year', 'is_active')
     list_filter = ('program', 'academic_year', 'is_active')
-    search_fields = ('code', 'name', 'program__code')
+    search_fields = ('code', 'name', 'program__program_code')
     raw_id_fields = ('program',)
 
 

@@ -84,7 +84,7 @@
         <tr data-row-id="{{ section.id }}">
             <td class="text-muted">{{ forloop.counter0|add:sections.start_index }}</td>
             <td class="fw-semibold">{{ section.name }}</td>
-            <td class="text-muted">{{ section.program.code }}</td>
+            <td class="text-muted">{{ section.program.program_code }}</td>
             <td class="text-muted">{{ section.semester.curriculum.code }} — Sem {{ section.semester.semester_number }}</td>
             <td>{{ section.year_level }}</td>
             <td>{{ section.capacity }}</td>
@@ -403,7 +403,7 @@
           </div>
           <div class="alert alert-info">
             <small>
-              <strong>Required columns:</strong> program_code, name, year_level, curriculum_code, semester_number, capacity, is_active<br>
+              <strong>Required columns:</strong> program_program_code, name, year_level, curriculum_code, semester_number, capacity, is_active<br>
               Example: BSA, SEC-A, 1, 2026-2027, 40, true
             </small>
           </div>
