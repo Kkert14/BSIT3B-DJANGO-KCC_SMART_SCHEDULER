@@ -101,7 +101,7 @@ INSTALLED_APPS = [
     'apps.schedule',
     'apps.section',
     'apps.subject',
-    'apps.teacher',
+    'apps.faculty',
 ]
 
 MIDDLEWARE = [

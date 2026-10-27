@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         ('rooms', '0001_initial'),
         ('section', '0001_initial'),
         ('subject', '0001_initial'),
-        ('teacher', '0001_initial'),
+        ('faculty', '0001_initial'),
     ]
 
     operations = [
@@ -32,7 +32,7 @@ class Migration(migrations.Migration):
                 ('room', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, related_name='schedules', to='rooms.room')),
                 ('section', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, related_name='schedules', to='section.section')),
                 ('subject', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, related_name='schedules', to='subject.subject')),
-                ('teacher', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, related_name='schedules', to='teacher.teacher')),
+                ('teacher', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, related_name='schedules', to='faculty.faculty')),
             ],
             options={
                 'db_table': 'schedules',

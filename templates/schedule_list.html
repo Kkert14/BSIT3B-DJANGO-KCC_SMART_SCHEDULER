@@ -79,8 +79,8 @@
     <div class="col-xl-3 col-md-6">
       <div class="card stat-card">
         <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_teachers }}</h2>
-          <p class="mb-0 text-muted small">Teachers</p>
+          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_faculty }}</h2>
+          <p class="mb-0 text-muted small">Faculty</p>
         </div>
       </div>
     </div>
@@ -218,7 +218,7 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="edit" data-id="{{ sched.id }}" data-semester="{{ sched.semester.id }}" data-curriculum="{{ sched.semester.curriculum.code }}" data-semester-number="{{ sched.semester.semester_number }}" data-teacher="{{ sched.teacher.id }}" data-subject="{{ sched.subject.id }}" data-section="{{ sched.section.id }}" data-room="{{ sched.room.id }}" data-class-type="{{ sched.class_type }}" data-day-of-week="{{ sched.day_of_week }}" data-start-time="{{ sched.start_time }}" data-end-time="{{ sched.end_time }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="edit" data-id="{{ sched.id }}" data-semester="{{ sched.semester.id }}" data-curriculum="{{ sched.semester.curriculum.code }}" data-semester-number="{{ sched.semester.semester_number }}" data-faculty="{{ sched.teacher.id }}" data-subject="{{ sched.subject.id }}" data-section="{{ sched.section.id }}" data-room="{{ sched.room.id }}" data-class-type="{{ sched.class_type }}" data-day-of-week="{{ sched.day_of_week }}" data-start-time="{{ sched.start_time }}" data-end-time="{{ sched.end_time }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteScheduleModal" data-id="{{ sched.id }}" data-name="{{ sched.subject.code }} — {{ sched.section.name }}" title="Delete">
@@ -389,8 +389,8 @@
               </select>
             </div>
             <div class="col-6">
-              <label class="form-label">Teacher</label>
-              <select name="teacher" id="schedule_teacher" class="form-select" required>
+              <label class="form-label">Faculty</label>
+              <select name="faculty" id="schedule_faculty" class="form-select" required>
                 {% for t in teachers %}
                 <option value="{{ t.id }}">{{ t.employee_number }} — {{ t.first_name }} {{ t.last_name }}</option>
                 {% endfor %}
@@ -662,7 +662,7 @@
     currentId = button.getAttribute('data-id');
     document.getElementById('schedule_id').value = currentId;
     document.getElementById('schedule_semester').value = button.getAttribute('data-semester');
-    document.getElementById('schedule_teacher').value = button.getAttribute('data-teacher');
+    document.getElementById('schedule_faculty').value = button.getAttribute('data-faculty');
     document.getElementById('schedule_subject').value = button.getAttribute('data-subject');
     document.getElementById('schedule_section').value = button.getAttribute('data-section');
     document.getElementById('schedule_room').value = button.getAttribute('data-room');

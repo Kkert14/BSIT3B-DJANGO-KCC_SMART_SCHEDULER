@@ -7,9 +7,9 @@
         <div class="col">
           <div class="page-pretitle">Overview</div>
           <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
-            <h2 class="page-title mb-0">Teachers</h2>
+            <h2 class="page-title mb-0">Faculty</h2>
           </div>
-          <h2 class="page-title mb-0 d-md-none">Teachers</h2>
+          <h2 class="page-title mb-0 d-md-none">Faculty</h2>
         </div>
       </div>
     </div>
@@ -20,28 +20,28 @@
     <form method="GET" class="w-100" style="max-width: 420px;">
       <div class="input-group">
         <span class="input-group-text"><i class="ti ti-search"></i></span>
-        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by employee number or name...">
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by employee number, name, email, or position...">
         {% if query %}
-        <a href="{% url 'teacher:teacher_list' %}" class="btn btn-outline-secondary">Clear</a>
+        <a href="{% url 'faculty:faculty_list' %}" class="btn btn-outline-secondary">Clear</a>
         {% endif %}
         <button type="submit" class="btn btn-primary">Search</button>
       </div>
     </form>
 
     {% if can_manage %}
-    <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#teacherModal" data-mode="create">
-      <i class='fas fa-plus-circle me-2'></i> Add Teacher
+    <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#facultyModal" data-mode="create">
+      <i class='fas fa-plus-circle me-2'></i> Add Faculty
     </button>
-    <button type="button" class="btn btn-outline-success mt-n4" onclick="location.href='{% url "teacher:teacher_export_excel" %}'">
+    <button type="button" class="btn btn-outline-success mt-n4" onclick="location.href='{% url "faculty:faculty_export_excel" %}'">
       <i class="fas fa-download me-1"></i> Export Excel
     </button>
-    <button type="button" class="btn btn-outline-primary mt-n4" data-bs-toggle="modal" data-bs-target="#teacherImportModal">
+    <button type="button" class="btn btn-outline-primary mt-n4" data-bs-toggle="modal" data-bs-target="#facultyImportModal">
       <i class="fas fa-upload me-1"></i> Import Excel
     </button>
     {% endif %}
   </div>
 
-  <div class="toast-container position-fixed top-0 end-0 p-3" id="teacherToastContainer" aria-live="polite" aria-atomic="true">
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="facultyToastContainer" aria-live="polite" aria-atomic="true">
     {% for message in messages %}
     <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
       <div class="d-flex">
@@ -52,25 +52,26 @@
     {% endfor %}
   </div>
 
-  <div id="teacherAlert" class="alert alert-danger d-none" role="alert"></div>
+  <div id="facultyAlert" class="alert alert-danger d-none" role="alert"></div>
 
   <div class="card">
     <div class="card-header">
       <div class="card-title">
-        All Teachers
+        All Faculty
         {% if query %}
         <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
         {% endif %}
       </div>
     </div>
     <div class="table-responsive">
-      <table class="table table-vcenter table-hover card-table text-nowrap" id="teacherTable">
+      <table class="table table-vcenter table-hover card-table text-nowrap" id="facultyTable">
         <thead>
           <tr>
             <th>#</th>
             <th>Employee No.</th>
             <th>Name</th>
-            <th>Contact</th>
+            <th>Email</th>
+            <th>Position</th>
             <th>User Account</th>
             <th>Status</th>
             {% if can_manage %}
@@ -78,18 +79,19 @@
             {% endif %}
           </tr>
         </thead>
-        <tbody id="teacherTableBody">
-        {% for teacher in teachers %}
-        <tr data-row-id="{{ teacher.id }}">
-            <td class="text-muted">{{ forloop.counter0|add:teachers.start_index }}</td>
-            <td class="fw-semibold">{{ teacher.employee_number }}</td>
-            <td class="text-muted">{{ teacher.first_name }} {{ teacher.last_name }}</td>
-            <td class="text-muted">{{ teacher.contact_number|default:"—" }}</td>
+        <tbody id="facultyTableBody">
+        {% for f in faculty %}
+        <tr data-row-id="{{ f.id }}">
+            <td class="text-muted">{{ forloop.counter0|add:faculty.start_index }}</td>
+            <td class="fw-semibold">{{ f.employee_number }}</td>
+            <td class="text-muted">{{ f.first_name }} {{ f.last_name }}</td>
+            <td class="text-muted">{{ f.email|default:"—" }}</td>
+            <td class="text-muted">{{ f.position|default:"—" }}</td>
             <td class="text-muted">
-              {% if teacher.user %}{{ teacher.user.username }}{% else %}—{% endif %}
+              {% if f.user %}{{ f.user.username }}{% else %}—{% endif %}
             </td>
             <td>
-              {% if teacher.is_active %}
+              {% if f.is_active %}
               <span class="badge bg-success-lt text-success">Active</span>
               {% else %}
               <span class="badge bg-danger-lt text-danger">Inactive</span>
@@ -98,10 +100,10 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#teacherModal" data-mode="edit" data-id="{{ teacher.id }}" data-user="{{ teacher.user_id_display }}" data-employee-number="{{ teacher.employee_number }}" data-first-name="{{ teacher.first_name }}" data-last-name="{{ teacher.last_name }}" data-contact-number="{{ teacher.contact_number }}" data-active="{{ teacher.is_active|yesno:'true,false' }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#facultyModal" data-mode="edit" data-id="{{ f.id }}" data-user="{{ f.user_id_display }}" data-employee-number="{{ f.employee_number }}" data-first-name="{{ f.first_name }}" data-last-name="{{ f.last_name }}" data-email="{{ f.email }}" data-position="{{ f.position }}" data-active="{{ f.is_active|yesno:'true,false' }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteTeacherModal" data-id="{{ teacher.id }}" data-name="{{ teacher.first_name }} {{ teacher.last_name }}" title="Delete">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteFacultyModal" data-id="{{ f.id }}" data-name="{{ f.first_name }} {{ f.last_name }}" title="Delete">
                   <i class="fas fa-trash-alt text-danger"></i>
                 </button>
               </div>
@@ -110,13 +112,13 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="{% if can_manage %}7{% else %}6{% endif %}">
+            <td colspan="{% if can_manage %}8{% else %}7{% endif %}">
                 <div class="empty py-5">
                     <div class="empty-icon">
                         <i class="fas fa-user-tag fa-2x text-muted"></i>
                     </div>
-                    <p class="empty-title">No teachers found</p>
-                    <p class="empty-subtitle">Try adjusting your search or add a new teacher.</p>
+                    <p class="empty-title">No faculty found</p>
+                    <p class="empty-subtitle">Try adjusting your search or add a new faculty member.</p>
                 </div>
             </td>
         </tr>
@@ -125,29 +127,29 @@
       </table>
     </div>
 
-    {% if teachers.paginator.num_pages > 1 %}
+    {% if faculty.paginator.num_pages > 1 %}
     <div class="card-footer d-flex align-items-center">
       <p class="m-0 text-muted">
-        Showing <span class="fw-medium">{{ teachers.start_index }}</span>
-        to <span class="fw-medium">{{ teachers.end_index }}</span>
-        of <span class="fw-medium">{{ teachers.paginator.count }}</span> records
+        Showing <span class="fw-medium">{{ faculty.start_index }}</span>
+        to <span class="fw-medium">{{ faculty.end_index }}</span>
+        of <span class="fw-medium">{{ faculty.paginator.count }}</span> records
       </p>
       <ul class="pagination m-0 ms-auto">
-        {% if teachers.has_previous %}
+        {% if faculty.has_previous %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ teachers.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+          <a class="page-link" href="?page={{ faculty.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
             <i class="ti ti-chevron-left"></i> prev
           </a>
         </li>
         {% endif %}
-        {% for num in teachers.paginator.page_range %}
-        <li class="page-item {% if teachers.number == num %}active{% endif %}">
+        {% for num in faculty.paginator.page_range %}
+        <li class="page-item {% if faculty.number == num %}active{% endif %}">
           <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
         </li>
         {% endfor %}
-        {% if teachers.has_next %}
+        {% if faculty.has_next %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ teachers.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+          <a class="page-link" href="?page={{ faculty.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
             next <i class="ti ti-chevron-right"></i>
           </a>
         </li>
@@ -158,22 +160,23 @@
   </div>
 </div>
 
-<div class="modal modal-blur fade" id="teacherModal" tabindex="-1">
+<!-- Faculty Modal (Create/Edit) -->
+<div class="modal modal-blur fade" id="facultyModal" tabindex="-1">
   <div class="modal-dialog modal-md modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="teacherModalTitle">Add Teacher</h5>
+        <h5 class="modal-title" id="facultyModalTitle">Add Faculty</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="teacherForm">
+      <form id="facultyForm">
         {% csrf_token %}
-        <input type="hidden" name="id" id="teacher_id">
+        <input type="hidden" name="id" id="faculty_id">
         <div class="modal-body">
-          <div id="teacherFormError" class="alert alert-danger d-none"></div>
+          <div id="facultyFormError" class="alert alert-danger d-none"></div>
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label">User Account <span class="text-muted">(optional)</span></label>
-              <select name="user" id="teacher_user" class="form-select">
+              <select name="user" id="faculty_user" class="form-select">
                 <option value="">No login account</option>
                 {% for u in users %}
                 <option value="{{ u.id }}">{{ u.username }}</option>
@@ -182,50 +185,55 @@
             </div>
             <div class="col-12">
               <label class="form-label">Employee Number</label>
-              <input type="text" name="employee_number" id="teacher_employee_number" class="form-control" required>
+              <input type="text" name="employee_number" id="faculty_employee_number" class="form-control" required>
             </div>
             <div class="col-6">
               <label class="form-label">First Name</label>
-              <input type="text" name="first_name" id="teacher_first_name" class="form-control" required>
+              <input type="text" name="first_name" id="faculty_first_name" class="form-control" required>
             </div>
             <div class="col-6">
               <label class="form-label">Last Name</label>
-              <input type="text" name="last_name" id="teacher_last_name" class="form-control" required>
+              <input type="text" name="last_name" id="faculty_last_name" class="form-control" required>
             </div>
-            <div class="col-12">
-              <label class="form-label">Contact Number</label>
-              <input type="text" name="contact_number" id="teacher_contact_number" class="form-control">
+            <div class="col-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" id="faculty_email" class="form-control">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Position</label>
+              <input type="text" name="position" id="faculty_position" class="form-control" placeholder="e.g. Professor, Instructor, Lecturer">
             </div>
             <div class="col-12">
               <div class="form-check form-switch mt-1">
-                <input class="form-check-input" type="checkbox" name="is_active" id="teacher_is_active">
-                <label class="form-check-label" for="teacher_is_active">Active</label>
+                <input class="form-check-input" type="checkbox" name="is_active" id="faculty_is_active">
+                <label class="form-check-label" for="faculty_is_active">Active</label>
               </div>
             </div>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="teacherSubmitBtn">Save Teacher</button>
+          <button type="submit" class="btn btn-primary" id="facultySubmitBtn">Save Faculty</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<div class="modal modal-blur fade" id="deleteTeacherModal" tabindex="-1">
+<!-- Delete Faculty Modal -->
+<div class="modal modal-blur fade" id="deleteFacultyModal" tabindex="-1">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title text-danger">Delete Teacher</h5>
+        <h5 class="modal-title text-danger">Delete Faculty</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted">Are you sure you want to delete <strong id="deleteTeacherName"></strong>?</p>
+        <p class="text-muted">Are you sure you want to delete <strong id="deleteFacultyName"></strong>?</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-danger" id="confirmDeleteTeacherBtn">Delete</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteFacultyBtn">Delete</button>
       </div>
     </div>
   </div>
@@ -234,30 +242,30 @@
 {% block extra_js %}
 <script>
 (function() {
-  const modalEl = document.getElementById('teacherModal');
-  const deleteModalEl = document.getElementById('deleteTeacherModal');
-  const form = document.getElementById('teacherForm');
-  const alertBox = document.getElementById('teacherAlert');
-  const title = document.getElementById('teacherModalTitle');
-  const submitBtn = document.getElementById('teacherSubmitBtn');
-  const deleteBtn = document.getElementById('confirmDeleteTeacherBtn');
-  const deleteName = document.getElementById('deleteTeacherName');
+  const modalEl = document.getElementById('facultyModal');
+  const deleteModalEl = document.getElementById('deleteFacultyModal');
+  const form = document.getElementById('facultyForm');
+  const alertBox = document.getElementById('facultyAlert');
+  const title = document.getElementById('facultyModalTitle');
+  const submitBtn = document.getElementById('facultySubmitBtn');
+  const deleteBtn = document.getElementById('confirmDeleteFacultyBtn');
+  const deleteName = document.getElementById('deleteFacultyName');
   let currentId = null;
 
-  document.querySelectorAll('#teacherToastContainer .toast').forEach(function(toastEl) {
+  document.querySelectorAll('#facultyToastContainer .toast').forEach(function(toastEl) {
     bootstrap.Toast.getOrCreateInstance(toastEl).show();
   });
 
   function resetForm() {
     form.reset();
-    document.getElementById('teacher_id').value = '';
-    title.textContent = 'Add Teacher';
-    submitBtn.textContent = 'Save Teacher';
+    document.getElementById('faculty_id').value = '';
+    title.textContent = 'Add Faculty';
+    submitBtn.textContent = 'Save Faculty';
     alertBox.classList.add('d-none');
     alertBox.textContent = '';
     currentId = null;
-    document.getElementById('teacher_is_active').checked = true;
-    document.getElementById('teacher_user').value = '';
+    document.getElementById('faculty_is_active').checked = true;
+    document.getElementById('faculty_user').value = '';
   }
 
   modalEl.addEventListener('show.bs.modal', function(event) {
@@ -268,16 +276,17 @@
     }
     const mode = button.getAttribute('data-mode');
     if (mode === 'edit') {
-      title.textContent = 'Edit Teacher';
-      submitBtn.textContent = 'Update Teacher';
+      title.textContent = 'Edit Faculty';
+      submitBtn.textContent = 'Update Faculty';
       currentId = button.getAttribute('data-id');
-      document.getElementById('teacher_id').value = currentId;
-      document.getElementById('teacher_user').value = button.getAttribute('data-user');
-      document.getElementById('teacher_employee_number').value = button.getAttribute('data-employee-number');
-      document.getElementById('teacher_first_name').value = button.getAttribute('data-first-name');
-      document.getElementById('teacher_last_name').value = button.getAttribute('data-last-name');
-      document.getElementById('teacher_contact_number').value = button.getAttribute('data-contact-number');
-      document.getElementById('teacher_is_active').checked = button.getAttribute('data-active') === 'true';
+      document.getElementById('faculty_id').value = currentId;
+      document.getElementById('faculty_user').value = button.getAttribute('data-user');
+      document.getElementById('faculty_employee_number').value = button.getAttribute('data-employee-number');
+      document.getElementById('faculty_first_name').value = button.getAttribute('data-first-name');
+      document.getElementById('faculty_last_name').value = button.getAttribute('data-last-name');
+      document.getElementById('faculty_email').value = button.getAttribute('data-email');
+      document.getElementById('faculty_position').value = button.getAttribute('data-position');
+      document.getElementById('faculty_is_active').checked = button.getAttribute('data-active') === 'true';
     } else {
       resetForm();
     }
@@ -294,9 +303,9 @@
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(form);
-    formData.set('is_active', document.getElementById('teacher_is_active').checked ? 'true' : 'false');
+    formData.set('is_active', document.getElementById('faculty_is_active').checked ? 'true' : 'false');
 
-    fetch('{% url "teacher:teacher_save_ajax" %}', {
+    fetch('{% url "faculty:faculty_save_ajax" %}', {
       method: 'POST',
       headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
       body: formData
@@ -318,7 +327,7 @@
 
   deleteBtn.addEventListener('click', function() {
     if (!currentId) return;
-    fetch('/teachers/ajax/delete/' + currentId + '/', {
+    fetch('/faculty/ajax/delete/' + currentId + '/', {
       method: 'POST',
       headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
     })
@@ -331,10 +340,10 @@
   });
 
   // Import Excel
-  const importForm = document.getElementById('teacherImportForm');
-  const importError = document.getElementById('teacherImportError');
-  const importResult = document.getElementById('teacherImportResult');
-  const importBtn = document.getElementById('teacherImportBtn');
+  const importForm = document.getElementById('facultyImportForm');
+  const importError = document.getElementById('facultyImportError');
+  const importResult = document.getElementById('facultyImportResult');
+  const importBtn = document.getElementById('facultyImportBtn');
 
   if (importForm) {
     importForm.addEventListener('submit', function(e) {
@@ -346,7 +355,7 @@
       importError.textContent = '';
       importResult.textContent = '';
 
-      fetch('{% url "teacher:teacher_import_excel" %}', {
+      fetch('{% url "faculty:faculty_import_excel" %}', {
         method: 'POST',
         headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
         body: formData
@@ -365,7 +374,7 @@
         }
         importResult.classList.remove('d-none');
         setTimeout(() => {
-          bootstrap.Modal.getInstance(document.getElementById('teacherImportModal')).hide();
+          bootstrap.Modal.getInstance(document.getElementById('facultyImportModal')).hide();
           window.location.reload();
         }, 2000);
       })
@@ -380,33 +389,33 @@
 </script>
 {% endblock %}
 
-<!-- Teacher Import Modal -->
-<div class="modal modal-blur fade" id="teacherImportModal" tabindex="-1">
+<!-- Faculty Import Modal -->
+<div class="modal modal-blur fade" id="facultyImportModal" tabindex="-1">
   <div class="modal-dialog modal-md modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Import Teachers from Excel</h5>
+        <h5 class="modal-title">Import Faculty from Excel</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="teacherImportForm" enctype="multipart/form-data">
+      <form id="facultyImportForm" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="modal-body">
-          <div id="teacherImportError" class="alert alert-danger d-none"></div>
-          <div id="teacherImportResult" class="alert alert-success d-none"></div>
+          <div id="facultyImportError" class="alert alert-danger d-none"></div>
+          <div id="facultyImportResult" class="alert alert-success d-none"></div>
           <div class="mb-3">
             <label class="form-label">Select Excel File (.xlsx)</label>
-            <input type="file" name="file" id="teacherImportFile" class="form-control" accept=".xlsx" required>
+            <input type="file" name="file" id="facultyImportFile" class="form-control" accept=".xlsx" required>
           </div>
           <div class="alert alert-info">
             <small>
-              <strong>Required columns:</strong> employee_number, first_name, last_name, contact_number, user__username, is_active<br>
-              Example: T001, John, Doe, 1234567890, admin, true
+              <strong>Required columns:</strong> employee_number, first_name, last_name, email, position, user__username, is_active<br>
+              Example: F001, John, Doe, john.doe@school.edu, Professor, admin, true
             </small>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="teacherImportBtn">Import</button>
+          <button type="submit" class="btn btn-primary" id="facultyImportBtn">Import</button>
         </div>
       </form>
     </div>

@@ -15,7 +15,7 @@ User = get_user_model()
 from apps.schedule.models import Schedule
 from apps.building.models import Building
 from apps.program.models import Program
-from apps.teacher.models import Teacher
+from apps.faculty.models import Faculty
 from apps.subject.models import Subject
 from apps.section.models import Section
 from apps.rooms.models import Room
@@ -159,7 +159,7 @@ def home(request):
         stats = {
             'total_buildings': Building.objects.count(),
             'total_programs': Program.objects.count(),
-            'total_teachers': Teacher.objects.count(),
+            'total_faculty': Faculty.objects.count(),
             'total_sections': Section.objects.count(),
             'total_subjects': Subject.objects.count(),
             'total_rooms': Room.objects.count(),
@@ -167,21 +167,21 @@ def home(request):
         }
     elif is_teacher(request.user):
         try:
-            teacher = Teacher.objects.get(user=request.user)
+            teacher = Faculty.objects.get(user=request.user)
             stats = {
                 'total_buildings': Building.objects.count(),
                 'total_programs': Program.objects.count(),
-                'total_teachers': Teacher.objects.count(),
+                'total_faculty': Faculty.objects.count(),
                 'total_sections': Section.objects.count(),
                 'total_subjects': Subject.objects.count(),
                 'total_rooms': Room.objects.count(),
                 'total_schedules': Schedule.objects.filter(teacher=teacher).count(),
             }
-        except Teacher.DoesNotExist:
+        except Faculty.DoesNotExist:
             stats = {
                 'total_buildings': 0,
                 'total_programs': 0,
-                'total_teachers': 0,
+                'total_faculty': 0,
                 'total_sections': 0,
                 'total_subjects': 0,
                 'total_rooms': 0,
@@ -191,7 +191,7 @@ def home(request):
         stats = {
             'total_buildings': Building.objects.count(),
             'total_programs': Program.objects.count(),
-            'total_teachers': Teacher.objects.count(),
+            'total_faculty': Faculty.objects.count(),
             'total_sections': Section.objects.count(),
             'total_subjects': Subject.objects.count(),
             'total_rooms': Room.objects.count(),

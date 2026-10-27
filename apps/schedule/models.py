@@ -16,7 +16,7 @@ class Schedule(models.Model):
         related_name='schedules',
     )
     teacher = models.ForeignKey(
-        'teacher.Teacher',
+        'faculty.Faculty',
         on_delete=models.RESTRICT,
         related_name='schedules',
     )

@@ -24,7 +24,7 @@ from apps.rooms.models import Room
 from apps.schedule.models import Schedule
 from apps.section.models import Section
 from apps.subject.models import Subject
-from apps.teacher.models import Teacher
+from apps.faculty.models import Faculty
 from apps.users.models import UserProfile
 from apps.utils.import_export import (
     excel_to_dict_list,
@@ -242,34 +242,37 @@ class SubjectRoundTripTests(RoundTripTestMixin, TestCase):
         self.assertIsNone(Subject.objects.get(code='RTCS102').prerequisite)
 
 
-class TeacherRoundTripTests(RoundTripTestMixin, TestCase):
+class FacultyRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_then_import(self):
-        Teacher.objects.create(
+        Faculty.objects.create(
             employee_number='RT-EMP-1', first_name='Juan',
-            last_name='Dela Cruz', contact_number='09170000000', is_active=True,
+            last_name='Dela Cruz', email='juan@example.com', position='Professor',
+            is_active=True,
         )
 
-        content = self.export('/teachers/export/excel/')
-        result = self.reimport('/teachers/import/excel/', content)
+        content = self.export('/faculty/export/excel/')
+        result = self.reimport('/faculty/import/excel/', content)
 
         self.assertEqual(result['errors'], [])
-        self.assertEqual(Teacher.objects.count(), 1)
-        teacher = Teacher.objects.get(employee_number='RT-EMP-1')
-        self.assertEqual(teacher.first_name, 'Juan')
-        self.assertEqual(teacher.last_name, 'Dela Cruz')
+        self.assertEqual(Faculty.objects.count(), 1)
+        faculty = Faculty.objects.get(employee_number='RT-EMP-1')
+        self.assertEqual(faculty.first_name, 'Juan')
+        self.assertEqual(faculty.last_name, 'Dela Cruz')
+        self.assertEqual(faculty.email, 'juan@example.com')
+        self.assertEqual(faculty.position, 'Professor')
 
     def test_optional_user_link_round_trips(self):
-        linked = User.objects.create_user(username='rt_teacher_user', password='pw12345678')
-        Teacher.objects.create(
+        linked = User.objects.create_user(username='rt_faculty_user', password='pw12345678')
+        Faculty.objects.create(
             employee_number='RT-EMP-2', first_name='Maria', last_name='Santos',
-            contact_number='', is_active=True, user=linked,
+            email='maria@example.com', position='Instructor', is_active=True, user=linked,
         )
 
-        content = self.export('/teachers/export/excel/')
-        result = self.reimport('/teachers/import/excel/', content)
+        content = self.export('/faculty/export/excel/')
+        result = self.reimport('/faculty/import/excel/', content)
 
         self.assertEqual(result['errors'], [])
-        self.assertEqual(Teacher.objects.get(employee_number='RT-EMP-2').user, linked)
+        self.assertEqual(Faculty.objects.get(employee_number='RT-EMP-2').user, linked)
 
 
 class UserRoundTripTests(RoundTripTestMixin, TestCase):
@@ -299,9 +302,9 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
             building=building, room_name='RT Room 1',
             room_type='Classroom', capacity=40,
         )
-        self.teacher = Teacher.objects.create(
+        self.faculty = Faculty.objects.create(
             employee_number='RT-EMP-9', first_name='Ana', last_name='Reyes',
-            contact_number='', is_active=True,
+            email='ana@example.com', position='Professor', is_active=True,
         )
         self.curriculum = Curriculum.objects.create(
             code='RT_CURR4', name='RT Curriculum', program=program, academic_year='2024-2025'
@@ -321,7 +324,7 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
 
     def test_export_then_import(self):
         Schedule.objects.create(
-            semester=self.semester, teacher=self.teacher,
+            semester=self.semester, teacher=self.faculty,
             subject=self.subject, section=self.section, room=self.room,
             class_type='Lecture', day_of_week=1,
             start_time='08:00', end_time='09:00',
@@ -345,7 +348,7 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_carries_the_disambiguating_columns(self):
         """Program/building codes are needed to identify related rows."""
         Schedule.objects.create(
-            semester=self.semester, teacher=self.teacher,
+            semester=self.semester, teacher=self.faculty,
             subject=self.subject, section=self.section, room=self.room,
             class_type='Lecture', day_of_week=1,
             start_time='08:00', end_time='09:00',
@@ -406,7 +409,7 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
             room_type='Classroom', capacity=40,
         )
         Schedule.objects.create(
-            semester=self.semester, teacher=self.teacher,
+            semester=self.semester, teacher=self.faculty,
             subject=self.subject, section=self.section, room=self.room,
             class_type='Lecture', day_of_week=1,
             start_time='08:00', end_time='09:00',
@@ -427,16 +430,16 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
         self.assertEqual(Schedule.objects.count(), 1)
 
     def test_import_rejects_a_room_double_booking(self):
-        other_teacher = Teacher.objects.create(
+        other_faculty = Faculty.objects.create(
             employee_number='RT-EMP-10', first_name='Bob', last_name='Reyes',
-            contact_number='', is_active=True,
+            email='bob@example.com', position='Instructor', is_active=True,
         )
         other_section = Section.objects.create(
             program=Program.objects.get(program_code='RT_SP2'), name='RT2B',
             year_level=1, semester=self.semester, capacity=40,
         )
         Schedule.objects.create(
-            semester=self.semester, teacher=self.teacher,
+            semester=self.semester, teacher=self.faculty,
             subject=self.subject, section=self.section, room=self.room,
             class_type='Lecture', day_of_week=1,
             start_time='08:00', end_time='09:00',

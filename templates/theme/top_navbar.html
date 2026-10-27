@@ -1,0 +1,71 @@
+{% if request.user.is_authenticated %}
+<nav class="navbar navbar-expand-lg navbar-dark dh-top-navbar">
+  <div class="container-fluid">
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#sidebar-menu"
+      aria-controls="sidebar-menu"
+      aria-expanded="false"
+      aria-label="Toggle navigation"
+    >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <a class="navbar-brand me-auto" href=".">
+      <span class="dh-brand-mark">
+        <i class="fa-solid fa-shield-halved"></i>
+      </span>
+      <span class="lh-1">
+        <span class="text-warning">Smart</span><span class="dh-brand-name">Scheduler</span>
+        <span class="dh-brand-sub">Management System</span>
+      </span>
+    </a>
+
+    <!-- Active Curriculum / Semester switcher -->
+    <div class="dropdown">
+      <button
+        class="btn btn-outline-secondary dropdown-toggle"
+        type="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+      >
+        <i class="fa-solid fa-graduation-cap me-2"></i>
+        {% if active_curriculum %}
+          <strong>{{ active_curriculum.code }}</strong>
+          <span class="d-block text-body-secondary small">
+            Semester {{ active_semester.semester_number }}
+          </span>
+        {% else %}
+          <span class="text-muted">No active curriculum</span>
+        {% endif %}
+      </button>
+      <ul class="dropdown-menu dropdown-menu-small p-2" style="width: 260px;">
+        {% for cur in curricula %}
+          <li>
+            <h6 class="dropdown-header text-muted small mb-1">
+              {{ cur.code }} — {{ cur.academic_year }}
+            </h6>
+            {% for sem in cur.semesters.all %}
+              <a
+                class="dropdown-item {% if active_semester and active_semester.pk == sem.pk %}active bg-primary text-white{% endif %}"
+                href="{% url 'curriculum:set_active_semester' sem.id %}"
+              >
+                Semester {{ sem.semester_number }}
+                {% if active_semester and active_semester.pk == sem.pk %}
+                  <i class="fa-solid fa-check ms-auto"></i>
+                {% endif %}
+              </a>
+            {% empty %}
+              <span class="dropdown-item text-muted disabled small">No semesters</span>
+            {% endfor %}
+          </li>
+        {% empty %}
+          <li><span class="dropdown-item text-muted disabled small">No curricula yet</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</nav>
+{% endif %}

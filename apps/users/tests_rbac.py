@@ -43,9 +43,9 @@ WRITE_ENDPOINTS = [
     'subject:subject_save_ajax',
     'subject:subject_delete_ajax',
     'subject:subject_import_excel',
-    'teacher:teacher_save_ajax',
-    'teacher:teacher_delete_ajax',
-    'teacher:teacher_import_excel',
+    'faculty:faculty_save_ajax',
+    'faculty:faculty_delete_ajax',
+    'faculty:faculty_import_excel',
     'users:user_save_ajax',
     'users:user_delete_ajax',
     'users:user_import_excel',
@@ -58,7 +58,7 @@ EXPORT_ENDPOINTS = [
     'schedule:schedule_export_excel',
     'section:section_export_excel',
     'subject:subject_export_excel',
-    'teacher:teacher_export_excel',
+    'faculty:faculty_export_excel',
     'users:user_export_excel',
 ]
 
@@ -70,7 +70,7 @@ READ_PAGES = [
     'schedule:schedule_list',
     'section:section_list',
     'subject:subject_list',
-    'teacher:teacher_list',
+    'faculty:faculty_list',
 ]
 
 # A pk that does not exist, so "allowed" requests reach the view and 404

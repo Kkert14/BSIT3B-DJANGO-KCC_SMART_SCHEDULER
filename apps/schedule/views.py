@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.db import IntegrityError
 
 from apps.curriculum.models import Semester
-from apps.teacher.models import Teacher
+from apps.faculty.models import Faculty
 from apps.subject.models import Subject
 from apps.section.models import Section
 from apps.rooms.models import Room
@@ -81,7 +81,7 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
     if exclude_id:
         base_qs = base_qs.exclude(pk=exclude_id)
 
-    # Teacher double-booking (identical or overlapping slot)
+    # Faculty double-booking (identical or overlapping slot)
     teacher_clashes = base_qs.filter(teacher=teacher).filter(
         Q(start_time__lt=end_time) & Q(end_time__gt=start_time)
     )
@@ -90,7 +90,7 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
             conflicts.append({
                 'type': 'teacher',
                 'message': (
-                    f'Teacher "{clash.teacher.first_name} {clash.teacher.last_name}" '
+                    f'Faculty "{clash.teacher.first_name} {clash.teacher.last_name}" '
                     f'is already teaching "{clash.subject.code}" for section "{clash.section.name}" '
                     f'on {DAY_NAMES.get(clash.day_of_week, clash.day_of_week)} '
                     f'{clash.start_time.strftime("%H:%M")}-{clash.end_time.strftime("%H:%M")}.'
@@ -346,7 +346,7 @@ def schedule_list_page(request):
     schedules = paginator.get_page(page_number)
 
     # Dropdown data for edit modal
-    teachers = Teacher.objects.filter(is_active=True).order_by('last_name', 'first_name')
+    teachers = Faculty.objects.filter(is_active=True).order_by('last_name', 'first_name')
     subjects = Subject.objects.all().order_by('code')
     sections = Section.objects.filter(is_active=True).order_by('name')
     rooms = Room.objects.filter(is_active=True).order_by('building__code', 'room_name')
@@ -354,7 +354,7 @@ def schedule_list_page(request):
     stats = {
         'total_buildings': Building.objects.count(),
         'total_programs': Program.objects.count(),
-        'total_teachers': Teacher.objects.count(),
+        'total_faculty': Faculty.objects.count(),
         'total_sections': Section.objects.count(),
         'total_subjects': Subject.objects.count(),
         'total_rooms': Room.objects.count(),
@@ -408,7 +408,7 @@ def schedule_list_ajax(request):
         sec_id = item.pop('section_id')
         rid = item.pop('room_id')
         sem_id = item.pop('semester_id')
-        teacher = Teacher.objects.filter(pk=tid).first()
+        teacher = Faculty.objects.filter(pk=tid).first()
         subject = Subject.objects.filter(pk=sid).first()
         section = Section.objects.filter(pk=sec_id).first()
         room = Room.objects.filter(pk=rid).first()
@@ -485,8 +485,8 @@ def schedule_save_ajax(request):
         return JsonResponse({'error': 'Invalid semester.'}, status=400)
 
     try:
-        teacher = Teacher.objects.get(pk=int(teacher_id))
-    except (Teacher.DoesNotExist, ValueError, TypeError):
+        teacher = Faculty.objects.get(pk=int(teacher_id))
+    except (Faculty.DoesNotExist, ValueError, TypeError):
         return JsonResponse({'error': 'Invalid teacher.'}, status=400)
     try:
         subject = Subject.objects.get(pk=int(subject_id))
@@ -658,8 +658,8 @@ def schedule_import_excel(request):
             continue
 
         try:
-            teacher = Teacher.objects.get(employee_number=teacher_emp)
-        except Teacher.DoesNotExist:
+            teacher = Faculty.objects.get(employee_number=teacher_emp)
+        except Faculty.DoesNotExist:
             errors.append(f'Row {idx}: teacher with employee number "{teacher_emp}" not found.')
             continue
 
