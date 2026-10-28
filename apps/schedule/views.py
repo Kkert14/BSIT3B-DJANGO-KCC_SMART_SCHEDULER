@@ -1,4 +1,7 @@
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
+
+import math
 
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
@@ -9,7 +12,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import IntegrityError
 
-from apps.curriculum.models import Semester
+from apps.curriculum.models import Curriculum, Semester
 from apps.faculty.models import Faculty
 from apps.subject.models import Subject
 from apps.section.models import Section
@@ -258,18 +261,28 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
 
 @login_required(login_url='login')
 def schedule_list_page(request):
-    # Get filter parameters
-    filter_semester = request.GET.get('semester', '').strip()
+    active_semester = (
+        Semester.objects.select_related('curriculum__program')
+        .filter(is_active=True, curriculum__is_active=True)
+        .first()
+    )
+
+    semester_param = request.GET.get('semester')
+    if semester_param is None:
+        filter_semester = str(active_semester.id) if active_semester else ''
+    else:
+        filter_semester = semester_param.strip()
+    filter_section = request.GET.get('section', '').strip()
     query = request.GET.get('q', '').strip()
 
-    # Base queryset — ALL schedules, ordered by day and time
     schedules_list = Schedule.objects.select_related(
-        'teacher', 'subject', 'section', 'room', 'semester__curriculum'
+        'teacher', 'subject', 'section', 'room__building', 'semester__curriculum__program'
     ).order_by('day_of_week', 'start_time')
 
-    # Apply filters
     if filter_semester:
         schedules_list = schedules_list.filter(semester=filter_semester)
+    if filter_section:
+        schedules_list = schedules_list.filter(section=filter_section)
     if query:
         schedules_list = schedules_list.filter(
             Q(subject__code__icontains=query) |
@@ -281,22 +294,25 @@ def schedule_list_page(request):
             Q(semester__curriculum__academic_year__icontains=query)
         )
 
-    # Get distinct semesters for the filter dropdown
-    semesters = Semester.objects.select_related('curriculum').all().order_by('curriculum__academic_year', 'semester_number')
+    semesters = Semester.objects.select_related('curriculum__program').order_by(
+        'curriculum__academic_year', 'semester_number'
+    )
+    if filter_semester:
+        section_choices = Section.objects.filter(
+            semester=filter_semester, is_active=True
+        ).select_related('program').order_by('program__program_code', 'year_level', 'name')
+    else:
+        section_choices = Section.objects.filter(is_active=True).select_related(
+            'program', 'semester'
+        ).order_by('program__program_code', 'year_level', 'name')
 
-    SEMESTER_CHOICES = [
-        (1, '1st Semester'),
-        (2, '2nd Semester'),
-        (3, 'Summer'),
-    ]
-
-    # Standard academic time slots (start_time -> end_time)
     time_slots = [
         ('07:00', '08:00'),
         ('08:00', '09:00'),
         ('09:00', '10:00'),
         ('10:00', '11:00'),
         ('11:00', '12:00'),
+        ('12:00', '13:00'),
         ('13:00', '14:00'),
         ('14:00', '15:00'),
         ('15:00', '16:00'),
@@ -313,69 +329,136 @@ def schedule_list_page(request):
         (7, 'Sunday'),
     ]
 
-    # Build lookup: (day_number, slot_index) -> schedule
-    schedule_lookup = {}
-    for s in schedules_list:
-        start_str = s.start_time.strftime('%H:%M')
-        for slot_idx, (slot_start, slot_end) in enumerate(time_slots):
-            if slot_start <= start_str < slot_end:
-                schedule_lookup[(s.day_of_week, slot_idx)] = s
-                break
+    grid_schedules = list(schedules_list)
+    slot_cells = [[None for _ in DAYS] for _ in time_slots]
+    for sched in grid_schedules:
+        start_index = (sched.start_time.hour * 60 + sched.start_time.minute - 7 * 60) // 60
+        if start_index < 0 or start_index >= len(time_slots):
+            continue
+        end_index = math.ceil(
+            (sched.end_time.hour * 60 + sched.end_time.minute - 7 * 60) / 60
+        )
+        end_index = min(max(end_index, start_index + 1), len(time_slots))
+        column = sched.day_of_week - 1
+        if slot_cells[start_index][column] is not None:
+            continue
+        slot_cells[start_index][column] = {'schedule': sched, 'rowspan': end_index - start_index}
+        for row in range(start_index + 1, end_index):
+            if slot_cells[row][column] is None:
+                slot_cells[row][column] = 'skip'
 
-    # Build timetable rows: each row = one time slot with 7 day cells
     timetable_rows = []
-    for slot_idx, (start, end) in enumerate(time_slots):
+    for row_index, (slot_start, slot_end) in enumerate(time_slots):
         cells = []
-        for day_num, day_name in DAYS:
-            sched = schedule_lookup.get((day_num, slot_idx))
-            cells.append({
-                'day_num': day_num,
-                'day_name': day_name,
-                'schedule': sched,
-            })
-        timetable_rows.append({
-            'start': start,
-            'end': end,
-            'slot_idx': slot_idx,
-            'cells': cells,
-        })
+        for column, (day_num, day_name) in enumerate(DAYS):
+            value = slot_cells[row_index][column]
+            if value == 'skip':
+                cells.append({'kind': 'skip'})
+            elif value:
+                cells.append({
+                    'kind': 'event',
+                    'schedule': value['schedule'],
+                    'rowspan': value['rowspan'],
+                })
+            else:
+                cells.append({
+                    'kind': 'empty',
+                    'day': day_num,
+                    'day_name': day_name,
+                    'start': slot_start,
+                    'end': slot_end,
+                })
+        timetable_rows.append({'start': slot_start, 'end': slot_end, 'cells': cells})
 
-    # Pagination for the list table
     paginator = Paginator(schedules_list, 10)
-    page_number = request.GET.get('page', 1)
-    schedules = paginator.get_page(page_number)
+    schedules = paginator.get_page(request.GET.get('page', 1))
 
-    # Dropdown data for edit modal
     teachers = Faculty.objects.filter(is_active=True).order_by('last_name', 'first_name')
-    subjects = Subject.objects.all().order_by('code')
-    sections = Section.objects.filter(is_active=True).order_by('name')
-    rooms = Room.objects.filter(is_active=True).order_by('building__code', 'room_name')
+    subjects = Subject.objects.select_related('program', 'semester').order_by('code')
+    sections = Section.objects.filter(is_active=True).select_related(
+        'program', 'semester'
+    ).order_by('name')
+    rooms = Room.objects.filter(is_active=True).select_related('building').order_by(
+        'building__code', 'room_name'
+    )
+    buildings = Building.objects.order_by('code')
+    programs = Program.objects.order_by('program_code')
+    curricula = Curriculum.objects.select_related('program').order_by('-academic_year', 'code')
 
-    stats = {
-        'total_buildings': Building.objects.count(),
-        'total_programs': Program.objects.count(),
-        'total_faculty': Faculty.objects.count(),
-        'total_sections': Section.objects.count(),
-        'total_subjects': Subject.objects.count(),
-        'total_rooms': Room.objects.count(),
-        'total_schedules': schedules_list.count(),
-    }
+    hours_map = {}
+    for entry in Schedule.objects.values(
+        'semester_id', 'subject_id', 'section_id', 'class_type', 'start_time', 'end_time'
+    ):
+        key = f"{entry['semester_id']}|{entry['subject_id']}|{entry['section_id']}|{entry['class_type']}"
+        hours_map[key] = round(
+            hours_map.get(key, 0) + _time_duration_hours(entry['start_time'], entry['end_time']), 2
+        )
+
+    lecture_hours = sum(
+        _time_duration_hours(s.start_time, s.end_time)
+        for s in grid_schedules if s.class_type == 'Lecture'
+    )
+    lab_hours = sum(
+        _time_duration_hours(s.start_time, s.end_time)
+        for s in grid_schedules if s.class_type == 'Laboratory'
+    )
+    stats = [
+        {
+            'label': 'Classes',
+            'icon': 'fa-regular fa-calendar-days',
+            'value': str(len(grid_schedules)),
+            'note': 'In the current filter',
+        },
+        {
+            'label': 'Lecture hours',
+            'icon': 'fa-solid fa-chalkboard',
+            'value': f'{lecture_hours:.0f}h',
+            'note': 'Weekly lecture load',
+        },
+        {
+            'label': 'Laboratory hours',
+            'icon': 'fa-solid fa-flask',
+            'value': f'{lab_hours:.0f}h',
+            'note': 'Weekly laboratory load',
+        },
+        {
+            'label': 'Sections covered',
+            'icon': 'fa-solid fa-layer-group',
+            'value': str(len({s.section_id for s in grid_schedules})),
+            'note': 'Sections with at least one class',
+        },
+    ]
+
+    filter_query = urlencode({
+        key: value for key, value in {
+            'semester': filter_semester,
+            'section': filter_section,
+            'q': query,
+        }.items() if value
+    })
 
     return render(request, 'schedule_list.html', {
         'timetable_rows': timetable_rows,
         'DAYS': DAYS,
-        'time_slots': time_slots,
         'all_schedules': schedules_list,
         'schedules': schedules,
         'query': query,
         'teachers': teachers,
         'subjects': subjects,
         'sections': sections,
+        'section_choices': section_choices,
         'rooms': rooms,
+        'buildings': buildings,
+        'programs': programs,
+        'curricula': curricula,
         'stats': stats,
+        'hours_map': hours_map,
         'filter_semester': filter_semester,
+        'filter_section': filter_section,
         'semesters': semesters,
-        'semester_choices': SEMESTER_CHOICES,
+        'active_semester': active_semester,
+        'filter_query': filter_query,
+        'has_grid_events': any(value not in (None, 'skip') for row in slot_cells for value in row),
     })
 
 

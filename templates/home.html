@@ -1,126 +1,179 @@
-{% extends "theme/base.html" %}
+{% extends 'theme/base.html' %}
+{% block title %}Dashboard · Smart Scheduler{% endblock %}
+
 {% block content %}
-<div class="container-xl">
-  <div class="page-header d-print-none" aria-label="Page header">
-    <div class="container-xl">
-      <div class="row align-items-center">
-        <div class="col-md-8">
-          <div class="page-pretitle">Overview</div>
-          <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
-            <h2 class="page-title mb-0">Dashboard</h2>
-          </div>
-          <h2 class="page-title mb-0 d-md-none">Dashboard</h2>
-        </div>
-        <div class="col-md-4 text-end">
-          <a href="{% url 'schedule:schedule_list' %}" class="btn btn-primary btn-sm">
-            <i class="fas fa-list me-1"></i> Manage Schedules
-          </a>
-        </div>
-      </div>
-    </div>
+<div class="ss-page-head">
+  <div>
+    <div class="ss-ov">Overview</div>
+    <h1 class="ss-page-title">Dashboard</h1>
+    <p class="ss-sub">Plan a balanced week. Resolve conflicts before the term starts.</p>
   </div>
-  <br>
-
-  <!-- Stats Cards -->
-  <div class="row row-cards mb-4">
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_buildings }}</h2>
-          <p class="mb-0 text-muted small">Buildings</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_programs }}</h2>
-          <p class="mb-0 text-muted small">Programs</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_faculty }}</h2>
-          <p class="mb-0 text-muted small">Faculty</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_rooms }}</h2>
-          <p class="mb-0 text-muted small">Rooms</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_sections }}</h2>
-          <p class="mb-0 text-muted small">Sections</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_subjects }}</h2>
-          <p class="mb-0 text-muted small">Subjects</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_schedules }}</h2>
-          <p class="mb-0 text-muted small">Schedules</p>
-        </div>
-      </div>
-    </div>
+  <div class="ss-actions">
+    <a class="ss-btn" href="{% url 'subject:subject_list' %}"><i class="fa-solid fa-book"></i> Manage Subjects</a>
+    <a class="ss-btn primary" href="{% url 'schedule:schedule_list' %}"><i class="fa-solid fa-calendar-days"></i> Manage Schedules</a>
   </div>
-
-  <!-- Quick Actions -->
-  <div class="card">
-    <div class="card-header">
-      <div class="card-title">Quick Actions</div>
-    </div>
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-md-3">
-          <a href="{% url 'schedule:schedule_list' %}" class="btn btn-outline-primary w-100">
-            <i class="fas fa-calendar-alt me-2"></i>View Schedules
-          </a>
-        </div>
-        <div class="col-md-3">
-          <a href="{% url 'subject:subject_list' %}" class="btn btn-outline-primary w-100">
-            <i class="fas fa-book me-2"></i>Manage Subjects
-          </a>
-        </div>
-        <div class="col-md-3">
-          <a href="{% url 'faculty:faculty_list' %}" class="btn btn-outline-primary w-100">
-            <i class="fas fa-user-tag me-2"></i>Manage Faculty
-          </a>
-        </div>
-        <div class="col-md-3">
-          <a href="{% url 'rooms:room_list' %}" class="btn btn-outline-primary w-100">
-            <i class="fas fa-door-open me-2"></i>Manage Rooms
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div>
 
-<style>
-.stat-card {
-  border-radius: 8px;
-  transition: transform 0.2s;
-}
-.stat-card:hover {
-  transform: translateY(-2px);
-}
-</style>
+{% if not semester %}
+  <section class="ss-card" style="text-align:center; padding:36px 16px;">
+    <div class="ss-wk-ico" style="margin:0 auto 12px;"><i class="fa-solid fa-calendar-xmark"></i></div>
+    <h2>No active semester</h2>
+    <p class="ss-sub" style="max-width:420px; margin:6px auto 14px;">
+      Activate a curriculum and one of its semesters to see the weekly timetable, conflict checks and room utilization here.
+    </p>
+    {% if can_manage %}
+      <a class="ss-btn primary" href="{% url 'curriculum:curriculum_list' %}">Open Curriculum</a>
+    {% endif %}
+  </section>
+{% elif teacher_without_profile %}
+  <section class="ss-card" style="text-align:center; padding:36px 16px;">
+    <div class="ss-wk-ico" style="margin:0 auto 12px;"><i class="fa-solid fa-user-tie"></i></div>
+    <h2>No faculty record linked</h2>
+    <p class="ss-sub" style="max-width:420px; margin:6px auto 0;">
+      Your account is marked as an instructor but is not linked to a faculty profile yet, so there is no teaching load to show.
+      Ask an administrator to connect your account to a faculty record.
+    </p>
+  </section>
+{% else %}
+  <form class="ss-toolbar" method="get">
+    <label class="ss-filter">
+      <small>Academic year</small>
+      <select disabled><option>{{ active_curriculum.academic_year }}</option></select>
+    </label>
+    <label class="ss-filter">
+      <small>Semester</small>
+      <select disabled><option>Semester {{ semester.semester_number }}</option></select>
+    </label>
+    <label class="ss-filter" style="min-width:180px;">
+      <small>Program</small>
+      <select disabled><option>{{ semester.curriculum.program.program_code }} · {{ semester.curriculum.program.program_description }}</option></select>
+    </label>
+    {% if not teacher_mode %}
+      <label class="ss-filter" style="min-width:170px;">
+        <small>Section</small>
+        <select name="section" onchange="this.form.submit()">
+          <option value="">All sections</option>
+          {% for section in sections %}
+            <option value="{{ section.id }}" {% if selected_section and selected_section.id == section.id %}selected{% endif %}>{{ section.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    {% endif %}
+    <span class="ss-badge{% if badge.ok %} ok{% endif %}">{{ badge.text }}</span>
+  </form>
+
+  <div class="ss-stats">
+    {% for stat in stats %}
+      <div class="ss-card ss-stat">
+        <small>{{ stat.label }}<i class="{{ stat.icon }}"></i></small>
+        <div class="ss-stat-v">{{ stat.value }}{% if stat.extra %}<em>{{ stat.extra }}</em>{% endif %}</div>
+        <p>{{ stat.note }}</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <section class="ss-card">
+    <div class="ss-tt-head">
+      <div>
+        <h2>Weekly timetable</h2>
+        <p class="ss-sub">Recurring semester schedule · every class already has a faculty member and a room</p>
+      </div>
+      <div class="ss-actions">
+        <span class="ss-btn" style="cursor:default;"><i class="fa-solid fa-layer-group"></i> {{ scope_label }}</span>
+        <a class="ss-btn" href="{% url 'schedule:schedule_list' %}"><i class="fa-solid fa-arrow-up-right-from-square"></i> View schedules</a>
+      </div>
+    </div>
+
+    <div class="ss-legend">
+      <span><i style="background:var(--ss-lecb)"></i>Lecture</span>
+      <span><i style="background:var(--ss-labb)"></i>Laboratory</span>
+      <span class="ss-ok{% if conflicts %} bad{% endif %}">
+        {% if conflicts %}
+          <i class="fa-solid fa-triangle-exclamation"></i> {{ conflicts|length }} overlap{{ conflicts|length|pluralize }} in this semester
+        {% else %}
+          <i class="fa-solid fa-check"></i> No faculty, room or section overlaps
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="ss-scroll">
+      <div class="ss-tt">
+        <div class="ss-tt-corner">TIME</div>
+        {% for day in day_columns %}<div class="ss-tt-headcell">{{ day.name }}</div>{% endfor %}
+
+        <div class="ss-tt-times" style="height:{{ grid_height }}px;">
+          {% for label in time_labels %}<span style="top:{{ label.top }}px;">{{ label.text }}</span>{% endfor %}
+        </div>
+
+        {% for day in day_columns %}
+          <div class="ss-tt-col" style="height:{{ grid_height }}px;">
+            {% for event in day.events %}
+              <div class="ss-ev{% if event.class_type == 'Laboratory' %} lab{% endif %}"
+                   style="top:{{ event.top_px }}px; height:{{ event.height_px }}px;">
+                <b>{{ event.subject.code }}<u>{% if event.class_type == 'Laboratory' %}LAB{% else %}LEC{% endif %}</u></b>
+                <strong>{{ event.subject.name }}</strong>
+                <div>{{ event.section.name }} · {{ event.teacher.first_name }} {{ event.teacher.last_name }}</div>
+                <div>{{ event.room.building.code }} {{ event.room.room_name }} · {{ event.time_label }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if not timetable %}
+      <div class="ss-empty" style="border-top:0; padding-top:14px;">No classes on the timetable for this view yet.</div>
+    {% endif %}
+
+    <div class="ss-tt-foot">
+      <span>{{ foot_left }}</span>
+      <span class="{% if conflicts %}am{% else %}gr{% endif %}">{{ foot_right }}</span>
+    </div>
+  </section>
+
+  <div class="ss-low">
+    <section class="ss-card">
+      <h3>Needs attention
+        {% if attention %}<span class="ss-cnt">{{ attention|length }} item{{ attention|length|pluralize }}</span>{% endif %}
+      </h3>
+      <p class="ss-sub" style="margin:3px 0 8px;">Conflicting classes and sections still without a timetable.</p>
+      {% for item in attention %}
+        <div class="ss-att-item">
+          <span class="ss-att-ic {{ item.tone }}">{{ item.icon }}</span>
+          <div class="ss-att-tx">
+            <b>{{ item.title }}</b><span class="ss-tag {{ item.tag_tone }}">{{ item.tag }}</span><br>
+            {{ item.detail }}
+            <a href="{% url 'schedule:schedule_list' %}">{{ item.action }} &rarr;</a>
+          </div>
+        </div>
+      {% empty %}
+        <div class="ss-empty" style="border-top:0; color:var(--ss-green);">
+          <i class="fa-solid fa-circle-check"></i> All clear &mdash; nothing left to resolve.
+        </div>
+      {% endfor %}
+    </section>
+
+    <section class="ss-card">
+      <h3>Room utilization</h3>
+      <p class="ss-sub" style="margin:3px 0;">Booked hours / 40-hour room week</p>
+      {% for room in room_rows %}
+        <div class="ss-room">
+          <div>{{ room.name }}<span>{{ room.hours }}h / 40h · {{ room.percent }}%</span></div>
+          <span class="ss-bar"><i style="width:{{ room.bar_width }}%;"></i></span>
+        </div>
+      {% empty %}
+        <div class="ss-empty">No rooms booked for this semester.</div>
+      {% endfor %}
+      <div class="ss-rmf">
+        <span>Mon&ndash;Fri · 08:00&ndash;16:00</span>
+        <a href="{% url 'rooms:room_list' %}">Manage Rooms &rarr;</a>
+      </div>
+    </section>
+  </div>
+
+  <div class="ss-copy">
+    <span>Copyright &copy; 2026 Kertzen Tech. All rights reserved.</span>
+    <span>Smart Scheduler Management System</span>
+  </div>
+{% endif %}
 {% endblock %}

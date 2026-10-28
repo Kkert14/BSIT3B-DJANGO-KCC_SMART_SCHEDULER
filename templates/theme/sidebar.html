@@ -1,146 +1,54 @@
-<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar">
-  <div class="container-fluid">
-    <div class="collapse navbar-collapse" id="sidebar-menu">
-      <ul class="navbar-nav pt-lg-2 py-lg-2">
+<aside class="ss-side" id="ss-side">
+  <h6>Menu</h6>
+  <a class="ss-nav-link {% if request.resolver_match.url_name == 'dashboard' %}on{% endif %}" href="{% url 'dashboard' %}">
+    <i class="fa-solid fa-gauge"></i>Dashboard
+  </a>
+  {% if can_manage %}
+    <a class="ss-nav-link {% if request.resolver_match.app_name == 'users' %}on{% endif %}" href="{% url 'users:user_list' %}">
+      <i class="fa-solid fa-users"></i>Users
+    </a>
+    <a class="ss-nav-link {% if request.resolver_match.app_name == 'curriculum' %}on{% endif %}" href="{% url 'curriculum:curriculum_list' %}">
+      <i class="fa-solid fa-book-open"></i>Curriculum
+    </a>
+  {% endif %}
+  <a class="ss-nav-link {% if request.resolver_match.app_name == 'info' %}on{% endif %}" href="{% url 'info:info_list' %}">
+    <i class="fa-solid fa-circle-info"></i>Info
+  </a>
 
-        <li class="nav-item">
-          <span class="dh-nav-section">
-            Menu
-          </span>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa fa-dashboard"></i>
-            </span>
-            <span class="nav-link-title">Dashboard</span>
-          </a>
-        </li>
+  <h6>Scheduling</h6>
+  <a class="ss-nav-link {% if request.resolver_match.app_name == 'building' %}on{% endif %}" href="{% url 'building:building_list' %}">
+    <i class="fa-solid fa-building"></i>Buildings
+  </a>
+  <a class="ss-nav-link {% if request.resolver_match.app_name == 'program' %}on{% endif %}" href="{% url 'program:program_list' %}">
+    <i class="fa-solid fa-school"></i>Programs
+  </a>
+  <a class="ss-nav-link {% if request.resolver_match.app_name == 'rooms' %}on{% endif %}" href="{% url 'rooms:room_list' %}">
+    <i class="fa-solid fa-door-open"></i>Rooms
+  </a>
+  <a class="ss-nav-link {% if request.resolver_match.app_name == 'faculty' %}on{% endif %}" href="{% url 'faculty:faculty_list' %}">
+    <i class="fa-solid fa-user-tie"></i>Faculty
+  </a>
+  <a class="ss-nav-link {% if request.resolver_match.app_name == 'section' %}on{% endif %}" href="{% url 'section:section_list' %}">
+    <i class="fa-solid fa-layer-group"></i>Sections
+  </a>
+  <a class="ss-nav-link {% if request.resolver_match.app_name == 'subject' %}on{% endif %}" href="{% url 'subject:subject_list' %}">
+    <i class="fa-solid fa-book"></i>Subjects
+  </a>
+  <a class="ss-nav-link {% if request.resolver_match.app_name == 'schedule' %}on{% endif %}" href="{% url 'schedule:schedule_list' %}">
+    <i class="fa-solid fa-calendar-days"></i>Schedules
+  </a>
 
-        {% if can_manage %}
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}" href="{% url 'users:user_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-users"></i>
-            </span>
-            <span class="nav-link-title">Users</span>
-          </a>
-        </li>
-        {% endif %}
-
-        {% if can_manage %}
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'curriculum' %}active{% endif %}" href="{% url 'curriculum:curriculum_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-book-open"></i>
-            </span>
-            <span class="nav-link-title">Curriculum</span>
-          </a>
-        </li>
-        {% endif %}
-
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.app_name == 'info' %}active{% endif %}" href="{% url 'info:info_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-address-card"></i>
-            </span>
-            <span class="nav-link-title">Info</span>
-          </a>
-        </li>
-
-        <li class="nav-item">
-          <span class="dh-nav-section">
-            Scheduling
-          </span>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'building' %}active{% endif %}" href="{% url 'building:building_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-building"></i>
-            </span>
-            <span class="nav-link-title">Buildings</span>
-          </a>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'program' %}active{% endif %}" href="{% url 'program:program_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-school"></i>
-            </span>
-            <span class="nav-link-title">Programs</span>
-          </a>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'rooms' %}active{% endif %}" href="{% url 'rooms:room_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-door-open"></i>
-            </span>
-            <span class="nav-link-title">Rooms</span>
-          </a>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'faculty' %}active{% endif %}" href="{% url 'faculty:faculty_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-user-tag"></i>
-            </span>
-            <span class="nav-link-title">Faculty</span>
-          </a>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'section' %}active{% endif %}" href="{% url 'section:section_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-layer-group"></i>
-            </span>
-            <span class="nav-link-title">Sections</span>
-          </a>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'subject' %}active{% endif %}" href="{% url 'subject:subject_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-book"></i>
-            </span>
-            <span class="nav-link-title">Subjects</span>
-          </a>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.app_name == 'schedule' %}active{% endif %}" href="{% url 'schedule:schedule_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-calendar-alt"></i>
-            </span>
-            <span class="nav-link-title">Schedules</span>
-          </a>
-        </li>
-
-        {% if user.is_authenticated %}
-        <li class="nav-item d-lg-none">
-          <a class="nav-link" href="{% url 'logout' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-sign-out-alt"></i>
-            </span>
-            <span class="nav-link-title">Logout</span>
-          </a>
-        </li>
-        {% endif %}
-
-        <li class="nav-item mt-auto dh-nav-sidebar-footer">
-          <div class="dh-user-card">
-            <a href="{% if can_manage %}{% url 'users:user_list' %}{% else %}{% url 'dashboard' %}{% endif %}" class="d-flex align-items-center gap-2 text-decoration-none text-white min-w-0 w-100">
-              <span class="dh-avatar">{{ user.username|first|upper }}</span>
-              <span class="min-w-0 flex-grow-1">
-                <span class="dh-user-name">{{ user.username }}</span>
-                <span class="dh-user-role">
-                  {% if user_role == 'admin' %}Administrator{% elif user_role == 'teacher' %}Instructor{% elif user_role == 'student' %}Student{% else %}Guest{% endif %}
-                </span>
-              </span>
-            </a>
-            {% if user.is_authenticated %}
-            <a href="{% url 'logout' %}" class="dh-user-logout" title="Logout">
-              <i class="fas fa-sign-out-alt"></i>
-            </a>
-            {% endif %}
-          </div>
-        </li>
-
-      </ul>
-    </div>
+  <div class="ss-side-user">
+    <b>{{ user.username|slice:":2"|upper }}</b>
+    <a class="ss-side-link" href="{% if can_manage %}{% url 'users:user_list' %}{% else %}{% url 'dashboard' %}{% endif %}">
+      <span>{{ user.username }}
+        <small>
+          {% if user_role == 'admin' %}Administrator{% elif user_role == 'teacher' %}Instructor{% elif user_role == 'student' %}Student{% else %}Guest{% endif %}
+        </small>
+      </span>
+    </a>
+    <a class="ss-side-logout" href="{% url 'logout' %}" title="Logout" aria-label="Logout">
+      <i class="fa-solid fa-arrow-right-from-bracket"></i>
+    </a>
   </div>
 </aside>

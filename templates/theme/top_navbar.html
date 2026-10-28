@@ -1,76 +1,60 @@
 {% if request.user.is_authenticated %}
-<nav class="navbar navbar-expand-lg navbar-dark dh-top-navbar">
-  <div class="container-fluid">
-    <!-- Hamburger toggle -->
-    <button
-      class="navbar-toggler"
-      type="button"
-      data-bs-toggle="collapse"
-      data-bs-target="#sidebar-menu"
-      aria-controls="sidebar-menu"
-      aria-expanded="false"
-      aria-label="Toggle navigation"
-    >
-      <span class="navbar-toggler-icon"></span>
+<header class="ss-top">
+  <button class="ss-burger" type="button" id="ss-burger" aria-label="Toggle navigation" aria-controls="ss-side" aria-expanded="false">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+
+  <a class="ss-brand" href="{% url 'dashboard' %}">
+    <span class="ss-brand-mark"><i class="fa-solid fa-gear"></i></span>
+    <span class="ss-brand-name">
+      <b>Smart</b> Scheduler
+      <span class="ss-brand-sub">MANAGEMENT SYSTEM</span>
+    </span>
+  </a>
+
+  <div class="ss-ctx" id="ss-ctx">
+    <button class="ss-ctx-btn" type="button" id="ss-ctx-btn" aria-haspopup="listbox" aria-expanded="false">
+      <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>
+      {% if active_curriculum %}
+        <span>{{ active_curriculum.code }} &middot; {{ active_curriculum.academic_year }} &middot; Semester {{ active_semester.semester_number }}</span>
+      {% else %}
+        <span>No active curriculum</span>
+      {% endif %}
+      <i class="ss-chev" aria-hidden="true"></i>
     </button>
 
-    <!-- Brand -->
-    <a class="navbar-brand me-2 d-flex align-items-center" href=".">
-      <span class="dh-brand-mark">
-        <i class="fa-solid fa-shield-halved"></i>
-      </span>
-      <span class="lh-1 ms-2">
-        <span class="text-warning">Smart</span><span class="dh-brand-name">Scheduler</span>
-        <span class="dh-brand-sub">Management System</span>
-      </span>
-    </a>
-
-    <!-- Active Curriculum / Semester switcher -->
-    <div class="dropdown">
-      <button
-        class="btn btn-outline-secondary dropdown-toggle"
-        type="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false"
-      >
-        <i class="fa-solid fa-graduation-cap me-2"></i>
-        {% if active_curriculum %}
-          <strong>{{ active_curriculum.code }}</strong>
-          <span class="d-block text-body-secondary small">
-            Semester {{ active_semester.semester_number }}
-          </span>
-        {% else %}
-          <span class="text-muted">No active curriculum</span>
-        {% endif %}
-      </button>
-      <ul class="dropdown-menu dropdown-menu-small p-2" style="width: 260px;">
-        {% for cur in curricula %}
-          <li>
-            <h6 class="dropdown-header text-muted small mb-1">
-              {{ cur.code }} — {{ cur.academic_year }}
-            </h6>
-            {% for sem in cur.semesters.all %}
-              <a
-                class="dropdown-item {% if active_semester and active_semester.pk == sem.pk %}active bg-primary text-white{% endif %}"
-                href="{% url 'curriculum:set_active_semester' sem.id %}"
-              >
-                Semester {{ sem.semester_number }}
-                {% if active_semester and active_semester.pk == sem.pk %}
-                  <i class="fa-solid fa-check ms-auto"></i>
-                {% endif %}
-              </a>
-            {% empty %}
-              <span class="dropdown-item text-muted disabled small">No semesters</span>
-            {% endfor %}
-          </li>
+    <div class="ss-ctx-menu" id="ss-ctx-menu" role="listbox" hidden>
+      {% for cur in curricula %}
+        <div class="ss-ctx-h">{{ cur.code }} &mdash; {{ cur.academic_year }}</div>
+        {% for sem in cur.semesters.all %}
+          <a class="ss-ctx-i{% if active_semester and active_semester.pk == sem.pk %} on{% endif %}"
+             role="option"
+             aria-selected="{% if active_semester and active_semester.pk == sem.pk %}true{% else %}false{% endif %}"
+             href="{% url 'curriculum:set_active_semester' sem.id %}">
+            Semester {{ sem.semester_number }}
+            <span class="ss-check"><i class="fa-solid fa-check"></i></span>
+          </a>
         {% empty %}
-          <li><span class="dropdown-item text-muted disabled small">No curricula yet</span></li>
+          <span class="ss-ctx-i" style="color:#7f8bab">No semesters</span>
         {% endfor %}
-      </ul>
+      {% empty %}
+        <span class="ss-ctx-h">No curricula yet</span>
+      {% endfor %}
     </div>
-
-    <!-- Flex spacer to push nothing (keeps items left-aligned) -->
-    <div class="flex-grow-1"></div>
   </div>
-</nav>
+
+  <div class="ss-top-right">
+    <span>
+      {% if user_role == 'admin' %}Administrator workspace{% elif user_role == 'teacher' %}Instructor workspace{% elif user_role == 'student' %}Student workspace{% else %}Workspace{% endif %}
+    </span>
+    <span class="ss-top-vr" aria-hidden="true"></span>
+    {% if can_manage %}
+      <a class="ss-avatar" href="{% url 'users:user_list' %}" title="Manage users">
+        {{ user.username|slice:":2"|upper }}
+      </a>
+    {% else %}
+      <span class="ss-avatar">{{ user.username|slice:":2"|upper }}</span>
+    {% endif %}
+  </div>
+</header>
 {% endif %}

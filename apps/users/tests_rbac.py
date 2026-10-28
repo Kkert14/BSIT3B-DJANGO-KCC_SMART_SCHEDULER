@@ -315,11 +315,11 @@ class TemplateGatingTests(RoleTestMixin, TestCase):
 
     def test_student_does_not_see_the_users_nav_link(self):
         response = self.call(self.student, 'get', 'building:building_list')
-        self.assertNotIn(b'nav-link-title">Users<', response.content)
+        self.assertNotIn(b'fa-users"></i>Users', response.content)
 
     def test_admin_sees_the_users_nav_link(self):
         response = self.call(self.admin, 'get', 'building:building_list')
-        self.assertIn(b'nav-link-title">Users<', response.content)
+        self.assertIn(b'fa-users"></i>Users', response.content)
 
 
 class RoleHelperTests(TestCase):

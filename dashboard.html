@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard - Smart Scheduler</title>
+<style>
+:root{--nav:#1b2538;--nav2:#243049;--nt:#c9d1e0;--bg:#eef1f9;--card:#fff;--line:#e4e8f2;--text:#1d2740;--muted:#7b86a0;--blue:#2b8be6;
+--lec:#e4eefb;--lecb:#2f74c0;--lab:#ece6f8;--labb:#7a5cc0;--red:#d64545;--amber:#b7791f;--green:#1f9d63}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--nav);color:var(--text);font-size:12px;display:grid;grid-template-columns:190px 1fr;grid-template-rows:56px 1fr;min-height:100vh}
+button{font:inherit;cursor:pointer}
+a{color:inherit;text-decoration:none}
+/* sidebar */
+.side{background:var(--nav);color:var(--nt);padding:14px 12px;display:flex;flex-direction:column}
+.logo{display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:13px;line-height:1.1}
+.logo i{width:28px;height:28px;border-radius:8px;background:#2c3a57;color:#f5a623;display:grid;place-items:center;font-style:normal}
+.logo b{color:#f5a623;font-weight:700}.logo small{display:block;font-size:6.5px;letter-spacing:1.2px;color:#8f9ab3;font-weight:500}
+.side h6{font-size:9px;letter-spacing:1.2px;color:#78849e;margin:10px 6px 6px}
+.side a{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:8px;font-size:12px;margin-bottom:2px}
+.side a i{font-style:normal;width:14px;text-align:center;opacity:.8}
+.side a.on{background:var(--blue);color:#fff}
+.user{margin-top:auto;background:var(--nav2);border-radius:8px;padding:9px;display:flex;gap:8px;align-items:center;font-size:11px}
+.user b{width:24px;height:24px;border-radius:6px;background:#f5a623;color:#fff;display:grid;place-items:center;font-size:10px}
+.user small{display:block;color:#8f9ab3;font-size:9px}
+/* right */
+.right{display:flex;flex-direction:column;min-width:0}
+.top{grid-column:1/-1;height:56px;display:flex;align-items:center;gap:14px;padding:0 18px;color:#aab4ca;background:var(--nav)}
+.av{width:24px;height:24px;border-radius:50%;background:#3a4763;color:#fff;display:grid;place-items:center;font-size:9px;font-weight:700}
+.hp{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid #3a4763;border-radius:10px;background:var(--nav2);color:#fff;font-size:12px}
+.ctx{position:relative}
+button.hp{cursor:pointer;font:600 12px inherit}
+.hp .chev{width:5px;height:5px;border-right:1.5px solid #c9d1e0;border-bottom:1.5px solid #c9d1e0;transform:rotate(45deg) translateY(-2px);margin-left:4px}
+.hp:focus-visible{outline:2px solid #4a8dff}
+.ctx-menu{position:absolute;left:0;top:40px;min-width:280px;background:#1f2a40;border:1px solid #2e3b57;border-radius:12px;padding:8px;box-shadow:0 14px 34px rgba(0,0,0,.4);z-index:40}
+.ctx-menu[hidden]{display:none}
+.ctx-h{font-size:10px;letter-spacing:.8px;color:#7f8bab;padding:8px 10px 4px}
+.ctx-i{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:none;color:#e8edf7;font:600 12.5px inherit;padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left}
+.ctx-i span{visibility:hidden}
+.ctx-i:hover{background:#2a3754}
+.ctx-i.on{background:#3f93e0;color:#fff}
+.ctx-i.on span{visibility:visible}
+.top .r{margin-left:auto;display:flex;gap:14px;align-items:center;font-size:11px}
+.top .vr{width:1px;height:18px;background:#3a4763}
+main{background:var(--bg);flex:1;border-top-left-radius:14px;padding:16px 20px 18px;overflow:hidden}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.ov{font-size:9px;font-weight:700;color:var(--blue);letter-spacing:.6px}
+h1{font-size:22px;margin:2px 0}
+.sub{color:var(--muted);font-size:11px}
+.btns{display:flex;gap:8px}
+.b{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-weight:600;font-size:11px;color:var(--text);display:inline-block}
+.b.p{background:var(--blue);border-color:var(--blue);color:#fff}
+.info{margin:12px 0;background:#e8f2fd;border:1px solid #d3e6fa;color:#2a6db5;border-radius:8px;padding:9px 12px;font-size:10.5px}
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.filters label{background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 10px;display:block;min-width:92px}
+.filters small{display:block;font-size:8.5px;color:var(--muted)}
+.filters select{border:0;background:none;font:600 11px inherit;color:var(--text);width:100%;outline:none}
+.badge{margin-left:auto;padding:3px 8px;border-radius:6px;font-size:9px;font-weight:600;background:#fdf1d6;color:var(--amber)}
+.badge.ok{background:#dcf5e8;color:var(--green)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat small{display:flex;justify-content:space-between;color:var(--muted);font-size:10.5px}
+.stat .v{font-size:19px;font-weight:600;margin:8px 0 4px;display:flex;align-items:center;gap:8px}
+.stat .v em{font-style:normal;background:#dcf5e8;color:var(--green);font-size:9.5px;padding:2px 7px;border-radius:6px}
+.stat p{font-size:10px;color:var(--muted)}
+.tt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.tt-head h2,.card h3{font-size:13px}
+.legend{display:flex;gap:12px;font-size:10px;color:var(--muted);margin:6px 0 8px}
+.legend i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:5px}
+.ok-msg{font-size:10px;color:var(--green);border:1px solid #cfeedd;background:#f0fbf5;border-radius:6px;padding:3px 8px;text-align:right}
+.ok-msg.bad{color:var(--red);border-color:#f3cccc;background:#fdf1f1}
+.scroll{overflow-x:auto}
+.tt{min-width:680px;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:grid;grid-template-columns:46px repeat(5,1fr)}
+.tt .dh{background:#f6f8fd;font-weight:600;font-size:10.5px;text-align:center;padding:8px 0;border-bottom:1px solid var(--line);border-left:1px solid var(--line)}
+.tt .dh:first-child{border-left:0;font-size:8.5px;color:var(--muted);font-weight:500}
+.times{position:relative;height:366px}
+.times span{position:absolute;right:6px;font-size:8.5px;color:var(--muted)}
+.col{position:relative;height:366px;border-left:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% 44px;background-position:0 10px}
+.ev{position:absolute;left:3px;right:3px;border-radius:5px;padding:5px 7px;font-size:9.5px;line-height:1.35;overflow:hidden;border-left:3px solid}
+.ev.LEC{background:var(--lec);border-color:var(--lecb);color:var(--lecb)}
+.ev.LAB{background:var(--lab);border-color:var(--labb);color:var(--labb)}
+.ev b{display:flex;justify-content:space-between;font-size:10.5px}.ev b u{text-decoration:none;font-size:7.5px;opacity:.8}
+.ev strong{display:block;color:var(--text);font-size:10px;margin:1px 0 2px}
+.ghost{position:absolute;left:3px;right:3px;border:1px dashed #b6c3de;border-radius:5px;padding:7px;font-size:9.5px;color:var(--muted);background:#fafbfe}
+.ghost b{color:var(--lecb);display:block;font-size:10px}
+.foot{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-size:9.5px;color:var(--muted);flex-wrap:wrap}
+.foot .am{color:var(--amber);font-weight:600}.foot .gr{color:var(--green);font-weight:600}
+.low{display:grid;grid-template-columns:1.9fr 1fr;gap:12px;margin-top:12px}
+.item{display:flex;gap:10px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.item .ic{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;flex-shrink:0}
+.item .ic.r{background:#fdeaea;color:var(--red)}.item .ic.a{background:#fdf1d6;color:var(--amber)}
+.item .tx{flex:1;font-size:10px;color:var(--muted)}.item .tx b{color:var(--text);font-size:11px}
+.item .tx a{color:var(--blue);display:block;margin-top:2px}
+.tag{font-size:8.5px;padding:2px 6px;border-radius:5px;margin-left:6px;font-weight:600}
+.tag.r{background:#fdeaea;color:var(--red)}.tag.a{background:#fdf1d6;color:var(--amber)}
+.item select{margin-top:4px;font:11px inherit;padding:3px;border:1px solid var(--line);border-radius:6px}
+.cnt{float:right;background:#fdf1d6;color:var(--amber);font-size:9px;padding:2px 8px;border-radius:6px;font-weight:600}
+.empty{padding:22px 0 8px;text-align:center;color:var(--green);font-size:11px;border-top:1px solid var(--line)}
+.rm{margin:11px 0;font-size:10px}.rm div{display:flex;justify-content:space-between;font-weight:600;margin-bottom:4px}
+.rm span{color:var(--muted);font-weight:400}
+.bar{height:4px;background:#e6ecf7;border-radius:3px}.bar i{display:block;height:100%;background:var(--blue);border-radius:3px}
+.rmf{display:flex;justify-content:space-between;font-size:9.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;margin-top:12px}
+.rmf a{color:var(--blue);font-weight:600}
+.copy{display:flex;justify-content:space-between;font-size:9.5px;color:var(--muted);margin-top:16px}
+@media(max-width:1000px){.stats{grid-template-columns:1fr 1fr}.low{grid-template-columns:1fr}}
+@media(max-width:820px){.hp+.hp{display:none}body{grid-template-columns:1fr}.side{display:none}main{border-radius:0}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="logo"><i>&#9881;</i><div><b>Smart</b><br>Scheduler<small>MANAGEMENT SYSTEM</small></div></div>
+  <div class="ctx" id="ctx">
+    <button class="hp" type="button" id="ctx-btn" aria-haspopup="listbox" aria-expanded="false">&#127891;<span id="ctx-label"></span><i class="chev"></i></button>
+    <div class="ctx-menu" id="ctx-menu" role="listbox" hidden></div>
+  </div>
+  <div class="r">Administrator workspace <span class="vr"></span><span>&#128276;</span><span class="av">KZ</span></div>
+</header>
+<aside class="side">
+  <h6>MENU</h6>
+  <a href="#" class="on"><i>&#9638;</i>Dashboard</a>
+  <a href="#"><i>&#9786;</i>Users</a>
+  <a href="#"><i>&#128214;</i>Curriculum</a>
+  <a href="#"><i>&#9432;</i>Info</a>
+  <h6>SCHEDULING</h6>
+  <a href="#"><i>&#127970;</i>Buildings</a>
+  <a href="#"><i>&#127979;</i>Programs</a>
+  <a href="#"><i>&#128682;</i>Rooms</a>
+  <a href="#"><i>&#128100;</i>Faculty</a>
+  <a href="#"><i>&#9776;</i>Sections</a>
+  <a href="#"><i>&#128196;</i>Subjects</a>
+  <a href="schedule-management.html"><i>&#128197;</i>Schedules</a>
+  <div class="user"><b>KZ</b><div>Kzen<small>Administrator</small></div></div>
+</aside>
+
+<div class="right">
+  <main>
+    <div class="head">
+      <div><div class="ov">OVERVIEW</div><h1>Dashboard</h1><p class="sub">Plan a balanced week. Resolve assignments before publishing.</p></div>
+      <div class="btns"><a class="b" href="#">&#128214; Manage Subjects</a><a class="b p" href="schedule-management.html">&#128197; Manage Schedules</a></div>
+    </div>
+    <div class="info">&#9432; Example data preview &mdash; all schedules, counts and utilization below are illustrative, not your current inventory.</div>
+
+    <div class="filters">
+      <label><small>Academic year</small><select><option>2026-2027</option><option>2025-2026</option></select></label>
+      <label><small>Semester</small><select><option>1st Semester</option><option>2nd Semester</option></select></label>
+      <label style="min-width:170px"><small>Program</small><select><option>BSBA &middot; Marketing Management</option><option>BSBA &middot; Financial Management</option></select></label>
+      <label><small>Curriculum</small><select><option>2023</option><option>2021</option></select></label>
+      <span class="badge" id="badge">Draft schedule</span>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <section class="card">
+      <div class="tt-head">
+        <div><h2>Weekly timetable</h2><p class="sub">Recurring semester schedule &middot; confirmed assignments only</p></div>
+        <div class="btns"><a class="b" href="#">Section: BSBA 1-A &#8964;</a><a class="b" href="schedule-management.html">&#8599; View Schedules</a></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--lecb)"></i>Lecture</span><span><i style="background:var(--labb)"></i>Laboratory</span>
+        <span class="ok-msg" id="conf" style="margin-left:auto"></span></div>
+      <div class="scroll"><div class="tt" id="tt"></div></div>
+      <div class="foot" id="foot"></div>
+    </section>
+
+    <div class="low">
+      <section class="card"><h3>Needs attention <span class="cnt" id="cnt"></span></h3>
+        <p class="sub" style="margin:3px 0 8px">Resolve these draft items before publishing.</p><div id="att"></div></section>
+      <section class="card"><h3>Room utilization</h3>
+        <p class="sub" style="margin:3px 0">BSBA 1-A bookings / 40h room week</p><div id="rooms"></div>
+        <div class="rmf"><span>Mon-Fri &middot; 08:00-16:00</span><a href="#">Manage Rooms &rarr;</a></div></section>
+    </div>
+    <div class="copy"><span>Copyright &copy; 2026 Kertzen Tech. All rights reserved.</span><span>Smart Scheduler Management System</span></div>
+  </main>
+</div>
+
+<script>
+const H = 44, START = 8, END = 16, REQUIRED = 20, BASE_DONE = 5, TOTAL_SUBJ = 6;
+const days = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+const base = [
+  {d:0,s:8, e:11,t:"LEC",code:"ACC 101",name:"Fundamentals of Accounting",fac:"M. Santos",room:"R201"},
+  {d:1,s:8, e:11,t:"LEC",code:"BMS 101",name:"Business Mathematics",fac:"J. Reyes",room:"R202"},
+  {d:2,s:8, e:10,t:"LEC",code:"IT 101", name:"Computer Applications",fac:"A. Cruz",room:"R201"},
+  {d:3,s:8, e:11,t:"LEC",code:"GE 104", name:"Purposive Communication",fac:"L. Garcia",room:"R202"},
+  {d:4,s:8, e:11,t:"LAB",code:"IT 101", name:"Computer Applications",fac:"A. Cruz",room:"Computer Lab"},
+  {d:2,s:13,e:16,t:"LEC",code:"ECO 101",name:"Basic Microeconomics",fac:"M. Santos",room:"R201"}
+];
+const S = {placed:false, fac:null, room:null, assigning:false};
+const FACULTY = ["R. Dela Cruz","P. Villanueva","S. Lim"];
+const $ = id => document.getElementById(id);
+const hh = n => String(n).padStart(2,"0") + ":00";
+const events = () => S.placed ? [...base,{d:1,s:13,e:16,t:"LEC",code:"MGT 101",name:"Principles of Management",fac:S.fac,room:S.room}] : base;
+const assigned = () => S.fac && S.room;
+
+function overlaps(list){
+  const out = [];
+  list.forEach((a,i) => list.slice(i+1).forEach(b => {
+    if (a.d === b.d && a.s < b.e && b.s < a.e) out.push([a,b]);
+  }));
+  return out;
+}
+
+function render(){
+  const list = events();
+  const hours = list.reduce((n,x) => n + x.e - x.s, 0);
+  const pct = Math.round(hours / REQUIRED * 100);
+  const done = BASE_DONE + (S.placed && assigned() ? 1 : 0);
+  const fp = S.fac ? 0 : 1, rp = S.room ? 0 : 1;
+
+  // stat cards
+  const stat = (label, icon, v, extra, note) =>
+    `<div class="card stat"><small>${label}<span>${icon}</span></small><div class="v">${v}${extra||""}</div><p>${note}</p></div>`;
+  $("stats").innerHTML =
+    stat("Weekly hours scheduled","&#9684;",`${hours} / ${REQUIRED}`,`<em>${pct}%</em>`, hours < REQUIRED ? `${REQUIRED-hours} hours still to place` : "All hours placed") +
+    stat("Subjects completed","&#9636;",`${done} / ${TOTAL_SUBJ}`,"","Lecture &amp; lab hours covered") +
+    stat("Faculty assignment","&#128100;",`${fp} pending`,"", fp ? "MGT 101 needs an instructor" : "All instructors assigned") +
+    stat("Room assignment","&#127970;",`${rp} pending`,"", rp ? "MGT 101 needs a room" : "All rooms assigned");
+
+  // timetable
+  let html = `<div class="dh">TIME</div>` + days.map(d => `<div class="dh">${d}</div>`).join("");
+  html += `<div class="times">` + Array.from({length:END-START+1},(_,i) =>
+    `<span style="top:${i*H+4}px">${hh(START+i)}</span>`).join("") + `</div>`;
+  days.forEach((_,d) => {
+    let c = list.filter(x => x.d === d).map(x =>
+      `<div class="ev ${x.t}" style="top:${(x.s-START)*H+10}px;height:${(x.e-x.s)*H-4}px">
+        <b>${x.code}<u>${x.t}</u></b><strong>${x.name}</strong>
+        <div>BSBA 1-A &middot; ${x.fac || "No faculty"}</div><div>${x.room || "No room"} &middot; ${hh(x.s)}-${hh(x.e)}</div></div>`).join("");
+    if (d === 1 && !S.placed)
+      c += `<div class="ghost" style="top:${5*H+10}px;height:${3*H-4}px"><b>&#128197; Available for MGT 101</b>13:00-16:00 &middot; R202 is free. Assign faculty to confirm.</div>`;
+    html += `<div class="col">${c}</div>`;
+  });
+  $("tt").innerHTML = html;
+
+  const bad = overlaps(list);
+  $("conf").className = "ok-msg" + (bad.length ? " bad" : "");
+  $("conf").innerHTML = bad.length ? `&#9888; ${bad.length} overlap${bad.length>1?"s":""} found in this timetable`
+                                   : "&#10003; No faculty, room or section overlaps in this timetable";
+
+  const mgt = !S.placed ? `<span class="am">MGT 101 &middot; 3h remaining</span>`
+            : assigned() ? `<span class="gr">MGT 101 &middot; fully scheduled</span>`
+            : `<span class="am">MGT 101 &middot; awaiting assignment</span>`;
+  $("foot").innerHTML = `<span>IT 101: 2h lecture + 3h lab / 5h required &middot; All ${done} completed subjects meet weekly hours.</span>${mgt}`;
+
+  // needs attention
+  const items = [];
+  if (!S.placed) items.push(`<div class="item"><span class="ic r">!</span><div class="tx"><b>MGT 101 &middot; Proposed time blocked</b><span class="tag r">Conflict</span><br>Fri 08:00-12:00 overlaps IT 101 in Computer Lab for BSBA 1-A.<a>Try Tue 13:00-16:00 in R202; section and room are available.</a></div><button class="b" data-act="resched">&rarr; Reschedule</button></div>`);
+  if (!assigned()) {
+    const picker = S.assigning
+      ? `<br><select id="facsel">${FACULTY.map(f=>`<option>${f}</option>`).join("")}</select> <button class="b p" data-act="confirm">Confirm</button>` : "";
+    items.push(`<div class="item"><span class="ic a">+</span><div class="tx"><b>MGT 101 &middot; Complete assignments</b><span class="tag a">Pending</span><br>Principles of Management &middot; 3h lecture &middot; faculty and room unassigned.<a>Select an available faculty member, then confirm the suggested room (R202).</a>${picker}</div>${S.assigning ? "" : `<button class="b" data-act="assign">&#128100; Assign now</button>`}</div>`);
+  }
+  $("att").innerHTML = items.join("") || `<div class="empty">&#10003; All clear &mdash; nothing left to resolve.</div>`;
+  $("cnt").textContent = items.length + (items.length === 1 ? " item" : " items");
+  $("cnt").style.display = items.length ? "" : "none";
+
+  // badge + room utilization
+  const ready = S.placed && assigned();
+  $("badge").textContent = ready ? "Ready to publish" : "Draft schedule";
+  $("badge").className = "badge" + (ready ? " ok" : "");
+  $("rooms").innerHTML = ["R201","R202","Computer Lab"].map(r => {
+    const h = list.filter(x => x.room === r).reduce((n,x) => n + x.e - x.s, 0);
+    const p = h / 40 * 100;
+    return `<div class="rm"><div>${r}<span>${h}h / 40h &middot; ${+p.toFixed(1)}%</span></div><span class="bar" style="display:block"><i style="width:${p}%"></i></span></div>`;
+  }).join("");
+}
+
+document.addEventListener("click", e => {
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (!act) return;
+  if (act === "resched") S.placed = true;
+  if (act === "assign") S.assigning = true;
+  if (act === "confirm") { S.fac = $("facsel").value; S.room = "R202"; S.assigning = false; }
+  render();
+});
+render();
+</script>
+<script>
+// Program / curriculum / semester picker: only valid combinations are listed
+(() => {
+  const groups = [
+    {prog:"BSBA", cur:"Curriculum 2023", sems:["1st Semester","2nd Semester"]},
+    {prog:"BSBA", cur:"Curriculum 2021", sems:["1st Semester","2nd Semester"]},
+    {prog:"BSIT",  cur:"Curriculum 2023", sems:["1st Semester","2nd Semester"]}
+  ];
+  const KEY = "ss-context";
+  let cur = {g:0, s:0};
+  try { const v = JSON.parse(localStorage.getItem(KEY)); if (v && groups[v.g] && groups[v.g].sems[v.s]) cur = v; } catch (e) {}
+  const btn = document.getElementById("ctx-btn"), menu = document.getElementById("ctx-menu"), label = document.getElementById("ctx-label");
+  const open = o => { menu.hidden = !o; btn.setAttribute("aria-expanded", o); };
+  function draw() {
+    const g = groups[cur.g];
+    label.textContent = g.prog + " \u00b7 " + g.cur + " \u00b7 " + g.sems[cur.s];
+    menu.innerHTML = groups.map((gr, gi) =>
+      `<div class="ctx-h">${gr.prog} \u2014 ${gr.cur}</div>` +
+      gr.sems.map((s, si) => `<button type="button" role="option" class="ctx-i${gi === cur.g && si === cur.s ? " on" : ""}" data-g="${gi}" data-s="${si}">${s}<span>\u2713</span></button>`).join("")
+    ).join("");
+  }
+  btn.addEventListener("click", () => open(menu.hidden));
+  menu.addEventListener("click", e => {
+    const b = e.target.closest(".ctx-i"); if (!b) return;
+    cur = {g:+b.dataset.g, s:+b.dataset.s};
+    try { localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) {}
+    draw(); open(false);
+  });
+  document.addEventListener("click", e => { if (!e.target.closest("#ctx")) open(false); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") open(false); });
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,809 +1,963 @@
-{% extends "theme/base.html" %}
+{% extends 'theme/base.html' %}
+{% block title %}Schedules · Smart Scheduler{% endblock %}
+
 {% block content %}
-<div class="container-xl">
-  <div class="page-header d-print-none" aria-label="Page header">
-    <div class="container-xl">
-      <div class="row align-items-center">
-        <div class="col-md-8">
-          <div class="page-pretitle">Schedule Management</div>
-          <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
-            <h2 class="page-title mb-0">Class Schedules</h2>
-          </div>
-          <h2 class="page-title mb-0 d-md-none">Class Schedules</h2>
-        </div>
-        <div class="col-md-4 text-end">
-          {% if can_manage %}
-          <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="create">
-            <i class='fas fa-plus-circle me-2'></i> Add Schedule
-          </button>
-          <button type="button" class="btn btn-outline-success btn-sm" onclick="location.href='{% url 'schedule:schedule_export_excel' %}'">
-            <i class="fas fa-download me-1"></i> Export Excel
-          </button>
-          <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleImportModal">
-            <i class="fas fa-upload me-1"></i> Import Excel
-          </button>
-          {% endif %}
-        </div>
-      </div>
-    </div>
+<div class="ss-page-head">
+  <div>
+    <div class="ss-ov">Scheduling</div>
+    <h1 class="ss-page-title">Schedule Management</h1>
+    <p class="ss-sub">Assign subjects, faculty and rooms, then check the week for double-bookings.</p>
   </div>
-  <br>
-
-  <!-- Filter Bar -->
-  <div class="card border-0 bg-light mb-3">
-    <div class="card-body py-2">
-      <form method="GET" class="row g-3 align-items-end">
-        <div class="col-auto">
-          <label class="form-label small mb-0">Curriculum / Semester</label>
-          <select name="semester" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="">All</option>
-            {% for sem in semesters %}
-            <option value="{{ sem.id }}" {% if filter_semester|stringformat:"s" == sem.id|stringformat:"s" %}selected{% endif %}>{{ sem.curriculum.code }} — Sem {{ sem.semester_number }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-auto">
-          <label class="form-label small mb-0">Time Format</label>
-          <select id="timeFormatSelect" class="form-select form-select-sm">
-            <option value="military" {% if not request.COOKIES.time_format or request.COOKIES.time_format == 'military' %}selected{% endif %}>Military (24h)</option>
-            <option value="standard" {% if request.COOKIES.time_format == 'standard' %}selected{% endif %}>Standard (12h)</option>
-          </select>
-        </div>
-        {% if filter_semester %}
-        <div class="col-auto">
-          <a href="{% url 'schedule:schedule_list' %}" class="btn btn-outline-secondary btn-sm">Clear Filters</a>
-        </div>
-        {% endif %}
-      </form>
-    </div>
+  <div class="ss-actions">
+    <a class="ss-btn" href="{% url 'schedule:schedule_export_excel' %}"><i class="fa-solid fa-file-export"></i> Export</a>
+    <button class="ss-btn" type="button" id="openImport"><i class="fa-solid fa-file-import"></i> Import</button>
+    <button class="ss-btn primary" type="button" id="openCreate"><i class="fa-solid fa-plus"></i> New schedule</button>
   </div>
-
-  <!-- Stats Cards -->
-  <div class="row row-cards mb-4">
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_buildings }}</h2>
-          <p class="mb-0 text-muted small">Buildings</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_programs }}</h2>
-          <p class="mb-0 text-muted small">Programs</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_faculty }}</h2>
-          <p class="mb-0 text-muted small">Faculty</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_rooms }}</h2>
-          <p class="mb-0 text-muted small">Rooms</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_sections }}</h2>
-          <p class="mb-0 text-muted small">Sections</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_subjects }}</h2>
-          <p class="mb-0 text-muted small">Subjects</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-      <div class="card stat-card">
-        <div class="card-body text-center">
-          <h2 class="mb-1 font-monospace text-primary">{{ stats.total_schedules }}</h2>
-          <p class="mb-0 text-muted small">Schedules</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Weekly Schedule Grid -->
-  <div class="card">
-    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
-      <div class="card-title">Weekly Schedule Grid</div>
-    </div>
-    <div class="card-body p-0">
-      <div class="timetable-wrapper">
-        <table class="table timetable mb-0 table-bordered">
-          <thead class="table-light">
-            <tr>
-              <th class="text-center" style="width: 90px;">Time</th>
-              {% for day_num, day_name in DAYS %}
-              <th class="text-center day-header" style="width: calc((100% - 90px) / 7);">
-                {{ day_name }}
-              </th>
-              {% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-          {% for row in timetable_rows %}
-          <tr>
-            <th class="text-muted text-center time-column" style="width: 90px;" data-start="{{ row.start }}" data-end="{{ row.end }}">
-              <span class="time-display">{{ row.start }} – {{ row.end }}</span>
-            </th>
-            {% for cell in row.cells %}
-            <td class="timetable-cell" id="cell-{{ cell.day_num }}-{{ row.slot_idx }}" style="height: 75px; vertical-align: top; position: relative; border: 1px solid #dee2e6;">
-              {% if cell.schedule %}
-              <div class="schedule-card h-100 d-flex flex-column {% if cell.schedule.class_type == 'Laboratory' %}schedule-card-laboratory{% else %}schedule-card-lecture{% endif %} rounded-0 schedule-item" data-id="{{ cell.schedule.id }}" data-start="{{ cell.schedule.start_time }}" data-end="{{ cell.schedule.end_time }}">
-                <div class="schedule-code text-{% if cell.schedule.class_type == 'Laboratory' %}success{% else %}primary{% endif %}">{{ cell.schedule.subject.code }}</div>
-                <div class="schedule-name">{{ cell.schedule.subject.name }}</div>
-                <div class="schedule-detail">{{ cell.schedule.section.name }} &bull; {{ cell.schedule.room.room_name }}</div>
-                <div class="schedule-detail">{{ cell.schedule.teacher.first_name }} {{ cell.schedule.teacher.last_name }}</div>
-                <div class="schedule-time mt-1 small" data-start="{{ cell.schedule.start_time }}" data-end="{{ cell.schedule.end_time }}">
-                  <span class="time-display">{{ cell.schedule.start_time|time:"H:i" }} – {{ cell.schedule.end_time|time:"H:i" }}</span>
-                </div>
-              </div>
-              {% else %}
-              <div class="empty-cell h-100 d-flex align-items-center justify-content-center">
-                <i class="fas fa-plus"></i>
-              </div>
-              {% endif %}
-            </td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% if timetable_rows|length == 0 or not all_schedules %}
-      <div class="text-center text-muted py-4 border-top">
-        <i class="fas fa-calendar-alt fa-3x opacity-50 mb-2"></i>
-        <p>No schedules found for the selected filters.</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Schedule List Table -->
-  <div class="card mt-4">
-    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
-      <div class="card-title">Schedule List</div>
-      {% if schedules.paginator.count > 0 %}
-      <span class="badge bg-secondary">{{ schedules.paginator.count }} total</span>
-      {% endif %}
-    </div>
-    <div class="card-body">
-      {% if schedules %}
-      <div class="table-responsive">
-        <table class="table table-vcenter table-hover card-table text-nowrap">
-          <thead class="table-light">
-            <tr>
-              <th>Subject</th>
-              <th>Section</th>
-              <th>Teacher</th>
-              <th>Room</th>
-              <th>Curriculum / Semester</th>
-              <th>Day</th>
-              <th>Time</th>
-              <th class="text-center">Type</th>
-              {% if can_manage %}
-              <th class="w-1">Actions</th>
-              {% endif %}
-            </tr>
-          </thead>
-          <tbody>
-          {% for sched in schedules %}
-          <tr data-row-id="{{ sched.id }}">
-            <td class="fw-semibold">{{ sched.subject.code }}</td>
-            <td class="text-muted">{{ sched.section.name }}</td>
-            <td class="text-muted">{{ sched.teacher.first_name }} {{ sched.teacher.last_name }}</td>
-            <td class="text-muted">{{ sched.room.room_name }}</td>
-            <td class="text-muted">{{ sched.semester.curriculum.code }} — Sem {{ sched.semester.semester_number }}</td>
-            <td class="text-muted">{{ sched.get_day_of_week_display }}</td>
-            <td><span class="time-display">{{ sched.start_time|time:"H:i" }} — {{ sched.end_time|time:"H:i" }}</span></td>
-            <td class="text-center">
-              <span class="badge {% if sched.class_type == 'Laboratory' %}bg-success{% else %}bg-primary{% endif %}-lt text-{% if sched.class_type == 'Laboratory' %}success{% else %}primary{% endif %}">{{ sched.class_type }}</span>
-            </td>
-            {% if can_manage %}
-            <td>
-              <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="edit" data-id="{{ sched.id }}" data-semester="{{ sched.semester.id }}" data-curriculum="{{ sched.semester.curriculum.code }}" data-semester-number="{{ sched.semester.semester_number }}" data-faculty="{{ sched.teacher.id }}" data-subject="{{ sched.subject.id }}" data-section="{{ sched.section.id }}" data-room="{{ sched.room.id }}" data-class-type="{{ sched.class_type }}" data-day-of-week="{{ sched.day_of_week }}" data-start-time="{{ sched.start_time }}" data-end-time="{{ sched.end_time }}" title="Edit">
-                  <i class="fas fa-edit text-primary"></i>
-                </button>
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteScheduleModal" data-id="{{ sched.id }}" data-name="{{ sched.subject.code }} — {{ sched.section.name }}" title="Delete">
-                  <i class="fas fa-trash-alt text-danger"></i>
-                </button>
-              </div>
-            </td>
-            {% endif %}
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination -->
-      {% if schedules.paginator.num_pages > 1 %}
-      <div class="card-footer d-flex align-items-center">
-        <p class="m-0 text-muted">
-          Showing <span class="fw-medium">{{ schedules.start_index }}</span>
-          to <span class="fw-medium">{{ schedules.end_index }}</span>
-          of <span class="fw-medium">{{ schedules.paginator.count }}</span> records
-        </p>
-        <ul class="pagination m-0 ms-auto">
-          {% if schedules.has_previous %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ schedules.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">
-              <i class="ti ti-chevron-left"></i> prev
-            </a>
-          </li>
-          {% endif %}
-          {% for num in schedules.paginator.page_range %}
-          <li class="page-item {% if schedules.number == num %}active{% endif %}">
-            <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">{{ num }}</a>
-          </li>
-          {% endfor %}
-          {% if schedules.has_next %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ schedules.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if filter_semester %}&semester={{ filter_semester }}{% endif %}">
-              next <i class="ti ti-chevron-right"></i>
-            </a>
-          </li>
-          {% endif %}
-        </ul>
-      </div>
-      {% endif %}
-
-      {% else %}
-      <div class="text-center text-muted py-4">
-        <i class="fas fa-calendar-alt fa-2x opacity-50 mb-2"></i>
-        <p>No schedules found.{% if can_manage %} <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-mode="create">Add your first schedule</button>.{% endif %}</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
 </div>
 
-<style>
-.stat-card {
-  border-radius: 8px;
-  transition: transform 0.2s;
-}
-.stat-card:hover {
-  transform: translateY(-2px);
-}
-.schedule-card {
-  position: relative;
-  overflow: hidden;
-  font-size: 0.78rem;
-  padding: 6px 8px;
-}
-.schedule-card-lecture {
-  background: #e3f2fd;
-  border: 1px solid #2196f3;
-  color: #1565c0;
-}
-.schedule-card-laboratory {
-  background: #e8f5e9;
-  border: 1px solid #4caf50;
-  color: #2e7d32;
-}
-.schedule-card .schedule-code {
-  font-weight: 700;
-  font-size: 0.8rem;
-  display: block;
-  margin-bottom: 2px;
-}
-.schedule-card .schedule-name {
-  color: rgba(0,0,0,0.65);
-  font-size: 0.72rem;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 2px;
-}
-.schedule-card .schedule-detail {
-  color: rgba(0,0,0,0.55);
-  font-size: 0.68rem;
-  display: block;
-  margin-bottom: 1px;
-}
-.schedule-card .schedule-time {
-  margin-top: auto;
-  padding-top: 4px;
-  border-top: 1px dashed rgba(0,0,0,0.1);
-}
-.empty-cell {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.empty-cell i {
-  color: #ced4da;
-}
-.day-header {
-  background: #f8f9fa;
-  font-weight: 600;
-  color: #495057;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.time-column {
-  background: #f8f9fa;
-  font-weight: 600;
-  color: #495057;
-  font-size: 0.75rem;
-}
-.timetable-wrapper {
-  overflow-x: auto;
-}
-.suggestion-btn {
-  font-size: 0.75rem;
-}
-.suggestion-btn:hover {
-  transform: scale(1.05);
-}
-</style>
+<form class="ss-toolbar" method="get">
+  <label class="ss-filter" style="min-width:190px;">
+    <small>Semester</small>
+    <select name="semester" onchange="this.form.submit()">
+      <option value="">All semesters</option>
+      {% for sem in semesters %}
+        <option value="{{ sem.id }}" {% if filter_semester == sem.id|stringformat:'s' %}selected{% endif %}>{{ sem.curriculum.code }} · Semester {{ sem.semester_number }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="ss-filter" style="min-width:170px;">
+    <small>Section</small>
+    <select name="section" onchange="this.form.submit()">
+      <option value="">All sections</option>
+      {% for sec in section_choices %}
+        <option value="{{ sec.id }}" {% if filter_section == sec.id|stringformat:'s' %}selected{% endif %}>{{ sec.name }} · {{ sec.program.program_code }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="ss-filter" style="min-width:210px;">
+    <small>Search</small>
+    <input type="search" name="q" value="{{ query }}" placeholder="Subject, faculty, room…">
+  </label>
+  <button class="ss-btn" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Apply</button>
+  <label class="ss-filter" style="margin-left:auto; min-width:120px;">
+    <small>Time format</small>
+    <select id="timeFormatSelect">
+      <option value="military" {% if request.COOKIES.time_format != 'standard' %}selected{% endif %}>24-hour</option>
+      <option value="standard" {% if request.COOKIES.time_format == 'standard' %}selected{% endif %}>12-hour</option>
+    </select>
+  </label>
+</form>
 
-<!-- Add Schedule Modal -->
-<div class="modal modal-blur fade" id="scheduleModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="scheduleModalTitle">Add Schedule</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="ss-stats">
+  {% for stat in stats %}
+    <div class="ss-card ss-stat">
+      <small>{{ stat.label }}<i class="{{ stat.icon }}"></i></small>
+      <div class="ss-stat-v">{{ stat.value }}</div>
+      <p>{{ stat.note }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+<section class="ss-card ss-wk">
+  <div class="ss-wk-head">
+    <div class="ss-wk-title">
+      <div class="ss-wk-ico"><i class="fa-solid fa-calendar-days"></i></div>
+      <div>
+        <h3>Weekly schedule grid</h3>
+        <p class="ss-sub">Click a free slot to add a schedule, or a block to edit it.</p>
       </div>
-      <form id="scheduleForm">
-        {% csrf_token %}
-        <input type="hidden" name="id" id="schedule_id">
-        <div class="modal-body">
-          <div id="scheduleFormError" class="alert alert-danger d-none"></div>
-          <div id="scheduleConflictAlert" class="alert alert-warning d-none">
-            <h6 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Scheduling Conflict Detected</h6>
-            <div id="scheduleConflictList"></div>
-            <div id="scheduleSuggestions" class="mt-3"></div>
+    </div>
+    <div class="ss-legend" style="margin:0;">
+      <span><i style="background:var(--ss-lecb)"></i>Lecture</span>
+      <span><i style="background:var(--ss-labb)"></i>Laboratory</span>
+    </div>
+  </div>
+
+  <div class="ss-wk-scroll">
+    <table class="ss-wk-table">
+      <thead>
+        <tr>
+          <th class="t">TIME</th>
+          {% for day_num, day_name in DAYS %}<th>{{ day_name }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in timetable_rows %}
+          <tr>
+            <td class="t"><span class="time-display" data-start="{{ row.start }}" data-end="{{ row.end }}">{{ row.start }} – {{ row.end }}</span></td>
+            {% for cell in row.cells %}
+              {% if cell.kind == 'skip' %}
+              {% elif cell.kind == 'event' %}
+                <td class="has-ev" rowspan="{{ cell.rowspan }}">
+                  <button type="button" class="ss-ev-sm js-edit{% if cell.schedule.class_type == 'Laboratory' %} lab{% endif %}"
+                          data-id="{{ cell.schedule.id }}"
+                          data-semester="{{ cell.schedule.semester_id }}"
+                          data-teacher="{{ cell.schedule.teacher_id }}"
+                          data-subject="{{ cell.schedule.subject_id }}"
+                          data-section="{{ cell.schedule.section_id }}"
+                          data-room="{{ cell.schedule.room_id }}"
+                          data-class-type="{{ cell.schedule.class_type }}"
+                          data-day="{{ cell.schedule.day_of_week }}"
+                          data-start="{{ cell.schedule.start_time|time:'H:i' }}"
+                          data-end="{{ cell.schedule.end_time|time:'H:i' }}"
+                          data-label="{{ cell.schedule.subject.code }} · {{ cell.schedule.section.name }}">
+                    <b>{{ cell.schedule.subject.code }}<u>{% if cell.schedule.class_type == 'Laboratory' %}LAB{% else %}LEC{% endif %}</u></b>
+                    <span class="ss-ev-sub">{{ cell.schedule.subject.name }}</span>
+                    <span>{{ cell.schedule.room.building.code }} {{ cell.schedule.room.room_name }} · {{ cell.schedule.teacher.last_name }}</span>
+                  </button>
+                </td>
+              {% else %}
+                <td style="padding:2px;">
+                  <button type="button" class="ss-slot js-new"
+                          data-day="{{ cell.day }}"
+                          data-start="{{ cell.start }}"
+                          data-end="{{ cell.end }}"
+                          aria-label="Add schedule {{ cell.day_name }} {{ cell.start }} to {{ cell.end }}">+</button>
+                </td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if not has_grid_events %}
+    <div class="ss-empty" style="border-top:1px solid var(--ss-line);">No classes match these filters. Click any free slot to start.</div>
+  {% endif %}
+
+  <div class="ss-tt-foot" style="padding:10px 16px 12px; margin-top:0; border-top:1px solid var(--ss-line);">
+    <span>{{ all_schedules.count }} classes in this view · {{ schedules.paginator.count }} matching the current filters</span>
+    <span class="gr">Blocks span every hour they occupy.</span>
+  </div>
+</section>
+
+<section class="ss-card ss-list">
+  <div class="ss-list-head">
+    <div>
+      <h3>Schedules</h3>
+      <p class="ss-sub">Edit or delete any class from the list.</p>
+    </div>
+    <span class="ss-badge">Page {{ schedules.number }} of {{ schedules.paginator.num_pages }}</span>
+  </div>
+  <div class="ss-table-scroll">
+    <table class="ss-table">
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Type</th>
+          <th>Section</th>
+          <th>Faculty</th>
+          <th>Room</th>
+          <th>Day</th>
+          <th>Time</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in schedules %}
+          <tr>
+            <td><b>{{ s.subject.code }}</b> <span class="muted">{{ s.subject.name }}</span></td>
+            <td><span class="ss-type{% if s.class_type == 'Laboratory' %} lab{% endif %}">{{ s.class_type }}</span></td>
+            <td>{{ s.section.name }}</td>
+            <td class="muted">{{ s.teacher.first_name }} {{ s.teacher.last_name }}</td>
+            <td class="muted">{{ s.room.building.code }} {{ s.room.room_name }}</td>
+            <td>{{ s.get_day_of_week_display }}</td>
+            <td><span class="time-display" data-start="{{ s.start_time|time:'H:i' }}" data-end="{{ s.end_time|time:'H:i' }}">{{ s.start_time|time:"H:i" }} – {{ s.end_time|time:"H:i" }}</span></td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button type="button" class="ss-icon-btn js-edit" title="Edit"
+                      data-id="{{ s.id }}"
+                      data-semester="{{ s.semester_id }}"
+                      data-teacher="{{ s.teacher_id }}"
+                      data-subject="{{ s.subject_id }}"
+                      data-section="{{ s.section_id }}"
+                      data-room="{{ s.room_id }}"
+                      data-class-type="{{ s.class_type }}"
+                      data-day="{{ s.day_of_week }}"
+                      data-start="{{ s.start_time|time:'H:i' }}"
+                      data-end="{{ s.end_time|time:'H:i' }}"
+                      data-label="{{ s.subject.code }} · {{ s.section.name }}">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button type="button" class="ss-icon-btn danger js-delete" title="Delete"
+                      data-id="{{ s.id }}"
+                      data-label="{{ s.subject.code }} · {{ s.section.name }}">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" style="text-align:center; color:var(--ss-muted); padding:22px;">No schedules match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="ss-pagination">
+    <span>
+      {% if schedules.paginator.count %}
+        Showing {{ schedules.start_index }}–{{ schedules.end_index }} of {{ schedules.paginator.count }}
+      {% else %}
+        No schedules
+      {% endif %}
+    </span>
+    <div class="ss-pages">
+      {% if schedules.has_previous %}
+        <a class="ss-page" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ schedules.previous_page_number }}" aria-label="Previous page">&lsaquo;</a>
+      {% endif %}
+      {% for num in schedules.paginator.page_range %}
+        {% if num == schedules.number %}
+          <span class="ss-page on">{{ num }}</span>
+        {% else %}
+          <a class="ss-page" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ num }}">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if schedules.has_next %}
+        <a class="ss-page" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ schedules.next_page_number }}" aria-label="Next page">&rsaquo;</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<!-- Schedule modal (2-step) -->
+<form id="scheduleForm" autocomplete="off">
+  {% csrf_token %}
+  <input type="hidden" name="id" id="f_id">
+  <div class="ss-modal" id="scheduleModal" aria-hidden="true">
+    <div class="ss-modal-box" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
+      <button type="button" class="ss-modal-close" data-close="scheduleModal" aria-label="Close">&times;</button>
+      <div class="ss-steps">
+        <section class="ss-card ss-step">
+          <span class="ss-step-k">STEP 1</span>
+          <h2 id="scheduleModalTitle">Select section</h2>
+
+          <div class="ss-field">
+            <label for="f_program">Program</label>
+            <select class="ss-input" id="f_program">
+              <option value="">Select a program…</option>
+              {% for program in programs %}
+                <option value="{{ program.id }}">{{ program.program_code }} — {{ program.program_description }}</option>
+              {% endfor %}
+            </select>
           </div>
-          <div class="row g-3">
-            <div class="col-6">
-              <label class="form-label">Curriculum / Semester</label>
-              <select name="semester" id="schedule_semester" class="form-select" required>
-                <option value="">Select curriculum &amp; semester</option>
+
+          <div class="ss-row">
+            <div class="ss-field">
+              <label for="f_curriculum">Curriculum</label>
+              <select class="ss-input" id="f_curriculum">
+                <option value="">Select…</option>
+                {% for cur in curricula %}
+                  <option value="{{ cur.id }}" data-program="{{ cur.program_id }}">{{ cur.code }} — {{ cur.academic_year }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="ss-field">
+              <label for="f_academic_year">Academic year</label>
+              <input class="ss-input" id="f_academic_year" readonly placeholder="—">
+            </div>
+          </div>
+
+          <div class="ss-row">
+            <div class="ss-field">
+              <label for="f_semester">Semester</label>
+              <select class="ss-input" id="f_semester" name="semester">
+                <option value="">Select…</option>
                 {% for sem in semesters %}
-                <option value="{{ sem.id }}">{{ sem.curriculum.code }} — Sem {{ sem.semester_number }} ({{ sem.curriculum.academic_year }})</option>
+                  <option value="{{ sem.id }}" data-curriculum="{{ sem.curriculum_id }}" data-year="{{ sem.curriculum.academic_year }}">{{ sem.curriculum.code }} · Semester {{ sem.semester_number }}</option>
                 {% endfor %}
               </select>
             </div>
-            <div class="col-6">
-              <label class="form-label">Faculty</label>
-              <select name="faculty" id="schedule_faculty" class="form-select" required>
-                {% for t in teachers %}
-                <option value="{{ t.id }}">{{ t.employee_number }} — {{ t.first_name }} {{ t.last_name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-6">
-              <label class="form-label">Subject</label>
-              <select name="subject" id="schedule_subject" class="form-select" required>
-                {% for s in subjects %}
-                <option value="{{ s.id }}">{{ s.code }} — {{ s.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-6">
-              <label class="form-label">Section</label>
-              <select name="section" id="schedule_section" class="form-select" required>
+            <div class="ss-field">
+              <label for="f_section">Section</label>
+              <select class="ss-input" id="f_section" name="section">
+                <option value="">Select a section…</option>
                 {% for sec in sections %}
-                <option value="{{ sec.id }}">{{ sec.name }} ({{ sec.program.program_code }})</option>
+                  <option value="{{ sec.id }}" data-program="{{ sec.program_id }}" data-semester="{{ sec.semester_id }}">{{ sec.name }} · {{ sec.program.program_code }}</option>
                 {% endfor %}
               </select>
             </div>
-            <div class="col-6">
-              <label class="form-label">Room</label>
-              <select name="room" id="schedule_room" class="form-select" required>
-                {% for r in rooms %}
-                <option value="{{ r.id }}">{{ r.building.code }} — {{ r.room_name }}</option>
+          </div>
+
+          <div class="ss-note">
+            <b>Note</b>
+            Pick the program, curriculum, semester and section before assigning the subject, time and room.
+          </div>
+
+          <button class="ss-btn primary ss-proceed" type="button" id="f_proceed" disabled>Proceed</button>
+        </section>
+
+        <section class="ss-card ss-step locked" id="step2" inert>
+          <span class="ss-step-k">STEP 2</span>
+          <h2>Assign schedule details</h2>
+
+          <div class="ss-row">
+            <div class="ss-field">
+              <label for="f_subject">Subject</label>
+              <select class="ss-input" id="f_subject" name="subject">
+                <option value="">Select subject…</option>
+                {% for subject in subjects %}
+                  <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-semester="{{ subject.semester_id }}" data-lec="{{ subject.lec_hours }}" data-lab="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}</option>
                 {% endfor %}
               </select>
             </div>
-            <div class="col-6">
-              <label class="form-label">Class Type</label>
-              <select name="class_type" id="schedule_class_type" class="form-select" required>
+            <div class="ss-field">
+              <label for="f_day">Day</label>
+              <select class="ss-input" id="f_day" name="day_of_week">
+                <option value="">Select day…</option>
+                {% for day_num, day_name in DAYS %}
+                  <option value="{{ day_num }}">{{ day_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="ss-row">
+            <div class="ss-field">
+              <label for="f_start">Time start</label>
+              <input type="time" class="ss-input" id="f_start" name="start_time">
+            </div>
+            <div class="ss-field">
+              <label for="f_end">Time end</label>
+              <input type="time" class="ss-input" id="f_end" name="end_time">
+            </div>
+          </div>
+
+          <div class="ss-row">
+            <div class="ss-field">
+              <label for="f_building">Building</label>
+              <select class="ss-input" id="f_building">
+                <option value="">Select building…</option>
+                {% for building in buildings %}
+                  <option value="{{ building.id }}">{{ building.code }} — {{ building.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="ss-field">
+              <label for="f_room">Room / Lab</label>
+              <select class="ss-input" id="f_room" name="room">
+                <option value="">Select room…</option>
+                {% for room in rooms %}
+                  <option value="{{ room.id }}" data-building="{{ room.building_id }}">{{ room.building.code }} — {{ room.room_name }} ({{ room.capacity }})</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="ss-row">
+            <div class="ss-field">
+              <label for="f_class_type">Class type</label>
+              <select class="ss-input" id="f_class_type" name="class_type">
                 <option value="Lecture">Lecture</option>
                 <option value="Laboratory">Laboratory</option>
               </select>
             </div>
-            <div class="col-6">
-              <label class="form-label">Day of Week</label>
-              <select name="day_of_week" id="schedule_day_of_week" class="form-select" required>
-                <option value="1">Monday</option>
-                <option value="2">Tuesday</option>
-                <option value="3">Wednesday</option>
-                <option value="4">Thursday</option>
-                <option value="5">Friday</option>
-                <option value="6">Saturday</option>
-                <option value="7">Sunday</option>
+            <div class="ss-field">
+              <label for="f_teacher">Assign faculty</label>
+              <select class="ss-input" id="f_teacher" name="teacher">
+                <option value="">Select faculty…</option>
+                {% for teacher in teachers %}
+                  <option value="{{ teacher.id }}">{{ teacher.last_name }}, {{ teacher.first_name }} ({{ teacher.employee_number }})</option>
+                {% endfor %}
               </select>
             </div>
-            <div class="col-6">
-              <label class="form-label">Start Time</label>
-              <input type="time" name="start_time" id="schedule_start_time" class="form-control" required>
-            </div>
-            <div class="col-6">
-              <label class="form-label">End Time</label>
-              <input type="time" name="end_time" id="schedule_end_time" class="form-control" required>
-            </div>
           </div>
-          <div class="alert alert-info mt-3">
-            <small>
-              <strong>Conflict rules:</strong> a teacher, room, or section cannot be double-booked for the same day and overlapping time.
-              Lecture/Lab time per subject per section cannot exceed the subject's weekly hours.
-            </small>
+
+          <div class="ss-hours" id="f_hours">Weekly hours: —</div>
+
+          <div class="ss-alert danger d-none" id="f_alert"></div>
+          <div class="ss-alert warn d-none" id="f_conflicts"></div>
+
+          <div class="ss-conflict">
+            <b>Conflict rules</b>
+            A teacher, room or section cannot be double-booked on the same day and overlapping time.
+            Lecture and laboratory time cannot exceed the subject's weekly hours.
           </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="scheduleSubmitBtn">Save Schedule</button>
-        </div>
-      </form>
+
+          <div class="ss-modal-actions">
+            <button type="button" class="ss-btn danger d-none" id="f_delete"><i class="fa-solid fa-trash"></i> Delete</button>
+            <button type="button" class="ss-btn" data-close="scheduleModal">Cancel</button>
+            <button type="submit" class="ss-btn primary" id="f_save">Create schedule</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Delete modal -->
+<div class="ss-modal" id="deleteModal" aria-hidden="true">
+  <div class="ss-modal-box" role="dialog" aria-modal="true" style="max-width:430px;">
+    <button type="button" class="ss-modal-close" data-close="deleteModal" aria-label="Close">&times;</button>
+    <h2 style="font-size:15px; margin:2px 0 8px;">Delete schedule</h2>
+    <p class="ss-sub" style="margin-bottom:14px;">Remove <b id="deleteName"></b> from the timetable? This cannot be undone.</p>
+    <div class="ss-alert danger d-none" id="deleteAlert"></div>
+    <div class="ss-modal-actions">
+      <button type="button" class="ss-btn" data-close="deleteModal">Cancel</button>
+      <button type="button" class="ss-btn danger" id="confirmDelete">Delete</button>
     </div>
   </div>
 </div>
 
-<!-- Delete Schedule Modal -->
-<div class="modal modal-blur fade" id="deleteScheduleModal" tabindex="-1">
-  <div class="modal-dialog modal-sm modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title text-danger">Delete Schedule</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- Import modal -->
+<div class="ss-modal" id="importModal" aria-hidden="true">
+  <div class="ss-modal-box" role="dialog" aria-modal="true" style="max-width:520px;">
+    <button type="button" class="ss-modal-close" data-close="importModal" aria-label="Close">&times;</button>
+    <h2 style="font-size:15px; margin:2px 0 8px;">Import schedules from Excel</h2>
+    <form id="importForm" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="ss-field" style="margin-bottom:10px;">
+        <label for="importFile">Excel file (.xlsx)</label>
+        <input type="file" class="ss-input" id="importFile" name="file" accept=".xlsx" required style="padding-top:6px;">
       </div>
-      <div class="modal-body">
-        <p class="text-muted">Are you sure you want to delete <strong id="deleteScheduleName"></strong>?</p>
+      <div class="ss-note">
+        <b>Required columns</b>
+        curriculum_code, semester_number, teacher__employee_number, subject__code, section__name,
+        room__room_name, class_type, day_of_week, start_time, end_time
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-danger" id="confirmDeleteScheduleBtn">Delete</button>
+      <div class="ss-alert danger d-none" id="importError" style="margin-top:8px;"></div>
+      <div class="ss-alert ok d-none" id="importResult" style="margin-top:8px;"></div>
+      <div class="ss-modal-actions">
+        <button type="button" class="ss-btn" data-close="importModal">Cancel</button>
+        <button type="submit" class="ss-btn primary" id="importBtn">Import</button>
       </div>
-    </div>
+    </form>
   </div>
 </div>
+
+{{ hours_map|json_script:"hours-map" }}
+{% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-  // Time format toggle
-  const timeFormatSelect = document.getElementById('timeFormatSelect');
-  let currentFormat = timeFormatSelect ? timeFormatSelect.value : 'military';
+(function () {
+  "use strict";
 
-  function formatTime(timeStr, format) {
-    if (!timeStr) return '';
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    if (format === 'standard') {
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const displayHours = hours % 12 || 12;
-      return displayHours + ':' + minutes.toString().padStart(2, '0') + ' ' + ampm;
+  var HOURS_MAP = JSON.parse(document.getElementById("hours-map").textContent);
+
+  var form = document.getElementById("scheduleForm");
+  var scheduleModal = document.getElementById("scheduleModal");
+  var deleteModal = document.getElementById("deleteModal");
+  var importModal = document.getElementById("importModal");
+
+  var program = document.getElementById("f_program");
+  var curriculum = document.getElementById("f_curriculum");
+  var academicYear = document.getElementById("f_academic_year");
+  var semester = document.getElementById("f_semester");
+  var section = document.getElementById("f_section");
+  var proceed = document.getElementById("f_proceed");
+  var step2 = document.getElementById("step2");
+
+  var subject = document.getElementById("f_subject");
+  var day = document.getElementById("f_day");
+  var startTime = document.getElementById("f_start");
+  var endTime = document.getElementById("f_end");
+  var building = document.getElementById("f_building");
+  var room = document.getElementById("f_room");
+  var classType = document.getElementById("f_class_type");
+  var teacher = document.getElementById("f_teacher");
+
+  var hoursEl = document.getElementById("f_hours");
+  var alertEl = document.getElementById("f_alert");
+  var conflictsEl = document.getElementById("f_conflicts");
+  var saveBtn = document.getElementById("f_save");
+  var deleteBtn = document.getElementById("f_delete");
+
+  var deleteName = document.getElementById("deleteName");
+  var deleteAlert = document.getElementById("deleteAlert");
+  var confirmDelete = document.getElementById("confirmDelete");
+  var deleteTarget = null;
+
+  var csrfToken = form.querySelector("[name=csrfmiddlewaretoken]").value;
+
+  function findOption(select, value) {
+    for (var i = 0; i < select.options.length; i += 1) {
+      if (select.options[i].value === String(value)) return select.options[i];
     }
-    return timeStr;
+    return null;
   }
 
-  function applyTimeFormat(format) {
-    currentFormat = format;
-    // Update time column headers
-    document.querySelectorAll('.time-column').forEach(function(th) {
-      const start = th.getAttribute('data-start');
-      const end = th.getAttribute('data-end');
-      const span = th.querySelector('.time-display');
-      if (span && start && end) {
-        span.textContent = formatTime(start, format) + ' – ' + formatTime(end, format);
-      }
-    });
-    // Update schedule cards
-    document.querySelectorAll('.schedule-time').forEach(function(div) {
-      const start = div.getAttribute('data-start');
-      const end = div.getAttribute('data-end');
-      const span = div.querySelector('.time-display');
-      if (span && start && end) {
-        span.textContent = formatTime(start, format) + ' – ' + formatTime(end, format);
-      }
-    });
-    // Update list table time cells
-    document.querySelectorAll('#scheduleTable .time-display').forEach(function(span) {
-      const text = span.textContent;
-      const match = text.match(/(\d{1,2}):(\d{2})\s*–\s*(\d{1,2}):(\d{2})/);
-      if (match && format === 'standard') {
-        const h1 = parseInt(match[1]);
-        const m1 = match[2];
-        const h2 = parseInt(match[3]);
-        const m2 = match[4];
-        const ampm1 = h1 >= 12 ? 'PM' : 'AM';
-        const dispH1 = h1 % 12 || 12;
-        const ampm2 = h2 >= 12 ? 'PM' : 'AM';
-        const dispH2 = h2 % 12 || 12;
-        span.textContent = dispH1 + ':' + m1 + ' ' + ampm1 + ' – ' + dispH2 + ':' + m2 + ' ' + ampm2;
-      }
-    });
-    // Save preference
-    document.cookie = 'time_format=' + format + '; path=/; max-age=31536000';
+  function openModal(modal) {
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
   }
 
-  if (timeFormatSelect) {
-    timeFormatSelect.addEventListener('change', function() {
-      applyTimeFormat(this.value);
+  function closeModal(modal) {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  document.querySelectorAll("[data-close]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      closeModal(document.getElementById(btn.dataset.close));
+    });
+  });
+
+  [scheduleModal, deleteModal, importModal].forEach(function (modal) {
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal) closeModal(modal);
+    });
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") return;
+    document.querySelectorAll(".ss-modal.open").forEach(closeModal);
+  });
+
+  function filterOptions(select, predicate) {
+    var lost = false;
+    Array.prototype.forEach.call(select.options, function (option) {
+      if (!option.value) return;
+      var keep = predicate(option);
+      option.hidden = !keep;
+      option.disabled = !keep;
+      if (!keep && option.selected) {
+        option.selected = false;
+        lost = true;
+      }
+    });
+    if (lost) select.value = "";
+  }
+
+  function lockStep2() {
+    step2.classList.add("locked");
+    step2.inert = true;
+  }
+
+  function unlockStep2() {
+    step2.classList.remove("locked");
+    step2.inert = false;
+  }
+
+  function refreshProceed() {
+    var ready = program.value && curriculum.value && semester.value && section.value;
+    proceed.disabled = !ready;
+    if (!ready) lockStep2();
+  }
+
+  function updateAcademicYear() {
+    var semesterOption = findOption(semester, semester.value);
+    academicYear.value = semesterOption && semesterOption.value ? semesterOption.dataset.year : "";
+  }
+
+  function refreshCurricula() {
+    filterOptions(curriculum, function (option) {
+      return !program.value || option.dataset.program === program.value;
+    });
+    refreshSemesters();
+  }
+
+  function refreshSemesters() {
+    filterOptions(semester, function (option) {
+      return !curriculum.value || option.dataset.curriculum === curriculum.value;
+    });
+    updateAcademicYear();
+    refreshSections();
+  }
+
+  function refreshSections() {
+    filterOptions(section, function (option) {
+      if (semester.value && option.dataset.semester !== semester.value) return false;
+      if (program.value && option.dataset.program !== program.value) return false;
+      return true;
+    });
+    refreshSubjects();
+    refreshProceed();
+  }
+
+  function refreshSubjects() {
+    filterOptions(subject, function (option) {
+      if (semester.value && option.dataset.semester !== semester.value) return false;
+      if (section.value) {
+        var sectionOption = findOption(section, section.value);
+        if (sectionOption && option.dataset.program !== sectionOption.dataset.program) return false;
+      } else if (program.value && option.dataset.program !== program.value) {
+        return false;
+      }
+      return true;
+    });
+    updateHours();
+  }
+
+  function refreshRooms() {
+    filterOptions(room, function (option) {
+      return !building.value || option.dataset.building === building.value;
     });
   }
 
-  // Grid cell refresh after save/delete
-  const editModal = document.getElementById('scheduleModal');
-  const deleteModal = document.getElementById('deleteScheduleModal');
-  const form = document.getElementById('scheduleForm');
-  const alertBox = document.getElementById('scheduleFormError');
-  const conflictAlert = document.getElementById('scheduleConflictAlert');
-  const conflictList = document.getElementById('scheduleConflictList');
-  const suggestionsDiv = document.getElementById('scheduleSuggestions');
-  const deleteBtn = document.getElementById('confirmDeleteScheduleBtn');
-  const deleteName = document.getElementById('deleteScheduleName');
-  let currentId = null;
+  program.addEventListener("change", refreshCurricula);
+  curriculum.addEventListener("change", function () {
+    refreshSemesters();
+    refreshProceed();
+  });
+  semester.addEventListener("change", function () {
+    updateAcademicYear();
+    refreshSections();
+  });
+  section.addEventListener("change", function () {
+    refreshSubjects();
+    refreshProceed();
+  });
+  building.addEventListener("change", refreshRooms);
+  subject.addEventListener("change", updateHours);
+  classType.addEventListener("change", updateHours);
+
+  proceed.addEventListener("click", function () {
+    if (proceed.disabled) return;
+    unlockStep2();
+    subject.focus();
+  });
+
+  function updateHours() {
+    var key = semester.value + "|" + subject.value + "|" + section.value + "|" + classType.value;
+    var subjectOption = findOption(subject, subject.value);
+    if (!semester.value || !section.value || !subjectOption) {
+      hoursEl.textContent = "Weekly hours: select a semester, section and subject.";
+      return;
+    }
+    var scheduled = HOURS_MAP[key] || 0;
+    if (classType.value === "Laboratory") {
+      hoursEl.textContent = "Laboratory: " + scheduled + "h scheduled of " +
+        (subjectOption.dataset.lab || "0") + "h required this week.";
+    } else {
+      hoursEl.textContent = "Lecture: " + scheduled + "h scheduled of " +
+        (subjectOption.dataset.lec || "0") + "h required this week.";
+    }
+  }
+
+  function showAlert(message) {
+    alertEl.textContent = message;
+    alertEl.classList.remove("d-none");
+  }
+
+  function clearAlerts() {
+    alertEl.classList.add("d-none");
+    alertEl.textContent = "";
+    conflictsEl.classList.add("d-none");
+    conflictsEl.textContent = "";
+  }
+
+  function showConflicts(data) {
+    alertEl.classList.add("d-none");
+    conflictsEl.textContent = "";
+    conflictsEl.classList.remove("d-none");
+
+    var title = document.createElement("b");
+    title.textContent = "Cannot save this schedule";
+    conflictsEl.appendChild(title);
+
+    (data.conflicts || []).forEach(function (conflict) {
+      var line = document.createElement("div");
+      line.style.marginTop = "4px";
+      line.textContent = conflict.message;
+      conflictsEl.appendChild(line);
+    });
+
+    var suggestions = data.suggestions || {};
+    var groups = [
+      ["Suggested times (same day)", suggestions.alternative_times || [], "time"],
+      ["Suggested days (same time)", suggestions.alternative_days || [], "day"],
+      ["Suggested rooms", suggestions.alternative_rooms || [], "room"]
+    ];
+    var count = 0;
+
+    groups.forEach(function (group) {
+      if (!group[1].length) return;
+      count += group[1].length;
+
+      var label = document.createElement("div");
+      label.style.marginTop = "8px";
+      label.textContent = group[0];
+      conflictsEl.appendChild(label);
+
+      var wrap = document.createElement("div");
+      wrap.className = "ss-sugg";
+      group[1].forEach(function (item) {
+        var button = document.createElement("button");
+        button.type = "button";
+        if (group[2] === "room") {
+          button.textContent = item.building + " — " + item.name + " (" + item.capacity + ")";
+          button.addEventListener("click", function () {
+            var roomOption = findOption(room, item.id);
+            if (roomOption) {
+              building.value = roomOption.dataset.building;
+              refreshRooms();
+              room.value = roomOption.value;
+            }
+            conflictsEl.classList.add("d-none");
+          });
+        } else {
+          button.textContent = item.day_name + " " + item.start + "–" + item.end;
+          button.addEventListener("click", function () {
+            day.value = item.day;
+            startTime.value = item.start;
+            endTime.value = item.end;
+            conflictsEl.classList.add("d-none");
+          });
+        }
+        wrap.appendChild(button);
+      });
+      conflictsEl.appendChild(wrap);
+    });
+
+    if (!count) {
+      var note = document.createElement("div");
+      note.style.marginTop = "6px";
+      note.textContent = "No automatic suggestions available. Adjust the time, day or room manually.";
+      conflictsEl.appendChild(note);
+    }
+  }
 
   function resetForm() {
     form.reset();
-    document.getElementById('schedule_id').value = '';
-    alertBox.classList.add('d-none');
-    alertBox.textContent = '';
-    conflictAlert.classList.add('d-none');
-    conflictList.innerHTML = '';
-    suggestionsDiv.innerHTML = '';
-    currentId = null;
+    document.getElementById("f_id").value = "";
+    deleteBtn.classList.add("d-none");
+    saveBtn.textContent = "Create schedule";
+    lockStep2();
+    academicYear.value = "";
+    hoursEl.textContent = "Weekly hours: —";
+    clearAlerts();
+
+    [program, curriculum, semester, section, subject, building, room].forEach(function (select) {
+      Array.prototype.forEach.call(select.options, function (option) {
+        option.hidden = false;
+        option.disabled = false;
+      });
+      select.value = "";
+    });
+    refreshProceed();
   }
 
-  function showConflictAlert(data) {
-    alertBox.classList.add('d-none');
-    alertBox.textContent = '';
-    conflictAlert.classList.remove('d-none');
-
-    // Build conflict messages HTML
-    let conflictsHtml = '';
-    data.conflicts.forEach(function(c) {
-      let icon = 'fas fa-exclamation-circle';
-      if (c.type === 'teacher') icon = 'fas fa-user-slash';
-      if (c.type === 'room') icon = 'fas fa-door-slash';
-      if (c.type === 'section') icon = 'fas fa-users-slash';
-      if (c.type === 'invalid_time') icon = 'fas fa-clock';
-      if (c.type === 'time_limit') icon = 'fas fa-hourglass-half';
-
-      conflictsHtml += '<div class="mb-2 p-2 bg-light border rounded">';
-      conflictsHtml += '<i class="' + icon + ' me-2 text-warning"></i>';
-      conflictsHtml += '<strong>' + c.type.charAt(0).toUpperCase() + c.type.slice(1) + ' Conflict:</strong> ';
-      conflictsHtml += c.message;
-      conflictsHtml += '</div>';
-    });
-    conflictList.innerHTML = conflictsHtml;
-
-    // Build suggestions HTML
-    let suggHtml = '';
-    const s = data.suggestions;
-
-    if (s.alternative_times.length > 0) {
-      suggHtml += '<h6 class="text-primary"><i class="fas fa-clock me-2"></i>Suggested Times (same day):</h6>';
-      suggHtml += '<div class="d-flex flex-wrap gap-2">';
-      s.alternative_times.forEach(function(t) {
-        suggHtml += '<button type="button" class="btn btn-outline-primary btn-sm suggestion-btn" ' +
-          'data-day="' + t.day + '" data-start="' + t.start + '" data-end="' + t.end + '">' +
-          t.day_name + ' ' + t.start + '-' + t.end + '</button>';
-      });
-      suggHtml += '</div>';
+  function selectSemesterChain(semesterId) {
+    var semesterOption = findOption(semester, semesterId);
+    if (!semesterOption) return;
+    var curriculumOption = findOption(curriculum, semesterOption.dataset.curriculum);
+    if (curriculumOption) {
+      program.value = curriculumOption.dataset.program;
+      program.dispatchEvent(new Event("change"));
+      curriculum.value = curriculumOption.value;
+      curriculum.dispatchEvent(new Event("change"));
     }
-
-    if (s.alternative_days.length > 0) {
-      suggHtml += '<h6 class="text-primary mt-3"><i class="fas fa-calendar me-2"></i>Suggested Days (same time):</h6>';
-      suggHtml += '<div class="d-flex flex-wrap gap-2">';
-      s.alternative_days.forEach(function(d) {
-        suggHtml += '<button type="button" class="btn btn-outline-primary btn-sm suggestion-btn" ' +
-          'data-day="' + d.day + '" data-start="' + d.start + '" data-end="' + d.end + '">' +
-          d.day_name + ' ' + d.start + '-' + d.end + '</button>';
-      });
-      suggHtml += '</div>';
-    }
-
-    if (s.alternative_rooms.length > 0) {
-      suggHtml += '<h6 class="text-primary mt-3"><i class="fas fa-door-open me-2"></i>Suggested Rooms:</h6>';
-      suggHtml += '<div class="d-flex flex-wrap gap-2">';
-      s.alternative_rooms.forEach(function(r) {
-        suggHtml += '<button type="button" class="btn btn-outline-success btn-sm suggestion-btn" ' +
-          'data-room="' + r.id + '" data-day="" data-start="" data-end="">' +
-          r.building + ' — ' + r.name + ' (' + r.capacity + ')' + '</button>';
-      });
-      suggHtml += '</div>';
-    }
-
-    if (suggHtml === '') {
-      suggHtml = '<p class="text-muted">No automatic suggestions available. Try adjusting the time or room manually.</p>';
-    }
-    suggestionsDiv.innerHTML = suggHtml;
-
-    // Add click handlers for suggestion buttons
-    document.querySelectorAll('.suggestion-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        const day = this.getAttribute('data-day');
-        const start = this.getAttribute('data-start');
-        const end = this.getAttribute('data-end');
-        const room = this.getAttribute('data-room');
-
-        if (day) document.getElementById('schedule_day_of_week').value = day;
-        if (start) document.getElementById('schedule_start_time').value = start;
-        if (end) document.getElementById('schedule_end_time').value = end;
-        if (room) document.getElementById('schedule_room').value = room;
-
-        conflictAlert.classList.add('d-none');
-      });
-    });
+    semester.value = semesterOption.value;
+    semester.dispatchEvent(new Event("change"));
   }
 
-  editModal.addEventListener('show.bs.modal', function(event) {
-    const button = event.relatedTarget;
-    if (!button) {
-      resetForm();
+  function openEdit(button) {
+    resetForm();
+    var data = button.dataset;
+    document.getElementById("f_id").value = data.id;
+    saveBtn.textContent = "Save changes";
+    deleteBtn.classList.remove("d-none");
+    deleteTarget = { id: data.id, label: data.label };
+
+    selectSemesterChain(data.semester);
+
+    section.value = data.section;
+    section.dispatchEvent(new Event("change"));
+
+    subject.value = data.subject;
+    var roomOption = findOption(room, data.room);
+    if (roomOption) {
+      building.value = roomOption.dataset.building;
+      refreshRooms();
+      room.value = roomOption.value;
+    }
+    classType.value = data.classType;
+    teacher.value = data.teacher;
+    day.value = data.day;
+    startTime.value = data.start;
+    endTime.value = data.end;
+
+    if (program.value && curriculum.value && semester.value && section.value) {
+      proceed.disabled = false;
+      unlockStep2();
+    }
+    updateHours();
+    openModal(scheduleModal);
+  }
+
+  function openCreate(slot) {
+    resetForm();
+    selectSemesterChain("{{ filter_semester|escapejs }}");
+    if (slot) {
+      day.value = slot.dataset.day;
+      startTime.value = slot.dataset.start;
+      endTime.value = slot.dataset.end;
+    }
+    openModal(scheduleModal);
+  }
+
+  document.querySelectorAll(".js-edit").forEach(function (button) {
+    button.addEventListener("click", function () {
+      openEdit(button);
+    });
+  });
+
+  document.querySelectorAll(".js-new").forEach(function (button) {
+    button.addEventListener("click", function () {
+      openCreate(button);
+    });
+  });
+
+  document.getElementById("openCreate").addEventListener("click", function () {
+    openCreate(null);
+  });
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    clearAlerts();
+
+    if (!semester.value || !section.value || !subject.value || !room.value ||
+        !teacher.value || !day.value || !startTime.value || !endTime.value) {
+      showAlert("Fill in every field before saving.");
       return;
     }
-    currentId = button.getAttribute('data-id');
-    document.getElementById('schedule_id').value = currentId;
-    document.getElementById('schedule_semester').value = button.getAttribute('data-semester');
-    document.getElementById('schedule_faculty').value = button.getAttribute('data-faculty');
-    document.getElementById('schedule_subject').value = button.getAttribute('data-subject');
-    document.getElementById('schedule_section').value = button.getAttribute('data-section');
-    document.getElementById('schedule_room').value = button.getAttribute('data-room');
-    document.getElementById('schedule_class_type').value = button.getAttribute('data-class-type');
-    document.getElementById('schedule_day_of_week').value = button.getAttribute('data-day-of-week');
-    document.getElementById('schedule_start_time').value = button.getAttribute('data-start-time');
-    document.getElementById('schedule_end_time').value = button.getAttribute('data-end-time');
-  });
-
-  deleteModal.addEventListener('show.bs.modal', function(event) {
-    const button = event.relatedTarget;
-    if (button) {
-      currentId = button.getAttribute('data-id');
-      deleteName.textContent = button.getAttribute('data-name');
+    if (endTime.value <= startTime.value) {
+      showAlert("End time must be after start time.");
+      return;
     }
-  });
 
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(form);
-
-    fetch('{% url "schedule:schedule_save_ajax" %}', {
-      method: 'POST',
-      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
-      body: formData
+    saveBtn.disabled = true;
+    fetch("{% url 'schedule:schedule_save_ajax' %}", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken },
+      body: new FormData(form)
     })
-    .then(response => response.json())
-    .then(data => {
-      if (data.conflicts) {
-        showConflictAlert(data);
-        return;
-      }
-      if (data.error) {
-        alertBox.textContent = data.error;
-        alertBox.classList.remove('d-none');
-        return;
-      }
-      bootstrap.Modal.getInstance(editModal).hide();
-      window.location.reload();
-    })
-    .catch(() => {
-      alertBox.textContent = 'Something went wrong.';
-      alertBox.classList.remove('d-none');
-    });
-  });
-
-  deleteBtn.addEventListener('click', function() {
-    if (!currentId) return;
-    fetch('/schedules/ajax/delete/' + currentId + '/', {
-      method: 'POST',
-      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.status === 'deleted') {
-        bootstrap.Modal.getInstance(deleteModal).hide();
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        saveBtn.disabled = false;
+        if (data.conflicts) {
+          showConflicts(data);
+          return;
+        }
+        if (data.error) {
+          showAlert(data.error);
+          return;
+        }
         window.location.reload();
-      }
+      })
+      .catch(function () {
+        saveBtn.disabled = false;
+        showAlert("Something went wrong while saving the schedule.");
+      });
+  });
+
+  function askDelete(id, label) {
+    deleteTarget = { id: id, label: label };
+    deleteName.textContent = label;
+    deleteAlert.classList.add("d-none");
+    openModal(deleteModal);
+  }
+
+  document.querySelectorAll(".js-delete").forEach(function (button) {
+    button.addEventListener("click", function () {
+      askDelete(button.dataset.id, button.dataset.label);
     });
   });
-})();
 
-  // Import Excel
-  const importForm = document.getElementById('scheduleImportForm');
-  const importError = document.getElementById('scheduleImportError');
-  const importResult = document.getElementById('scheduleImportResult');
-  const importBtn = document.getElementById('scheduleImportBtn');
+  deleteBtn.addEventListener("click", function () {
+    if (!deleteTarget) return;
+    closeModal(scheduleModal);
+    askDelete(deleteTarget.id, deleteTarget.label);
+  });
 
-  if (importForm) {
-    importForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const formData = new FormData(importForm);
-      importBtn.disabled = true;
-      importError.classList.add('d-none');
-      importResult.classList.add('d-none');
-      importError.textContent = '';
-      importResult.textContent = '';
-
-      fetch('{% url 'schedule:schedule_import_excel' %}', {
-        method: 'POST',
-        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
-        body: formData
+  confirmDelete.addEventListener("click", function () {
+    if (!deleteTarget) return;
+    confirmDelete.disabled = true;
+    fetch("/schedules/ajax/delete/" + deleteTarget.id + "/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken }
+    })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        if (data.status === "deleted") {
+          window.location.reload();
+          return;
+        }
+        confirmDelete.disabled = false;
+        deleteAlert.textContent = data.error || "Unable to delete this schedule.";
+        deleteAlert.classList.remove("d-none");
       })
-      .then(response => response.json())
-      .then(data => {
+      .catch(function () {
+        confirmDelete.disabled = false;
+        deleteAlert.textContent = "Something went wrong while deleting.";
+        deleteAlert.classList.remove("d-none");
+      });
+  });
+
+  // Excel import
+  document.getElementById("openImport").addEventListener("click", function () {
+    openModal(importModal);
+  });
+
+  var importForm = document.getElementById("importForm");
+  var importError = document.getElementById("importError");
+  var importResult = document.getElementById("importResult");
+  var importBtn = document.getElementById("importBtn");
+
+  importForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+    importBtn.disabled = true;
+    importError.classList.add("d-none");
+    importResult.classList.add("d-none");
+
+    fetch("{% url 'schedule:schedule_import_excel' %}", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken },
+      body: new FormData(importForm)
+    })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
         importBtn.disabled = false;
         if (data.error) {
           importError.textContent = data.error;
-          importError.classList.remove('d-none');
+          importError.classList.remove("d-none");
           return;
         }
-        importResult.innerHTML = '<strong>Import complete!</strong> Created: ' + data.created;
+        var message = "Import complete — " + data.created + " schedules created.";
         if (data.errors && data.errors.length) {
-          importResult.innerHTML += '<br><strong>Errors:</strong><br>' + data.errors.join('<br>');
+          message += " " + data.errors.length + " rows were skipped: " + data.errors.join(" ");
         }
-        importResult.classList.remove('d-none');
-        setTimeout(() => {
-          bootstrap.Modal.getInstance(document.getElementById('scheduleImportModal')).hide();
-          window.location.reload();
-        }, 2000);
+        importResult.textContent = message;
+        importResult.classList.remove("d-none");
+        setTimeout(function () { window.location.reload(); }, 1600);
       })
-      .catch(() => {
+      .catch(function () {
         importBtn.disabled = false;
-        importError.textContent = 'Something went wrong.';
-        importError.classList.remove('d-none');
+        importError.textContent = "Something went wrong while importing.";
+        importError.classList.remove("d-none");
       });
+  });
+
+  // 12/24-hour display
+  var timeFormat = document.getElementById("timeFormatSelect");
+
+  function formatTime(value, mode) {
+    if (!value) return "";
+    var parts = value.split(":");
+    var hours = parseInt(parts[0], 10);
+    var minutes = parts[1] || "00";
+    if (mode !== "standard") return hours + ":" + minutes;
+    var suffix = hours >= 12 ? "PM" : "AM";
+    var display = hours % 12 || 12;
+    return display + ":" + minutes + " " + suffix;
+  }
+
+  function applyTimeFormat() {
+    var mode = timeFormat ? timeFormat.value : "military";
+    document.querySelectorAll(".time-display").forEach(function (element) {
+      var start = element.dataset.start;
+      var end = element.dataset.end;
+      if (!start || !end) return;
+      element.textContent = formatTime(start, mode) + " – " + formatTime(end, mode);
     });
   }
-})();</script>
 
-<!-- Schedule Import Modal -->
-<div class="modal modal-blur fade" id="scheduleImportModal" tabindex="-1">
-  <div class="modal-dialog modal-md modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Import Schedules from Excel</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form id="scheduleImportForm" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="modal-body">
-          <div id="scheduleImportError" class="alert alert-danger d-none"></div>
-          <div id="scheduleImportResult" class="alert alert-success d-none"></div>
-          <div class="mb-3">
-            <label class="form-label">Select Excel File (.xlsx)</label>
-            <input type="file" name="file" id="scheduleImportFile" class="form-control" accept=".xlsx" required>
-          </div>
-          <div class="alert alert-info">
-            <small>
-              <strong>Required columns:</strong> curriculum_code, semester_number, teacher__employee_number, subject__code, section__name, room__room_name, class_type, day_of_week, start_time, end_time<br>
-              Example: 2026-2027, 1, 2, BSMA101, BSMA-1A, Lab 6, Lecture, 1, 08:00, 09:00
-            </small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="scheduleImportBtn">Import</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-{% endblock %}
+  if (timeFormat) {
+    timeFormat.addEventListener("change", function () {
+      applyTimeFormat();
+      document.cookie = "time_format=" + timeFormat.value + "; path=/; max-age=31536000";
+    });
+    applyTimeFormat();
+  }
+})();
+</script>
 {% endblock %}
