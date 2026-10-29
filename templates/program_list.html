@@ -208,6 +208,41 @@
   </div>
 </div>
 
+<!-- Program Import Modal -->
+<div class="modal modal-blur fade" id="programImportModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Programs from Excel</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="programImportForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div id="programImportError" class="alert alert-danger d-none"></div>
+          <div id="programImportResult" class="alert alert-success d-none"></div>
+          <div class="mb-3">
+            <label class="form-label">Select Excel File (.xlsx)</label>
+            <input type="file" name="file" id="programImportFile" class="form-control" accept=".xlsx" required>
+          </div>
+          <div class="alert alert-info">
+            <small>
+              <strong>Required columns:</strong> program_code, program_description, is_active (true/false)<br>
+              Example: BSCS, Bachelor of Science in Computer Science, true
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="programImportBtn">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
 {% block extra_js %}
 <script>
 (function() {
@@ -351,38 +386,4 @@
   }
 })();
 </script>
-{% endblock %}
-
-<!-- Program Import Modal -->
-<div class="modal modal-blur fade" id="programImportModal" tabindex="-1">
-  <div class="modal-dialog modal-md modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Import Programs from Excel</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form id="programImportForm" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="modal-body">
-          <div id="programImportError" class="alert alert-danger d-none"></div>
-          <div id="programImportResult" class="alert alert-success d-none"></div>
-          <div class="mb-3">
-            <label class="form-label">Select Excel File (.xlsx)</label>
-            <input type="file" name="file" id="programImportFile" class="form-control" accept=".xlsx" required>
-          </div>
-          <div class="alert alert-info">
-            <small>
-              <strong>Required columns:</strong> program_code, program_description, is_active (true/false)<br>
-              Example: BSCS, Bachelor of Science in Computer Science, true
-            </small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="programImportBtn">Import</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
 {% endblock %}

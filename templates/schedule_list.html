@@ -84,7 +84,7 @@
       <tbody>
         {% for row in timetable_rows %}
           <tr>
-            <td class="t"><span class="time-display" data-start="{{ row.start }}" data-end="{{ row.end }}">{{ row.start }} – {{ row.end }}</span></td>
+            <td class="t"><span class="time-display{% if not row.major %} minor{% endif %}" data-start="{{ row.start }}" data-end="{{ row.end }}" data-mode="start">{{ row.start }}</span></td>
             {% for cell in row.cells %}
               {% if cell.kind == 'skip' %}
               {% elif cell.kind == 'event' %}
@@ -946,7 +946,12 @@
     document.querySelectorAll(".time-display").forEach(function (element) {
       var start = element.dataset.start;
       var end = element.dataset.end;
-      if (!start || !end) return;
+      if (!start) return;
+      if (element.dataset.mode === "start") {
+        element.textContent = formatTime(start, mode);
+        return;
+      }
+      if (!end) return;
       element.textContent = formatTime(start, mode) + " – " + formatTime(end, mode);
     });
   }

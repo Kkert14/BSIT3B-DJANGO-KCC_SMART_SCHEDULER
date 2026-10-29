@@ -288,6 +288,41 @@
   </div>
 </div>
 
+<!-- Section Import Modal -->
+<div class="modal modal-blur fade" id="sectionImportModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Sections from Excel</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="sectionImportForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div id="sectionImportError" class="alert alert-danger d-none"></div>
+          <div id="sectionImportResult" class="alert alert-success d-none"></div>
+          <div class="mb-3">
+            <label class="form-label">Select Excel File (.xlsx)</label>
+            <input type="file" name="file" id="sectionImportFile" class="form-control" accept=".xlsx" required>
+          </div>
+          <div class="alert alert-info">
+            <small>
+              <strong>Required columns:</strong> program_program_code, name, year_level, curriculum_code, semester_number, capacity, is_active<br>
+              Example: BSA, SEC-A, 1, 2026-2027, 40, true
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="sectionImportBtn">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
 {% block extra_js %}
 <script>
 (function() {
@@ -461,38 +496,4 @@
   }
 })();
 </script>
-{% endblock %}
-
-<!-- Section Import Modal -->
-<div class="modal modal-blur fade" id="sectionImportModal" tabindex="-1">
-  <div class="modal-dialog modal-md modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Import Sections from Excel</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form id="sectionImportForm" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="modal-body">
-          <div id="sectionImportError" class="alert alert-danger d-none"></div>
-          <div id="sectionImportResult" class="alert alert-success d-none"></div>
-          <div class="mb-3">
-            <label class="form-label">Select Excel File (.xlsx)</label>
-            <input type="file" name="file" id="sectionImportFile" class="form-control" accept=".xlsx" required>
-          </div>
-          <div class="alert alert-info">
-            <small>
-              <strong>Required columns:</strong> program_program_code, name, year_level, curriculum_code, semester_number, capacity, is_active<br>
-              Example: BSA, SEC-A, 1, 2026-2027, 40, true
-            </small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="sectionImportBtn">Import</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
 {% endblock %}

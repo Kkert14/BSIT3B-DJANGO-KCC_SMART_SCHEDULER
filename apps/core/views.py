@@ -341,8 +341,12 @@ def home(request):
         sched.time_label = f'{sched.start_time:%H:%M}–{sched.end_time:%H:%M}'
 
     time_labels = [
-        {'text': f'{hour:02d}:00', 'top': (hour - grid_start) * PX_PER_HOUR + GRID_PAD}
-        for hour in range(grid_start, grid_end + 1)
+        {
+            'text': f'{slot // 60:02d}:{slot % 60:02d}',
+            'top': (slot / 60 - grid_start) * PX_PER_HOUR + GRID_PAD,
+            'major': slot % 60 == 0,
+        }
+        for slot in range(grid_start * 60, grid_end * 60 + 1, 30)
     ]
     day_columns = [
         {'name': name, 'events': [s for s in timetable if s.day_of_week == num]}

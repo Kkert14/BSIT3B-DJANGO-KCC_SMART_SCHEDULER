@@ -230,6 +230,41 @@
   </div>
 </div>
 
+<!-- Room Import Modal -->
+<div class="modal modal-blur fade" id="roomImportModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Rooms from Excel</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="roomImportForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div id="roomImportError" class="alert alert-danger d-none"></div>
+          <div id="roomImportResult" class="alert alert-success d-none"></div>
+          <div class="mb-3">
+            <label class="form-label">Select Excel File (.xlsx)</label>
+            <input type="file" name="file" id="roomImportFile" class="form-control" accept=".xlsx" required>
+          </div>
+          <div class="alert alert-info">
+            <small>
+              <strong>Required columns:</strong> building_code, room_name, room_type, capacity, is_active<br>
+              Example: COLLEGE, Room 101, Classroom, 40, true
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="roomImportBtn">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
 {% block extra_js %}
 <script>
 (function() {
@@ -376,38 +411,4 @@
   }
 })();
 </script>
-{% endblock %}
-
-<!-- Room Import Modal -->
-<div class="modal modal-blur fade" id="roomImportModal" tabindex="-1">
-  <div class="modal-dialog modal-md modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Import Rooms from Excel</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form id="roomImportForm" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="modal-body">
-          <div id="roomImportError" class="alert alert-danger d-none"></div>
-          <div id="roomImportResult" class="alert alert-success d-none"></div>
-          <div class="mb-3">
-            <label class="form-label">Select Excel File (.xlsx)</label>
-            <input type="file" name="file" id="roomImportFile" class="form-control" accept=".xlsx" required>
-          </div>
-          <div class="alert alert-info">
-            <small>
-              <strong>Required columns:</strong> building_code, room_name, room_type, capacity, is_active<br>
-              Example: COLLEGE, Room 101, Classroom, 40, true
-            </small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="roomImportBtn">Import</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
 {% endblock %}

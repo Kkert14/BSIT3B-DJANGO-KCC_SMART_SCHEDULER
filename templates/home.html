@@ -102,7 +102,7 @@
         {% for day in day_columns %}<div class="ss-tt-headcell">{{ day.name }}</div>{% endfor %}
 
         <div class="ss-tt-times" style="height:{{ grid_height }}px;">
-          {% for label in time_labels %}<span style="top:{{ label.top }}px;">{{ label.text }}</span>{% endfor %}
+          {% for label in time_labels %}<span class="{% if label.major %}major{% else %}minor{% endif %}" style="top:{{ label.top }}px;">{{ label.text }}</span>{% endfor %}
         </div>
 
         {% for day in day_columns %}

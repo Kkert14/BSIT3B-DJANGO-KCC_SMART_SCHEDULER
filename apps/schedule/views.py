@@ -307,16 +307,8 @@ def schedule_list_page(request):
         ).order_by('program__program_code', 'year_level', 'name')
 
     time_slots = [
-        ('07:00', '08:00'),
-        ('08:00', '09:00'),
-        ('09:00', '10:00'),
-        ('10:00', '11:00'),
-        ('11:00', '12:00'),
-        ('12:00', '13:00'),
-        ('13:00', '14:00'),
-        ('14:00', '15:00'),
-        ('15:00', '16:00'),
-        ('16:00', '17:00'),
+        (f'{minutes // 60:02d}:{minutes % 60:02d}', f'{(minutes + 30) // 60:02d}:{(minutes + 30) % 60:02d}')
+        for minutes in range(7 * 60, 17 * 60, 30)
     ]
 
     DAYS = [
@@ -332,11 +324,11 @@ def schedule_list_page(request):
     grid_schedules = list(schedules_list)
     slot_cells = [[None for _ in DAYS] for _ in time_slots]
     for sched in grid_schedules:
-        start_index = (sched.start_time.hour * 60 + sched.start_time.minute - 7 * 60) // 60
+        start_index = (sched.start_time.hour * 60 + sched.start_time.minute - 7 * 60) // 30
         if start_index < 0 or start_index >= len(time_slots):
             continue
         end_index = math.ceil(
-            (sched.end_time.hour * 60 + sched.end_time.minute - 7 * 60) / 60
+            (sched.end_time.hour * 60 + sched.end_time.minute - 7 * 60) / 30
         )
         end_index = min(max(end_index, start_index + 1), len(time_slots))
         column = sched.day_of_week - 1
@@ -368,7 +360,12 @@ def schedule_list_page(request):
                     'start': slot_start,
                     'end': slot_end,
                 })
-        timetable_rows.append({'start': slot_start, 'end': slot_end, 'cells': cells})
+        timetable_rows.append({
+            'start': slot_start,
+            'end': slot_end,
+            'major': row_index % 2 == 0,
+            'cells': cells,
+        })
 
     paginator = Paginator(schedules_list, 10)
     schedules = paginator.get_page(request.GET.get('page', 1))
