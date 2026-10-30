@@ -294,12 +294,12 @@ def home(request):
     else:
         total_subjects = offered_subjects.count() if selected_section else subjects_done
         coverage = {
-            'label': 'Subjects covered',
+            'label': 'Courses covered',
             'icon': 'fa-regular fa-rectangle-list',
             'value': f'{subjects_done} / {total_subjects}',
             'extra': '',
-            'note': 'Subjects with at least one class this week'
-            if selected_section else 'Distinct subjects on the timetable',
+            'note': 'Courses with at least one class this week'
+            if selected_section else 'Distinct courses on the timetable',
         }
 
     stats = [

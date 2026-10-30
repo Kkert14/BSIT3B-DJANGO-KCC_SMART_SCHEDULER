@@ -149,9 +149,9 @@ def subject_save_ajax(request):
         return JsonResponse({'error': 'Invalid program.'}, status=400)
 
     if not code:
-        return JsonResponse({'error': 'Subject code is required.'}, status=400)
+        return JsonResponse({'error': 'Course code is required.'}, status=400)
     if not name:
-        return JsonResponse({'error': 'Subject name is required.'}, status=400)
+        return JsonResponse({'error': 'Course name is required.'}, status=400)
     if not units:
         return JsonResponse({'error': 'Units is required.'}, status=400)
     try:
@@ -182,9 +182,9 @@ def subject_save_ajax(request):
         try:
             prerequisite = Subject.objects.get(pk=int(prerequisite_id))
         except (Subject.DoesNotExist, ValueError, TypeError):
-            return JsonResponse({'error': 'Invalid prerequisite subject.'}, status=400)
+            return JsonResponse({'error': 'Invalid prerequisite course.'}, status=400)
         if prerequisite == subject:
-            return JsonResponse({'error': 'A subject cannot be its own prerequisite.'}, status=400)
+            return JsonResponse({'error': 'A course cannot be its own prerequisite.'}, status=400)
 
     dup_qs = Subject.objects.filter(
         program=program, code=code, semester=semester
@@ -192,7 +192,7 @@ def subject_save_ajax(request):
     if subject_id:
         dup_qs = dup_qs.exclude(pk=subject_id)
     if dup_qs.exists():
-        return JsonResponse({'error': 'A subject with this code already exists in this program/semester.'}, status=400)
+        return JsonResponse({'error': 'A course with this code already exists in this program/semester.'}, status=400)
 
     subject.program = program
     subject.code = code
@@ -207,9 +207,9 @@ def subject_save_ajax(request):
     try:
         subject.save()
     except IntegrityError:
-        return JsonResponse({'error': 'Could not save subject due to a conflict.'}, status=400)
+        return JsonResponse({'error': 'Could not save course due to a conflict.'}, status=400)
 
-    messages.success(request, f'Subject "{subject.code}" has been saved successfully.')
+    messages.success(request, f'Course "{subject.code}" has been saved successfully.')
     return JsonResponse({
         'status': 'success',
         'id': subject.id,
@@ -236,7 +236,7 @@ def subject_delete_ajax(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     code = subject.code
     subject.delete()
-    messages.success(request, f'Subject "{code}" has been deleted successfully.')
+    messages.success(request, f'Course "{code}" has been deleted successfully.')
     return JsonResponse({'status': 'deleted'})
 
 
@@ -247,10 +247,10 @@ def subject_export_excel(request):
     wb = queryset_to_excel(
         subjects,
         ['program__program_code', 'code', 'name', 'units', 'total_hours', 'is_lab', 'semester__curriculum__academic_year', 'semester__semester_number', 'year_level', 'semester__curriculum__code', 'prerequisite__code'],
-        sheet_name='Subjects',
-        title='Subjects Export',
+        sheet_name='Courses',
+        title='Courses Export',
     )
-    return workbook_to_response(wb, 'subjects_export.xlsx')
+    return workbook_to_response(wb, 'courses_export.xlsx')
 
 
 @admin_required_api
@@ -319,7 +319,7 @@ def subject_import_excel(request):
             try:
                 prerequisite = Subject.objects.get(code=prereq_code, program=program)
             except Subject.DoesNotExist:
-                errors.append(f'Row {idx}: prerequisite subject "{prereq_code}" not found in program "{program_code}".')
+                errors.append(f'Row {idx}: prerequisite course "{prereq_code}" not found in program "{program_code}".')
                 continue
 
         try:

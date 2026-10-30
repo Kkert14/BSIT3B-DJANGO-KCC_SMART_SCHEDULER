@@ -167,5 +167,51 @@
       });
     });
   }
+
+  // Program curriculum modal
+  const coursesModalEl = document.getElementById('programCoursesModal');
+  const coursesBody = document.getElementById('programCoursesBody');
+  const coursesTitle = document.getElementById('programCoursesTitle');
+  const coursesSubtitle = document.getElementById('programCoursesSubtitle');
+  let coursesUrl = null;
+  let coursesRequest = 0;
+
+  function loadProgramCourses() {
+    if (!coursesUrl) return;
+    const params = new URLSearchParams();
+    ['year', 'semester', 'year_level'].forEach(function(name) {
+      const select = coursesBody.querySelector('select[name="' + name + '"]');
+      if (select) params.set(name, select.value);
+    });
+
+    const requestId = ++coursesRequest;
+    coursesBody.setAttribute('aria-busy', 'true');
+    fetch(coursesUrl + '?' + params.toString())
+      .then(function(response) { return response.json(); })
+      .then(function(data) {
+        if (requestId !== coursesRequest) return;
+        coursesBody.innerHTML = data.html;
+        coursesBody.removeAttribute('aria-busy');
+      })
+      .catch(function() {
+        if (requestId !== coursesRequest) return;
+        coursesBody.removeAttribute('aria-busy');
+        coursesBody.innerHTML = '<div class="alert alert-danger mb-0">Unable to load this program\'s courses.</div>';
+      });
+  }
+
+  coursesModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) return;
+    coursesUrl = button.getAttribute('data-course-url');
+    coursesTitle.textContent = button.getAttribute('data-program-code') + ' curriculum';
+    coursesSubtitle.textContent = button.getAttribute('data-program-name') || '';
+    coursesBody.innerHTML = '<div class="text-muted small py-3">Loading courses…</div>';
+    loadProgramCourses();
+  });
+
+  coursesBody.addEventListener('change', function(event) {
+    if (event.target.matches('select[data-course-filter]')) loadProgramCourses();
+  });
 })();
 </script>

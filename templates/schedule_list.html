@@ -6,7 +6,7 @@
   <div>
     <div class="ss-ov">Scheduling</div>
     <h1 class="ss-page-title">Schedule Management</h1>
-    <p class="ss-sub">Assign subjects, faculty and rooms, then check the week for double-bookings.</p>
+    <p class="ss-sub">Assign courses, faculty and rooms, then check the week for double-bookings.</p>
   </div>
   {% if can_manage %}
   <div class="ss-actions">
@@ -17,7 +17,7 @@
 </div>
 
 <form class="ss-toolbar" method="get">
-  <label class="ss-filter" style="min-width:150px;">
+  <label class="ss-filter" style="flex:0 1 135px; min-width:0;">
     <small>Academic year</small>
     <select name="year" onchange="this.form.submit()">
       <option value="">All academic years</option>
@@ -26,7 +26,7 @@
       {% endfor %}
     </select>
   </label>
-  <label class="ss-filter" style="min-width:125px;">
+  <label class="ss-filter" style="flex:0 1 110px; min-width:0;">
     <small>Semester</small>
     <select name="semester" onchange="this.form.submit()">
       <option value="">All semesters</option>
@@ -35,7 +35,16 @@
       {% endfor %}
     </select>
   </label>
-  <label class="ss-filter" style="min-width:120px;">
+  <label class="ss-filter" style="flex:0 1 180px; min-width:0;">
+    <small>Program</small>
+    <select name="program" onchange="this.form.submit()">
+      <option value="">All programs</option>
+      {% for p in programs %}
+        <option value="{{ p.id }}" {% if filter_program == p.id|stringformat:'s' %}selected{% endif %}>{{ p.program_code }} — {{ p.program_description }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="ss-filter" style="flex:0 1 110px; min-width:0;">
     <small>Year level</small>
     <select name="year_level" onchange="this.form.submit()">
       <option value="">All year levels</option>
@@ -44,7 +53,7 @@
       {% endfor %}
     </select>
   </label>
-  <label class="ss-filter" style="min-width:170px;">
+  <label class="ss-filter" style="flex:0 1 145px; min-width:0;">
     <small>Section</small>
     <select name="section" onchange="this.form.submit()">
       <option value="">All sections</option>
@@ -53,12 +62,11 @@
       {% endfor %}
     </select>
   </label>
-  <label class="ss-filter" style="min-width:210px;">
+  <label class="ss-filter" style="flex:1 1 180px; min-width:0;">
     <small>Search</small>
-    <input type="search" name="q" value="{{ query }}" placeholder="Subject, faculty, room…">
+    <input type="search" name="q" value="{{ query }}" placeholder="Course, faculty, room…" onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.form.submit(); }">
   </label>
-  <button class="ss-btn" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Apply</button>
-  <label class="ss-filter" style="margin-left:auto; min-width:120px;">
+  <label class="ss-filter" style="flex:0 0 105px; margin-left:auto; min-width:0;">
     <small>Time format</small>
     <select id="timeFormatSelect">
       <option value="military" {% if request.COOKIES.time_format != 'standard' %}selected{% endif %}>24-hour</option>
@@ -132,13 +140,13 @@
         </section>
 
         <section class="ss-form-sec locked" id="step2" inert>
-          <div class="ss-form-k"><span>2</span><h2>What</h2><small>Subject, room and class type</small></div>
+          <div class="ss-form-k"><span>2</span><h2>What</h2><small>Course, room and class type</small></div>
 
           <div class="ss-row">
             <div class="ss-field">
-              <label for="f_subject">Subject</label>
+              <label for="f_subject">Course</label>
               <select class="ss-input" id="f_subject" name="subject">
-                <option value="">Select subject…</option>
+                <option value="">Select course…</option>
                 {% for subject in subjects %}
                   <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-semester="{{ subject.semester_id }}" data-hours="{{ subject.total_hours }}" data-lab="{{ subject.is_lab|yesno:'true,false' }}">{{ subject.code }} — {{ subject.name }}</option>
                 {% endfor %}
@@ -193,7 +201,7 @@
       <div class="ss-conflict">
         <b>Conflict rules</b>
         A teacher, room or section cannot be double-booked on the same day and overlapping time.
-        Every slot must end after it starts, and lecture and laboratory time cannot exceed the subject's weekly hours.
+        Every slot must end after it starts, and lecture and laboratory time cannot exceed the course's weekly hours.
       </div>
 
       <div class="ss-editor-foot">
@@ -308,7 +316,7 @@
           <tr>
             <th>Day</th>
             <th>Time</th>
-            <th>Subject</th>
+            <th>Course</th>
             <th>Type</th>
             <th>Section</th>
             <th>Semester</th>
@@ -952,7 +960,7 @@
     var countLabel = draftPlan.length + " slot" + (draftPlan.length === 1 ? "" : "s");
     if (cap === null) {
       planSummary.textContent = countLabel + " · " + total.toFixed(1) +
-        "h planned. Pick a subject to see the weekly cap.";
+        "h planned. Pick a course to see the weekly cap.";
       planSummary.classList.remove("over");
       return;
     }
@@ -1316,7 +1324,7 @@
     clearAlerts();
 
     if (!semester.value || !section.value || !subject.value || !room.value) {
-      showAlert("Pick the section, subject and room before saving.");
+      showAlert("Pick the section, course and room before saving.");
       return;
     }
     if (!appliedPlan.length) {

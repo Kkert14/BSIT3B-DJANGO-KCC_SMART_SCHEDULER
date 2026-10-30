@@ -262,7 +262,7 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
                 'type': 'time_limit',
                 'message': (
                     f'Total {class_type.lower()} time ({total_hours:.1f}h) would exceed the '
-                    f'allowed {limit}h for subject "{subject}" in section "{section}".'
+                    f'allowed {limit}h for course "{subject}" in section "{section}".'
                 ),
             }],
             'suggestions': suggestions,
@@ -391,6 +391,10 @@ def schedule_list_page(request):
     if filter_semester not in {'1', '2', '3'}:
         filter_semester = ''
 
+    filter_program = request.GET.get('program', '').strip()
+    if filter_program and not filter_program.isdigit():
+        filter_program = ''
+
     filter_year_level = request.GET.get('year_level', '').strip()
     if filter_year_level and not filter_year_level.isdigit():
         filter_year_level = ''
@@ -402,6 +406,8 @@ def schedule_list_page(request):
         year_level_scope = year_level_scope.filter(semester__curriculum_id=filter_year)
     if filter_semester:
         year_level_scope = year_level_scope.filter(semester__semester_number=filter_semester)
+    if filter_program:
+        year_level_scope = year_level_scope.filter(program_id=filter_program)
     year_level_values = list(
         year_level_scope.values_list('year_level', flat=True).distinct().order_by('year_level')
     )
@@ -413,6 +419,8 @@ def schedule_list_page(request):
         section_choices = section_choices.filter(semester__curriculum_id=filter_year)
     if filter_semester:
         section_choices = section_choices.filter(semester__semester_number=filter_semester)
+    if filter_program:
+        section_choices = section_choices.filter(program_id=filter_program)
     if filter_year_level:
         section_choices = section_choices.filter(year_level=filter_year_level)
     section_choices = section_choices.order_by(
@@ -429,6 +437,8 @@ def schedule_list_page(request):
         schedules_list = schedules_list.filter(semester__curriculum_id=filter_year)
     if filter_semester:
         schedules_list = schedules_list.filter(semester__semester_number=filter_semester)
+    if filter_program:
+        schedules_list = schedules_list.filter(section__program_id=filter_program)
     if filter_year_level:
         schedules_list = schedules_list.filter(section__year_level=filter_year_level)
     if filter_section:
@@ -598,6 +608,7 @@ def schedule_list_page(request):
         'hours_map': hours_map,
         'filter_year': filter_year,
         'filter_semester': filter_semester,
+        'filter_program': filter_program,
         'filter_year_level': filter_year_level,
         'filter_section': filter_section,
         'semester_filter_choices': Semester.SEMESTER_CHOICES,
@@ -831,7 +842,7 @@ def schedule_batch_save_ajax(request):
                 'message': (
                     f'This plan adds {planned_hours:.1f}h on top of the '
                     f'{scheduled_hours:.1f}h already scheduled ({total_hours:.1f}h total). '
-                    f'The allowed {class_type.lower()} time for subject "{subject}" '
+                    f'The allowed {class_type.lower()} time for course "{subject}" '
                     f'in section "{section}" is {limit}h.'
                 ),
             }],
@@ -1008,7 +1019,7 @@ def schedule_import_excel(request):
                 subject_qs = subject_qs.filter(program__program_code=subject_program_code)
             subject = _resolve_unique(
                 subject_qs,
-                f'subject with code "{subject_code}"',
+                f'course with code "{subject_code}"',
                 'Add a "Subject Program Code" column to disambiguate.',
             )
         except ValueError as exc:
