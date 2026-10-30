@@ -35,6 +35,7 @@ WRITE_ENDPOINTS = [
     'rooms:room_delete_ajax',
     'rooms:room_import_excel',
     'schedule:schedule_save_ajax',
+    'schedule:schedule_batch_save_ajax',
     'schedule:schedule_delete_ajax',
     'schedule:schedule_import_excel',
     'section:section_save_ajax',

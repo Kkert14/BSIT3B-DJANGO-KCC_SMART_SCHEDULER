@@ -44,7 +44,6 @@
     form.reset();
     document.getElementById('program_id').value = '';
     clearCustomOptions(document.getElementById('program_major'));
-    clearCustomOptions(document.getElementById('program_department'));
     title.textContent = 'Add Program';
     submitBtn.textContent = 'Save Program';
     alertBox.classList.add('d-none');
@@ -68,7 +67,7 @@
       document.getElementById('program_program_code').value = button.getAttribute('data-program-code');
       document.getElementById('program_program_description').value = button.getAttribute('data-program-description');
       setSelectValue(document.getElementById('program_major'), button.getAttribute('data-major'));
-      setSelectValue(document.getElementById('program_department'), button.getAttribute('data-department'));
+      document.getElementById('program_department').value = button.getAttribute('data-department') || '';
       document.getElementById('program_is_active').checked = button.getAttribute('data-active') === 'true';
     } else {
       resetForm();

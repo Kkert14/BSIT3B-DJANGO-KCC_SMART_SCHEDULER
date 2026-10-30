@@ -1,5 +1,5 @@
+import json
 from datetime import datetime, timedelta
-from urllib.parse import urlencode
 
 import math
 
@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
 from apps.curriculum.models import Curriculum, Semester
 from apps.faculty.models import Faculty
@@ -50,6 +50,15 @@ DAY_NAMES = {
     5: 'Friday',
     6: 'Saturday',
     7: 'Sunday',
+}
+
+YEAR_LEVEL_LABELS = {
+    1: '1st year',
+    2: '2nd year',
+    3: '3rd year',
+    4: '4th year',
+    5: '5th year',
+    6: '6th year',
 }
 
 
@@ -263,28 +272,165 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
     return None
 
 
+def _parse_schedule_target(request):
+    """Resolve the fields every slot in a schedule plan shares.
+
+    Returns ``(values, error)``. ``values`` maps the target names to their
+    model instances and is ``None`` when ``error`` is set.
+    """
+    semester_id = request.POST.get('semester', '').strip()
+    teacher_id = request.POST.get('teacher', '').strip()
+    subject_id = request.POST.get('subject', '').strip()
+    section_id = request.POST.get('section', '').strip()
+    room_id = request.POST.get('room', '').strip()
+    class_type = request.POST.get('class_type', '').strip()
+
+    if not semester_id:
+        return None, 'Semester is required.'
+    try:
+        semester = Semester.objects.get(pk=int(semester_id))
+    except (Semester.DoesNotExist, ValueError, TypeError):
+        return None, 'Invalid semester.'
+
+    try:
+        teacher = Faculty.objects.get(pk=int(teacher_id))
+    except (Faculty.DoesNotExist, ValueError, TypeError):
+        return None, 'Invalid teacher.'
+    try:
+        subject = Subject.objects.get(pk=int(subject_id))
+    except (Subject.DoesNotExist, ValueError, TypeError):
+        return None, 'Invalid subject.'
+    try:
+        section = Section.objects.get(pk=int(section_id))
+    except (Section.DoesNotExist, ValueError, TypeError):
+        return None, 'Invalid section.'
+    try:
+        room = Room.objects.get(pk=int(room_id))
+    except (Room.DoesNotExist, ValueError, TypeError):
+        return None, 'Invalid room.'
+
+    if class_type not in ('Lecture', 'Laboratory'):
+        return None, 'Class type must be Lecture or Laboratory.'
+
+    return {
+        'semester': semester,
+        'teacher': teacher,
+        'subject': subject,
+        'section': section,
+        'room': room,
+        'class_type': class_type,
+    }, None
+
+
+def _parse_schedule_slots(rows):
+    """Validate raw plan rows and merge them into ``(slots, error)``.
+
+    Each slot is ``{'row', 'day', 'start', 'end'}`` where ``row`` is the
+    1-based position shown to the client.
+    """
+    if not isinstance(rows, list) or not rows:
+        return None, 'Add at least one time slot to the plan.'
+
+    slots = []
+    for index, row in enumerate(rows, start=1):
+        if not isinstance(row, dict):
+            return None, f'Row {index}: invalid time slot.'
+        raw_day = str(row.get('day', '')).strip()
+        try:
+            day_of_week = int(raw_day)
+        except (ValueError, TypeError):
+            return None, f'Row {index}: day of week is required.'
+        if day_of_week not in DAY_NAMES:
+            return None, f'Row {index}: day of week must be between 1 and 7.'
+        start = _parse_time(str(row.get('start', '')).strip())
+        end = _parse_time(str(row.get('end', '')).strip())
+        if not start:
+            return None, f'Row {index}: start time is required.'
+        if not end:
+            return None, f'Row {index}: end time is required.'
+        if end <= start:
+            return None, f'Row {index}: end time must be later than start time.'
+        for other in slots:
+            if (other['day'] == day_of_week and start < other['end']
+                    and other['start'] < end):
+                return None, (
+                    f'Row {index}: overlaps row {other["row"]} on '
+                    f'{DAY_NAMES[day_of_week]}.'
+                )
+        slots.append({
+            'row': index,
+            'day': day_of_week,
+            'start': start,
+            'end': end,
+        })
+    return slots, None
+
+
 @login_required(login_url='login')
 def schedule_list_page(request):
+    active_curriculum = Curriculum.objects.filter(is_active=True).first()
     active_semester = (
         Semester.objects.select_related('curriculum')
         .filter(is_active=True, curriculum__is_active=True)
         .first()
     )
 
+    year_param = request.GET.get('year')
+    if year_param is None:
+        filter_year = str(active_curriculum.id) if active_curriculum else ''
+    else:
+        filter_year = year_param.strip()
+    if filter_year and not filter_year.isdigit():
+        filter_year = ''
+
     semester_param = request.GET.get('semester')
     if semester_param is None:
-        filter_semester = str(active_semester.id) if active_semester else ''
+        filter_semester = str(active_semester.semester_number) if active_semester else ''
     else:
         filter_semester = semester_param.strip()
+    if filter_semester not in {'1', '2', '3'}:
+        filter_semester = ''
+
+    filter_year_level = request.GET.get('year_level', '').strip()
+    if filter_year_level and not filter_year_level.isdigit():
+        filter_year_level = ''
     filter_section = request.GET.get('section', '').strip()
     query = request.GET.get('q', '').strip()
 
+    year_level_scope = Section.objects.filter(is_active=True)
+    if filter_year:
+        year_level_scope = year_level_scope.filter(semester__curriculum_id=filter_year)
+    if filter_semester:
+        year_level_scope = year_level_scope.filter(semester__semester_number=filter_semester)
+    year_level_values = list(
+        year_level_scope.values_list('year_level', flat=True).distinct().order_by('year_level')
+    )
+    if filter_year_level and filter_year_level not in {str(level) for level in year_level_values}:
+        filter_year_level = ''
+
+    section_choices = Section.objects.filter(is_active=True).select_related('program')
+    if filter_year:
+        section_choices = section_choices.filter(semester__curriculum_id=filter_year)
+    if filter_semester:
+        section_choices = section_choices.filter(semester__semester_number=filter_semester)
+    if filter_year_level:
+        section_choices = section_choices.filter(year_level=filter_year_level)
+    section_choices = section_choices.order_by(
+        'program__program_code', 'year_level', 'name'
+    )
+    if filter_section and not section_choices.filter(pk=filter_section).exists():
+        filter_section = ''
+
     schedules_list = Schedule.objects.select_related(
-        'teacher', 'subject', 'section', 'room__building', 'semester__curriculum'
+        'teacher', 'subject', 'section__program', 'room__building', 'semester__curriculum'
     ).order_by('day_of_week', 'start_time')
 
+    if filter_year:
+        schedules_list = schedules_list.filter(semester__curriculum_id=filter_year)
     if filter_semester:
-        schedules_list = schedules_list.filter(semester=filter_semester)
+        schedules_list = schedules_list.filter(semester__semester_number=filter_semester)
+    if filter_year_level:
+        schedules_list = schedules_list.filter(section__year_level=filter_year_level)
     if filter_section:
         schedules_list = schedules_list.filter(section=filter_section)
     if query:
@@ -301,14 +447,22 @@ def schedule_list_page(request):
     semesters = Semester.objects.select_related('curriculum').order_by(
         'curriculum__academic_year', 'semester_number'
     )
+
+    year_level_choices = [
+        (level, YEAR_LEVEL_LABELS.get(level, f'{level}th year'))
+        for level in year_level_values
+    ]
+
+    editor_semester = None
     if filter_semester:
-        section_choices = Section.objects.filter(
-            semester=filter_semester, is_active=True
-        ).select_related('program').order_by('program__program_code', 'year_level', 'name')
-    else:
-        section_choices = Section.objects.filter(is_active=True).select_related(
-            'program', 'semester'
-        ).order_by('program__program_code', 'year_level', 'name')
+        editor_scope = Semester.objects.filter(semester_number=filter_semester)
+        if filter_year:
+            editor_scope = editor_scope.filter(curriculum_id=filter_year)
+        elif active_curriculum:
+            editor_scope = editor_scope.filter(curriculum=active_curriculum)
+        editor_semester = editor_scope.select_related('curriculum').first()
+    if editor_semester is None:
+        editor_semester = active_semester
 
     time_slots = [
         (f'{minutes // 60:02d}:{minutes % 60:02d}', f'{(minutes + 30) // 60:02d}:{(minutes + 30) % 60:02d}')
@@ -371,9 +525,6 @@ def schedule_list_page(request):
             'cells': cells,
         })
 
-    paginator = Paginator(schedules_list, 10)
-    schedules = paginator.get_page(request.GET.get('page', 1))
-
     teachers = Faculty.objects.filter(is_active=True).order_by('last_name', 'first_name')
     subjects = Subject.objects.select_related('program', 'semester').order_by('code')
     sections = Section.objects.filter(is_active=True).select_related(
@@ -430,19 +581,10 @@ def schedule_list_page(request):
         },
     ]
 
-    filter_query = urlencode({
-        key: value for key, value in {
-            'semester': filter_semester,
-            'section': filter_section,
-            'q': query,
-        }.items() if value
-    })
-
     return render(request, 'schedule_list.html', {
         'timetable_rows': timetable_rows,
         'DAYS': DAYS,
         'all_schedules': schedules_list,
-        'schedules': schedules,
         'query': query,
         'teachers': teachers,
         'subjects': subjects,
@@ -454,11 +596,15 @@ def schedule_list_page(request):
         'curricula': curricula,
         'stats': stats,
         'hours_map': hours_map,
+        'filter_year': filter_year,
         'filter_semester': filter_semester,
+        'filter_year_level': filter_year_level,
         'filter_section': filter_section,
+        'semester_filter_choices': Semester.SEMESTER_CHOICES,
+        'year_level_choices': year_level_choices,
+        'editor_semester_id': editor_semester.id if editor_semester else '',
         'semesters': semesters,
         'active_semester': active_semester,
-        'filter_query': filter_query,
         'has_grid_events': any(value not in (None, 'skip') for row in slot_cells for value in row),
     })
 
@@ -551,42 +697,20 @@ def schedule_save_ajax(request):
     else:
         schedule = Schedule()
 
-    semester_id = request.POST.get('semester', '').strip()
-    teacher_id = request.POST.get('teacher', '').strip()
-    subject_id = request.POST.get('subject', '').strip()
-    section_id = request.POST.get('section', '').strip()
-    room_id = request.POST.get('room', '').strip()
-    class_type = request.POST.get('class_type', '').strip()
+    target, error = _parse_schedule_target(request)
+    if error:
+        return JsonResponse({'error': error}, status=400)
+    semester = target['semester']
+    teacher = target['teacher']
+    subject = target['subject']
+    section = target['section']
+    room = target['room']
+    class_type = target['class_type']
+
     day_of_week = request.POST.get('day_of_week', '').strip()
     start_time = _parse_time(request.POST.get('start_time', ''))
     end_time = _parse_time(request.POST.get('end_time', ''))
 
-    if not semester_id:
-        return JsonResponse({'error': 'Semester is required.'}, status=400)
-    try:
-        semester = Semester.objects.get(pk=int(semester_id))
-    except (Semester.DoesNotExist, ValueError, TypeError):
-        return JsonResponse({'error': 'Invalid semester.'}, status=400)
-
-    try:
-        teacher = Faculty.objects.get(pk=int(teacher_id))
-    except (Faculty.DoesNotExist, ValueError, TypeError):
-        return JsonResponse({'error': 'Invalid teacher.'}, status=400)
-    try:
-        subject = Subject.objects.get(pk=int(subject_id))
-    except (Subject.DoesNotExist, ValueError, TypeError):
-        return JsonResponse({'error': 'Invalid subject.'}, status=400)
-    try:
-        section = Section.objects.get(pk=int(section_id))
-    except (Section.DoesNotExist, ValueError, TypeError):
-        return JsonResponse({'error': 'Invalid section.'}, status=400)
-    try:
-        room = Room.objects.get(pk=int(room_id))
-    except (Room.DoesNotExist, ValueError, TypeError):
-        return JsonResponse({'error': 'Invalid room.'}, status=400)
-
-    if class_type not in ('Lecture', 'Laboratory'):
-        return JsonResponse({'error': 'Class type must be Lecture or Laboratory.'}, status=400)
     if not day_of_week:
         return JsonResponse({'error': 'Day of week is required.'}, status=400)
     try:
@@ -640,6 +764,135 @@ def schedule_save_ajax(request):
         'day_of_week': schedule.day_of_week,
         'start_time': schedule.start_time.strftime('%H:%M'),
         'end_time': schedule.end_time.strftime('%H:%M'),
+    })
+
+
+@admin_required_api
+@login_required(login_url='login')
+@require_POST
+def schedule_batch_save_ajax(request):
+    """Create or extend a batch of slots that share one subject/section/room.
+
+    The inline editor sends the plan rows as JSON; the first row updates the
+    edited schedule (when an ``id`` is supplied) and the rest are created in a
+    single transaction so a partly-valid plan never lands in the database.
+    """
+    target, error = _parse_schedule_target(request)
+    if error:
+        return JsonResponse({'error': error}, status=400)
+
+    schedule = None
+    schedule_id = request.POST.get('id', '').strip()
+    if schedule_id:
+        schedule = get_object_or_404(Schedule, pk=schedule_id)
+
+    try:
+        rows = json.loads(request.POST.get('rows') or '[]')
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Schedule plan is not valid.'}, status=400)
+
+    slots, error = _parse_schedule_slots(rows)
+    if error:
+        return JsonResponse({'error': error}, status=400)
+
+    semester = target['semester']
+    teacher = target['teacher']
+    subject = target['subject']
+    section = target['section']
+    room = target['room']
+    class_type = target['class_type']
+
+    # Aggregate hours cover the whole plan at once, so the per-row conflict
+    # check below never has to guess about rows that are not saved yet.
+    existing_same = Schedule.objects.filter(
+        semester=semester,
+        subject=subject,
+        section=section,
+        class_type=class_type,
+    )
+    if schedule is not None:
+        existing_same = existing_same.exclude(pk=schedule.pk)
+    scheduled_hours = sum(
+        _time_duration_hours(entry.start_time, entry.end_time)
+        for entry in existing_same
+    )
+    planned_hours = sum(_time_duration_hours(slot['start'], slot['end']) for slot in slots)
+    total_hours = scheduled_hours + planned_hours
+    limit = (
+        subject.total_hours
+        if (class_type == 'Laboratory') == subject.is_lab
+        else 0
+    )
+    if total_hours > limit:
+        return JsonResponse({
+            'batch': True,
+            'conflicts': [{
+                'type': 'time_limit',
+                'message': (
+                    f'This plan adds {planned_hours:.1f}h on top of the '
+                    f'{scheduled_hours:.1f}h already scheduled ({total_hours:.1f}h total). '
+                    f'The allowed {class_type.lower()} time for subject "{subject}" '
+                    f'in section "{section}" is {limit}h.'
+                ),
+            }],
+            'suggestions': {},
+        }, status=400)
+
+    conflicts = []
+    suggestions = {}
+    exclude_id = schedule.pk if schedule is not None else None
+    for slot in slots:
+        conflict = _check_schedule_conflicts(
+            semester, teacher, subject, section, room,
+            class_type, slot['day'], slot['start'], slot['end'],
+            exclude_id=exclude_id,
+        )
+        if not conflict:
+            continue
+        for item in conflict['conflicts']:
+            item = dict(item)
+            item['message'] = f'Row {slot["row"]}: {item["message"]}'
+            conflicts.append(item)
+        if not suggestions:
+            suggestions = conflict['suggestions']
+
+    if conflicts:
+        return JsonResponse({
+            'batch': True,
+            'conflicts': conflicts,
+            'suggestions': suggestions,
+        }, status=400)
+
+    created = 0
+    updated = 0
+    try:
+        with transaction.atomic():
+            for index, slot in enumerate(slots):
+                if index == 0 and schedule is not None:
+                    entry = schedule
+                    updated += 1
+                else:
+                    entry = Schedule()
+                    created += 1
+                entry.semester = semester
+                entry.teacher = teacher
+                entry.subject = subject
+                entry.section = section
+                entry.room = room
+                entry.class_type = class_type
+                entry.day_of_week = slot['day']
+                entry.start_time = slot['start']
+                entry.end_time = slot['end']
+                entry.save()
+    except IntegrityError:
+        return JsonResponse({'error': 'Could not save the schedule plan due to a conflict.'}, status=400)
+
+    messages.success(request, f'Schedule plan saved ({created + updated} slot(s)).')
+    return JsonResponse({
+        'status': 'success',
+        'created': created,
+        'updated': updated,
+        'count': created + updated,
     })
 
 

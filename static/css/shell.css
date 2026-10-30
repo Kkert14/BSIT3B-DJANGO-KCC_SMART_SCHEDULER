@@ -1431,36 +1431,57 @@ body.ss-body *::after {
   color: var(--ss-text);
 }
 
-.ss-steps {
+.ss-form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.ss-step {
+.ss-form-sec {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-radius: 14px;
-  box-shadow: 0 2px 10px rgba(30, 40, 90, 0.05);
+  background: #f8f9fe;
+  border: 1px solid var(--ss-line);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+  transition: opacity 0.15s ease;
 }
 
-.ss-step.locked {
+.ss-form-sec.locked {
   opacity: 0.55;
 }
 
-.ss-step-k {
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--ss-blue);
-  letter-spacing: 0.5px;
+.ss-form-k {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ss-line);
 }
 
-.ss-step h2 {
-  font-size: 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--ss-line);
-  margin-bottom: 2px;
+.ss-form-k > span {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ss-blue);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.ss-form-k h2 {
+  font-size: 13px;
+  margin: 0;
+}
+
+.ss-form-k small {
+  margin-left: auto;
+  font-size: 9.5px;
+  color: var(--ss-muted);
 }
 
 .ss-field {
@@ -1639,6 +1660,249 @@ select.ss-input {
   height: 34px;
 }
 
+/* --------------------------------------------------- inline schedule editor */
+
+.ss-editor .ss-wk-head {
+  border-bottom: 1px solid var(--ss-line);
+}
+
+.ss-editor-body {
+  padding: 14px 16px 14px;
+}
+
+.ss-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  background: #f8f9fe;
+  border: 1px solid var(--ss-line);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+}
+
+.ss-plan-main {
+  flex: 1 1 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ss-plan-slots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+}
+
+.ss-plan-empty {
+  font-size: 10px;
+  color: var(--ss-muted);
+}
+
+.ss-plan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid var(--ss-line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ss-text);
+}
+
+.ss-plan-chip b {
+  color: var(--ss-blue);
+}
+
+.ss-plan-side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.ss-plan-hours {
+  font-size: 10px;
+  font-weight: 700;
+  color: #4b5268;
+  white-space: nowrap;
+}
+
+.ss-plan-hours.over {
+  color: var(--ss-red);
+}
+
+.ss-plan-faculty {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #4b5268;
+  max-width: 230px;
+}
+
+.ss-plan-faculty i {
+  color: var(--ss-blue);
+}
+
+.ss-plan-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.ss-plan-add .ss-btn {
+  height: 32px;
+}
+
+.ss-plan-add-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+}
+
+.ss-plan-linkbtn {
+  border: 0;
+  background: none;
+  padding: 2px;
+  font: 600 9.5px/1.2 "Segoe UI", system-ui, sans-serif;
+  color: var(--ss-muted);
+  cursor: pointer;
+}
+
+.ss-plan-linkbtn:hover {
+  color: var(--ss-red);
+}
+
+.ss-plan-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.ss-plan-table tr.editing td {
+  background: #eef5ff;
+}
+
+.ss-plan-review {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--ss-card);
+  border: 1px solid var(--ss-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.ss-plan-review .ss-plan-slots {
+  min-height: 0;
+}
+
+.ss-plan-table-wrap {
+  border: 1px solid var(--ss-line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ss-card);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.ss-modal-box .ss-alert {
+  margin-bottom: 10px;
+}
+
+.ss-plan-table td {
+  font-size: 10.5px;
+}
+
+.ss-plan-summary {
+  margin-top: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #4b5268;
+}
+
+.ss-plan-summary.over {
+  color: var(--ss-red);
+}
+
+.ss-modal-box .ss-plan-add {
+  margin-top: 2px;
+}
+
+.ss-editor-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ss-editor-alerts {
+  flex: 1 1 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ss-editor-foot .ss-modal-actions {
+  margin-top: 0;
+}
+
+.ss-view-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ss-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: #eef1f8;
+  border-radius: 8px;
+}
+
+.ss-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font: 600 10.5px/1.2 "Segoe UI", system-ui, sans-serif;
+  color: var(--ss-muted);
+  cursor: pointer;
+}
+
+.ss-seg-btn:hover {
+  color: var(--ss-text);
+}
+
+.ss-seg-btn.on {
+  background: #fff;
+  color: var(--ss-blue);
+  box-shadow: 0 1px 2px rgba(20, 30, 60, 0.15);
+}
+
+.ss-ev-sm:disabled {
+  cursor: default;
+}
+
 /* ------------------------------------------------------------ responsive */
 
 @media (max-width: 1100px) {
@@ -1709,6 +1973,18 @@ select.ss-input {
     display: none;
   }
 
+  .ss-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ss-plan-add {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .ss-plan-add .ss-field:first-child {
+    grid-column: 1 / -1;
+  }
+
   .ss-pickers {
     gap: 6px;
     min-width: 0;
@@ -1725,10 +2001,6 @@ select.ss-input {
     white-space: nowrap;
   }
 
-  .ss-steps {
-    grid-template-columns: 1fr;
-  }
-
   .ss-modal {
     padding: 14px 10px;
   }
@@ -1740,6 +2012,10 @@ select.ss-input {
   }
 
   .ss-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ss-plan-add {
     grid-template-columns: 1fr;
   }
 

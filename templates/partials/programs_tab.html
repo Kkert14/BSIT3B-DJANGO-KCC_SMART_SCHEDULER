@@ -172,12 +172,7 @@
             </div>
             <div class="col-12 col-md-6">
               <label class="form-label">Department</label>
-              <select name="department" id="program_department" class="form-select">
-                <option value="">Select department</option>
-                {% for value, label in department_choices %}
-                <option value="{{ value }}">{{ label }}</option>
-                {% endfor %}
-              </select>
+              <input type="text" name="department" id="program_department" class="form-control" maxlength="100" placeholder="e.g. CMAT, COC, College of Information Technology">
             </div>
             <div class="col-12">
               <div class="form-check form-switch mt-1">

@@ -1,15 +1,6 @@
 from django.db import models
 
 
-DEPARTMENT_CHOICES = [
-    ('College of Information Technology', 'College of Information Technology'),
-    ('College of Business Administration', 'College of Business Administration'),
-    ('College of Accountancy', 'College of Accountancy'),
-    ('College of Education', 'College of Education'),
-    ('College of Engineering', 'College of Engineering'),
-    ('College of Arts and Sciences', 'College of Arts and Sciences'),
-]
-
 MAJOR_CHOICES = [
     ('Software Development', 'Software Development'),
     ('Network Administration', 'Network Administration'),
@@ -27,9 +18,7 @@ class Program(models.Model):
     major = models.CharField(
         max_length=100, blank=True, default='', choices=MAJOR_CHOICES
     )
-    department = models.CharField(
-        max_length=100, blank=True, default='', choices=DEPARTMENT_CHOICES
-    )
+    department = models.CharField(max_length=100, blank=True, default='')
     is_active = models.BooleanField(default=True)
 
     class Meta:

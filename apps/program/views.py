@@ -7,7 +7,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import IntegrityError
 
-from .models import DEPARTMENT_CHOICES, MAJOR_CHOICES, Program
+from .models import MAJOR_CHOICES, Program
 from apps.curriculum.views import curriculum_list_context
 from apps.subject.views import subject_list_context
 from apps.users.decorators import admin_required, admin_required_api, is_admin
@@ -42,7 +42,6 @@ def program_list_context(request):
     return {
         'programs': programs,
         'query': query,
-        'department_choices': DEPARTMENT_CHOICES,
         'major_choices': MAJOR_CHOICES,
     }
 
