@@ -3,44 +3,44 @@ import re
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
-from django.db.models import Q
 from django.db import IntegrityError
 
-from apps.program.models import Program
 from apps.users.decorators import admin_required, admin_required_api
 
-from .models import Curriculum, Semester
+from .models import ACADEMIC_YEAR_CHOICES, Curriculum, Semester
+
+
+def curriculum_list_context(request):
+    """Context for the Curriculum tab of the Programs hub."""
+    query = request.GET.get('q', '').strip()
+    curricula = Curriculum.objects.prefetch_related('semesters').all()
+    if query:
+        curricula = curricula.filter(academic_year__icontains=query)
+    paginator = Paginator(curricula, 10)
+    page_number = request.GET.get('page', 1)
+    curricula = paginator.get_page(page_number)
+    return {
+        'curricula': curricula,
+        'query': query,
+        'academic_year_choices': ACADEMIC_YEAR_CHOICES,
+        'existing_academic_years': list(
+            Curriculum.objects.values_list('academic_year', flat=True)
+        ),
+    }
 
 
 @login_required(login_url='login')
 @admin_required
 def curriculum_list(request):
-    query = request.GET.get('q', '').strip()
-    curricula = (
-        Curriculum.objects.select_related('program')
-        .prefetch_related('semesters')
-        .all()
-    )
-    if query:
-        curricula = curricula.filter(
-            Q(code__icontains=query) |
-            Q(name__icontains=query) |
-            Q(program__program_code__icontains=query) |
-            Q(program__program_description__icontains=query) |
-            Q(academic_year__icontains=query)
-        )
-    paginator = Paginator(curricula, 10)
-    page_number = request.GET.get('page', 1)
-    curricula = paginator.get_page(page_number)
-    programs = Program.objects.filter(is_active=True).order_by('program_code')
-    return render(request, 'curriculum_list.html', {
-        'curricula': curricula,
-        'programs': programs,
-        'query': query,
-    })
+    url = f"{reverse('program:program_list')}?tab=curriculum"
+    extra = request.GET.urlencode()
+    if extra:
+        url = f'{url}&{extra}'
+    return redirect(url)
 
 
 @login_required(login_url='login')
@@ -53,40 +53,24 @@ def curriculum_save_ajax(request):
     else:
         curriculum = Curriculum()
 
-    code = request.POST.get('code', '').strip()
-    name = request.POST.get('name', '').strip()
-    program_id = request.POST.get('program', '').strip()
     academic_year = request.POST.get('academic_year', '').strip()
     is_active = request.POST.get('is_active') == 'true'
 
-    if not code:
-        return JsonResponse({'error': 'Curriculum code is required.'}, status=400)
-    if not name:
-        return JsonResponse({'error': 'Curriculum name is required.'}, status=400)
-    if not program_id:
-        return JsonResponse({'error': 'Program is required.'}, status=400)
     if not academic_year:
         return JsonResponse({'error': 'Academic year is required.'}, status=400)
 
     if not re.match(r'^[0-9]{4}-[0-9]{4}$', academic_year):
         return JsonResponse({'error': 'Academic year must be in YYYY-YYYY format.'}, status=400)
 
-    try:
-        program = Program.objects.get(pk=int(program_id))
-    except (Program.DoesNotExist, ValueError, TypeError):
-        return JsonResponse({'error': 'Invalid program.'}, status=400)
-
-    dup_qs = Curriculum.objects.filter(Q(code=code) | Q(name=name))
+    dup_qs = Curriculum.objects.filter(academic_year=academic_year)
     if curriculum_id:
         dup_qs = dup_qs.exclude(pk=curriculum_id)
-    if dup_qs.filter(code=code).exists():
-        return JsonResponse({'error': 'That curriculum code is already taken.'}, status=400)
-    if dup_qs.filter(name=name).exists():
-        return JsonResponse({'error': 'That curriculum name is already in use.'}, status=400)
+    if dup_qs.exists():
+        return JsonResponse(
+            {'error': f'A.Y. {academic_year} already has a curriculum.'},
+            status=400,
+        )
 
-    curriculum.code = code
-    curriculum.name = name
-    curriculum.program = program
     curriculum.academic_year = academic_year
     curriculum.is_active = is_active
 
@@ -95,14 +79,29 @@ def curriculum_save_ajax(request):
     except IntegrityError:
         return JsonResponse({'error': 'Could not save curriculum due to a conflict.'}, status=400)
 
-    messages.success(request, f'Curriculum "{curriculum.code}" has been saved successfully.')
+    created_semesters = []
+    if not curriculum_id:
+        for raw_number in request.POST.getlist('semester_numbers'):
+            if raw_number not in ('1', '2', '3'):
+                continue
+            semester, _ = Semester.objects.get_or_create(
+                curriculum=curriculum,
+                semester_number=int(raw_number),
+            )
+            created_semesters.append(semester)
+        if curriculum.is_active and created_semesters:
+            first = created_semesters[0]
+            first.is_active = True
+            first.save()
+
+    message = f'A.Y. {curriculum.academic_year} curriculum has been saved successfully.'
+    if created_semesters:
+        labels = ', '.join(s.get_semester_number_display() for s in created_semesters)
+        message = f'A.Y. {curriculum.academic_year} curriculum has been saved with {labels}.'
+    messages.success(request, message)
     return JsonResponse({
         'status': 'success',
         'id': curriculum.id,
-        'code': curriculum.code,
-        'name': curriculum.name,
-        'program': curriculum.program.id,
-        'program_name': str(curriculum.program),
         'academic_year': curriculum.academic_year,
         'is_active': curriculum.is_active,
     })
@@ -118,9 +117,12 @@ def curriculum_delete_ajax(request, pk):
             {'error': 'Cannot delete curriculum with existing semesters. Remove semesters first.'},
             status=400,
         )
-    code = curriculum.code
+    academic_year = curriculum.academic_year
     curriculum.delete()
-    messages.success(request, f'Curriculum "{code}" has been deleted successfully.')
+    messages.success(
+        request,
+        f'A.Y. {academic_year} curriculum has been deleted successfully.',
+    )
     return JsonResponse({'status': 'deleted'})
 
 
@@ -148,8 +150,10 @@ def semester_save_ajax(request):
     except ValueError:
         return JsonResponse({'error': 'Semester number must be a number.'}, status=400)
 
-    if semester_number not in (1, 2):
-        return JsonResponse({'error': 'Semester number must be 1 or 2.'}, status=400)
+    if semester_number not in (1, 2, 3):
+        return JsonResponse({'error': 'Semester must be 1, 2 or Summer.'}, status=400)
+
+    semester_label = dict(Semester.SEMESTER_CHOICES)[semester_number]
 
     try:
         curriculum = Curriculum.objects.get(pk=int(curriculum_id))
@@ -161,7 +165,7 @@ def semester_save_ajax(request):
         dup_qs = dup_qs.exclude(pk=semester_id)
     if dup_qs.exists():
         return JsonResponse(
-            {'error': f'Semester {semester_number} already exists for this curriculum.'},
+            {'error': f'{semester_label} already exists for this curriculum.'},
             status=400,
         )
 
@@ -176,13 +180,13 @@ def semester_save_ajax(request):
 
     messages.success(
         request,
-        f'Semester {semester.semester_number} for {curriculum.code} has been saved successfully.',
+        f'{semester_label} for A.Y. {curriculum.academic_year} has been saved successfully.',
     )
     return JsonResponse({
         'status': 'success',
         'id': semester.id,
         'curriculum': curriculum.id,
-        'curriculum_code': curriculum.code,
+        'academic_year': curriculum.academic_year,
         'semester_number': semester.semester_number,
         'is_active': semester.is_active,
     })
@@ -210,14 +214,42 @@ def semester_delete_ajax(request, pk):
             status=400,
         )
 
-    curriculum_code = semester.curriculum.code
-    semester_number = semester.semester_number
+    academic_year = semester.curriculum.academic_year
+    semester_label = semester.get_semester_number_display()
     semester.delete()
     messages.success(
         request,
-        f'Semester {semester_number} for {curriculum_code} has been deleted successfully.',
+        f'{semester_label} for A.Y. {academic_year} has been deleted successfully.',
     )
     return JsonResponse({'status': 'deleted'})
+
+
+@login_required(login_url='login')
+@admin_required
+def set_active_curriculum(request, curriculum_id):
+    curriculum = get_object_or_404(Curriculum, pk=curriculum_id)
+
+    curriculum.is_active = True
+    curriculum.save()
+
+    semester = (
+        curriculum.semesters.filter(is_active=True).first()
+        or curriculum.semesters.order_by('semester_number').first()
+    )
+    if semester:
+        semester.is_active = True
+        semester.save()
+        messages.success(
+            request,
+            f'Active academic year set to A.Y. {curriculum.academic_year} — '
+            f'{semester.get_semester_number_display()}.',
+        )
+    else:
+        messages.warning(
+            request,
+            f'A.Y. {curriculum.academic_year} has no semesters yet.',
+        )
+    return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
 
 
 @login_required(login_url='login')
@@ -235,7 +267,7 @@ def set_active_semester(request, semester_id):
 
     messages.success(
         request,
-        f'Active curriculum set to {semester.curriculum.code} — '
-        f'Semester {semester.semester_number}.',
+        f'Active curriculum set to A.Y. {semester.curriculum.academic_year} — '
+        f'{semester.get_semester_number_display()}.',
     )
     return redirect(request.META.get('HTTP_REFERER', 'dashboard'))

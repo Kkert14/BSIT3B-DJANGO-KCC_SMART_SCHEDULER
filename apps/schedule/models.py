@@ -9,6 +9,15 @@ class Schedule(models.Model):
         ('Lecture', 'Lecture'),
         ('Laboratory', 'Laboratory'),
     ]
+    DAY_CHOICES = [
+        (1, 'Monday'),
+        (2, 'Tuesday'),
+        (3, 'Wednesday'),
+        (4, 'Thursday'),
+        (5, 'Friday'),
+        (6, 'Saturday'),
+        (7, 'Sunday'),
+    ]
 
     semester = models.ForeignKey(
         Semester,
@@ -37,7 +46,8 @@ class Schedule(models.Model):
     )
     class_type = models.CharField(max_length=12, choices=CLASS_TYPE_CHOICES)
     day_of_week = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(7)]
+        choices=DAY_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(7)],
     )
     start_time = models.TimeField()
     end_time = models.TimeField()

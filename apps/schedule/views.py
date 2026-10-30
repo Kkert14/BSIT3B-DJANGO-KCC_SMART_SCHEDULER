@@ -242,7 +242,11 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
     )
     total_hours += _time_duration_hours(start_time, end_time)
 
-    limit = subject.lec_hours if class_type == 'Lecture' else subject.lab_hours
+    limit = (
+        subject.total_hours
+        if (class_type == 'Laboratory') == subject.is_lab
+        else 0
+    )
     if total_hours > limit:
         return {
             'conflicts': [{
@@ -262,7 +266,7 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
 @login_required(login_url='login')
 def schedule_list_page(request):
     active_semester = (
-        Semester.objects.select_related('curriculum__program')
+        Semester.objects.select_related('curriculum')
         .filter(is_active=True, curriculum__is_active=True)
         .first()
     )
@@ -276,7 +280,7 @@ def schedule_list_page(request):
     query = request.GET.get('q', '').strip()
 
     schedules_list = Schedule.objects.select_related(
-        'teacher', 'subject', 'section', 'room__building', 'semester__curriculum__program'
+        'teacher', 'subject', 'section', 'room__building', 'semester__curriculum'
     ).order_by('day_of_week', 'start_time')
 
     if filter_semester:
@@ -294,7 +298,7 @@ def schedule_list_page(request):
             Q(semester__curriculum__academic_year__icontains=query)
         )
 
-    semesters = Semester.objects.select_related('curriculum__program').order_by(
+    semesters = Semester.objects.select_related('curriculum').order_by(
         'curriculum__academic_year', 'semester_number'
     )
     if filter_semester:
@@ -380,7 +384,7 @@ def schedule_list_page(request):
     )
     buildings = Building.objects.order_by('code')
     programs = Program.objects.order_by('program_code')
-    curricula = Curriculum.objects.select_related('program').order_by('-academic_year', 'code')
+    curricula = Curriculum.objects.order_by('-academic_year')
 
     hours_map = {}
     for entry in Schedule.objects.values(

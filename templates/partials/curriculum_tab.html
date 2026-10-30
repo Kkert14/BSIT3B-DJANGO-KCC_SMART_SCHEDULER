@@ -1,0 +1,327 @@
+<div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-1">
+  <form method="GET" class="w-100" style="max-width: 420px;">
+    <input type="hidden" name="tab" value="curriculum">
+    <div class="input-group">
+      <span class="input-group-text"><i class="ti ti-search"></i></span>
+      <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by academic year...">
+      {% if query %}
+      <a href="?tab=curriculum" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+      <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+  </form>
+
+  {% if can_manage %}
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#curriculumModal" data-mode="create">
+    <i class='fas fa-plus-circle me-2'></i> Add Curriculum
+  </button>
+  {% endif %}
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" id="curriculumToastContainer" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+  <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
+    <div class="d-flex">
+      <div class="toast-body">{{ message }}</div>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div id="curriculumAlert" class="alert alert-danger d-none" role="alert"></div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      All Curricula
+      {% if query %}
+      <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
+      {% endif %}
+    </div>
+    <div class="card-subtitle text-muted small">One curriculum per academic year, shared by all programs. Select a semester to make it active.</div>
+  </div>
+  <div class="card-body">
+    {% if not curricula %}
+    <div class="text-muted text-center py-4">
+      <p>No curricula defined yet.</p>
+      {% if can_manage %}
+      <p class="small">Click "Add Curriculum" to create your first academic year.</p>
+      {% else %}
+      <p class="small">No curricula have been created yet.</p>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table text-nowrap" id="curriculumTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Academic Year</th>
+            <th>Semesters</th>
+            <th>Status</th>
+            {% if can_manage %}
+            <th class="w-1">Actions</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody id="curriculumTableBody">
+        {% for cur in curricula %}
+        <tr data-row-id="{{ cur.id }}">
+          <td class="text-muted">{{ forloop.counter0|add:curricula.start_index }}</td>
+          <td class="fw-semibold">A.Y. {{ cur.academic_year }}</td>
+          <td>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              {% for sem in cur.semesters.all %}
+              <span class="d-inline-flex align-items-center gap-1">
+                {% if active_semester and active_semester.pk == sem.pk %}
+                <span class="badge bg-primary text-white" title="Active semester">
+                  <i class="fas fa-check me-1"></i>{{ sem.short_label }}
+                </span>
+                {% elif can_manage %}
+                <a href="{% url 'curriculum:set_active_semester' sem.id %}" class="badge bg-secondary-lt text-secondary text-decoration-none" title="Make {{ sem.short_label }} the active semester">{{ sem.short_label }}</a>
+                {% else %}
+                <span class="badge bg-secondary-lt text-secondary">{{ sem.short_label }}</span>
+                {% endif %}
+                {% if can_manage %}
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#semesterModal" data-mode="edit" data-id="{{ sem.id }}" data-curriculum="{{ cur.id }}" data-academic-year="{{ cur.academic_year }}" data-semester-number="{{ sem.semester_number }}" data-active="{{ sem.is_active|yesno:'true,false' }}" title="Edit {{ sem.short_label }}">
+                  <i class="fas fa-edit text-primary"></i>
+                </button>
+                {% if not sem.subjects.exists and not sem.sections.exists and not sem.schedules.exists %}
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSemesterModal" data-id="{{ sem.id }}" data-academic-year="{{ cur.academic_year }}" data-semester-number="{{ sem.semester_number }}" data-semester-label="{{ sem.get_semester_number_display }}" title="Delete {{ sem.short_label }}">
+                  <i class="fas fa-trash-alt text-danger"></i>
+                </button>
+                {% endif %}
+                {% endif %}
+              </span>
+              {% empty %}
+              <span class="text-muted">No semesters yet</span>
+              {% endfor %}
+              {% if can_manage %}
+              <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#semesterModal" data-mode="create" data-curriculum="{{ cur.id }}" data-academic-year="{{ cur.academic_year }}" title="Add a semester to A.Y. {{ cur.academic_year }}">
+                <i class="fas fa-plus me-1"></i>Add
+              </button>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            {% if active_curriculum and active_curriculum.pk == cur.pk %}
+            <span class="badge bg-success-lt text-success"><i class="fas fa-circle-check me-1"></i>Active</span>
+            {% else %}
+            <span class="badge bg-secondary-lt text-secondary">Inactive</span>
+            {% endif %}
+          </td>
+          {% if can_manage %}
+          <td>
+            <div class="d-flex gap-1">
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#curriculumModal" data-mode="edit" data-id="{{ cur.id }}" data-academic-year="{{ cur.academic_year }}" data-active="{{ cur.is_active|yesno:'true,false' }}" title="Edit A.Y. {{ cur.academic_year }}">
+                <i class="fas fa-edit text-primary"></i>
+              </button>
+              {% if cur.semesters.exists %}
+              <span class="d-inline-flex" title="Remove the semesters before deleting A.Y. {{ cur.academic_year }}">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" disabled>
+                  <i class="fas fa-trash-alt text-muted"></i>
+                </button>
+              </span>
+              {% else %}
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteCurriculumModal" data-id="{{ cur.id }}" data-academic-year="{{ cur.academic_year }}" title="Delete A.Y. {{ cur.academic_year }}">
+                <i class="fas fa-trash-alt text-danger"></i>
+              </button>
+              {% endif %}
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{% if can_manage %}5{% else %}4{% endif %}">
+            <div class="empty py-5">
+              <div class="empty-icon">
+                <i class="fas fa-book fa-2x text-muted"></i>
+              </div>
+              <p class="empty-title">No curricula found</p>
+              <p class="empty-subtitle">Try adjusting your search or add a new academic year.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if curricula.paginator.num_pages > 1 %}
+  <div class="card-footer d-flex align-items-center">
+    <p class="m-0 text-muted">
+      Showing <span class="fw-medium">{{ curricula.start_index }}</span>
+      to <span class="fw-medium">{{ curricula.end_index }}</span>
+      of <span class="fw-medium">{{ curricula.paginator.count }}</span> records
+    </p>
+    <ul class="pagination m-0 ms-auto">
+      {% if curricula.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?tab=curriculum&amp;page={{ curricula.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+          <i class="ti ti-chevron-left"></i> prev
+        </a>
+      </li>
+      {% endif %}
+      {% for num in curricula.paginator.page_range %}
+      <li class="page-item {% if curricula.number == num %}active{% endif %}">
+        <a class="page-link" href="?tab=curriculum&amp;page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
+      </li>
+      {% endfor %}
+      {% if curricula.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?tab=curriculum&amp;page={{ curricula.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+          next <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Curriculum Modal (Create/Edit) -->
+<div class="modal modal-blur fade" id="curriculumModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="curriculumModalTitle">Add Curriculum</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="curriculumForm">
+        {% csrf_token %}
+        <input type="hidden" name="id" id="curriculum_id">
+        <div class="modal-body">
+          <div id="curriculumFormError" class="alert alert-danger d-none"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Academic Year</label>
+              <select name="academic_year" id="curriculum_academic_year" class="form-select" required>
+                <option value="">Select academic year</option>
+                {% for value, label in academic_year_choices %}
+                <option value="{{ value }}" data-existing="{% if value in existing_academic_years %}true{% else %}false{% endif %}">{{ label }}</option>
+                {% endfor %}
+              </select>
+              <small class="form-hint">One curriculum per academic year, covering every program.</small>
+            </div>
+            <div class="col-12" id="curriculumSemestersGroup">
+              <label class="form-label">Semesters</label>
+              <div class="d-flex flex-wrap gap-3">
+                <label class="form-check m-0">
+                  <input class="form-check-input" type="checkbox" name="semester_numbers" value="1" checked>
+                  <span class="form-check-label">Semester 1</span>
+                </label>
+                <label class="form-check m-0">
+                  <input class="form-check-input" type="checkbox" name="semester_numbers" value="2" checked>
+                  <span class="form-check-label">Semester 2</span>
+                </label>
+                <label class="form-check m-0">
+                  <input class="form-check-input" type="checkbox" name="semester_numbers" value="3">
+                  <span class="form-check-label">Summer</span>
+                </label>
+              </div>
+              <small class="form-hint">Semesters created with this academic year. You can add more later.</small>
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="is_active" id="curriculum_is_active" value="true">
+                <label class="form-check-label mb-0" for="curriculum_is_active">Set as Active</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="curriculumSubmitBtn">Save Curriculum</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Semester Modal (Create/Edit) -->
+<div class="modal modal-blur fade" id="semesterModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="semesterModalTitle">Add Semester</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="semesterForm">
+        {% csrf_token %}
+        <input type="hidden" name="id" id="semester_id">
+        <input type="hidden" name="curriculum" id="semester_curriculum">
+        <div class="modal-body">
+          <div id="semesterFormError" class="alert alert-danger d-none"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Curriculum</label>
+              <input type="text" id="semester_curriculum_display" class="form-control" readonly>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Semester Number</label>
+              <select name="semester_number" id="semester_semester_number" class="form-select" required>
+                <option value="1">Semester 1</option>
+                <option value="2">Semester 2</option>
+                <option value="3">Summer</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <div class="form-check form-switch mt-1 d-flex align-items-center">
+                <input class="form-check-input" type="checkbox" name="is_active" id="semester_is_active" value="true">
+                <label class="form-check-label mb-0" for="semester_is_active">Set as Active</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="semesterSubmitBtn">Save Semester</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Curriculum Modal -->
+<div class="modal modal-blur fade" id="deleteCurriculumModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Delete Curriculum</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Are you sure you want to delete <strong id="deleteCurriculumName"></strong>?</p>
+        <p class="text-muted small">This is only allowed if the curriculum has no semesters.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteCurriculumBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Semester Modal -->
+<div class="modal modal-blur fade" id="deleteSemesterModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Delete Semester</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Are you sure you want to delete <strong id="deleteSemesterName"></strong>?</p>
+        <p class="text-muted small">This is only allowed if the semester has no subjects, sections, or schedules.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteSemesterBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -69,7 +69,6 @@ READ_PAGES = [
     'rooms:room_list',
     'schedule:schedule_list',
     'section:section_list',
-    'subject:subject_list',
     'faculty:faculty_list',
 ]
 
@@ -253,6 +252,42 @@ class ReadAccessTests(RoleTestMixin, TestCase):
                 response = self.call(AnonymousUser(), 'get', url_name)
                 self.assertEqual(response.status_code, 302)
                 self.assertIn(reverse('login'), response.url)
+
+    def test_retired_pages_redirect_to_programs_tabs(self):
+        """Curriculum and Courses now live as tabs on the Programs page."""
+        cases = [
+            ('curriculum:curriculum_list', '?tab=curriculum'),
+            ('subject:subject_list', '?tab=courses'),
+        ]
+        for url_name, suffix in cases:
+            with self.subTest(endpoint=url_name):
+                response = self.call(self.admin, 'get', url_name)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn(
+                    reverse('program:program_list') + suffix, response.url
+                )
+
+    def test_programs_hub_tabs_are_readable(self):
+        for tab in ('programs', 'courses'):
+            with self.subTest(tab=tab):
+                response = self.call(
+                    self.student, 'get', 'program:program_list',
+                    data={'tab': tab},
+                )
+                self.assertEqual(response.status_code, 200)
+        response = self.call(
+            self.admin, 'get', 'program:program_list',
+            data={'tab': 'curriculum'},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_curriculum_tab_stays_admin_only(self):
+        response = self.call(
+            self.student, 'get', 'program:program_list',
+            data={'tab': 'curriculum'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('dashboard'))
 
     def test_admin_only_pages_are_closed_to_students(self):
         response = self.call(self.student, 'get', 'users:user_list')

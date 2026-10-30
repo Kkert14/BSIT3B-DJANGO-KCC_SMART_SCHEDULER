@@ -171,9 +171,7 @@ class RoomRoundTripTests(RoundTripTestMixin, TestCase):
 class SectionRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_then_import(self):
         program = Program.objects.create(program_code='RT_SP', program_description='RT Program')
-        curriculum = Curriculum.objects.create(
-            code='RT_CURR', name='RT Curriculum', program=program, academic_year='2024-2025'
-        )
+        curriculum = Curriculum.objects.create(academic_year='2024-2025')
         semester = Semester.objects.create(
             curriculum=curriculum, semester_number=1, is_active=True,
         )
@@ -197,15 +195,13 @@ class SectionRoundTripTests(RoundTripTestMixin, TestCase):
 class SubjectRoundTripTests(RoundTripTestMixin, TestCase):
     def test_export_then_import(self):
         program = Program.objects.create(program_code='RT_SJ', program_description='RT Program')
-        curriculum = Curriculum.objects.create(
-            code='RT_CURR2', name='RT Curriculum', program=program, academic_year='2024-2025'
-        )
+        curriculum = Curriculum.objects.create(academic_year='2024-2025')
         semester = Semester.objects.create(
             curriculum=curriculum, semester_number=1, is_active=True,
         )
         Subject.objects.create(
             program=program, code='RTCS101', name='RT Intro', units=3,
-            lec_hours=3, lab_hours=0, semester=semester,
+            total_hours=3, is_lab=False, semester=semester,
             year_level=1,
         )
 
@@ -217,21 +213,19 @@ class SubjectRoundTripTests(RoundTripTestMixin, TestCase):
         subject = Subject.objects.get(code='RTCS101')
         self.assertEqual(subject.program.program_code, 'RT_SJ')
         self.assertEqual(float(subject.units), 3.0)
-        self.assertEqual(subject.lec_hours, 3)
+        self.assertEqual(subject.total_hours, 3)
         self.assertEqual(subject.semester.semester_number, 1)
         self.assertEqual(subject.semester.curriculum.academic_year, '2024-2025')
 
     def test_blank_prerequisite_cell_does_not_become_none_string(self):
         program = Program.objects.create(program_code='RT_SK', program_description='RT Program')
-        curriculum = Curriculum.objects.create(
-            code='RT_CURR3', name='RT Curriculum', program=program, academic_year='2024-2025'
-        )
+        curriculum = Curriculum.objects.create(academic_year='2024-2025')
         semester = Semester.objects.create(
             curriculum=curriculum, semester_number=1, is_active=True,
         )
         Subject.objects.create(
             program=program, code='RTCS102', name='RT Advanced', units=3,
-            lec_hours=3, lab_hours=0, semester=semester,
+            total_hours=3, is_lab=False, semester=semester,
             year_level=2,
         )
 
@@ -306,15 +300,13 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
             employee_number='RT-EMP-9', first_name='Ana', last_name='Reyes',
             email='ana@example.com', position='Professor', is_active=True,
         )
-        self.curriculum = Curriculum.objects.create(
-            code='RT_CURR4', name='RT Curriculum', program=program, academic_year='2024-2025'
-        )
+        self.curriculum = Curriculum.objects.create(academic_year='2024-2025')
         self.semester = Semester.objects.create(
             curriculum=self.curriculum, semester_number=1, is_active=True,
         )
         self.subject = Subject.objects.create(
             program=program, code='RTCS201', name='RT Subject', units=3,
-            lec_hours=3, lab_hours=0, semester=self.semester,
+            total_hours=3, is_lab=False, semester=self.semester,
             year_level=1,
         )
         self.section = Section.objects.create(
@@ -362,7 +354,7 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
 
     def _schedule_sheet(self, **overrides):
         row = {
-            'semester_curriculum_code': 'RT_CURR4',
+            'semester_curriculum_code': '2024-2025',
             'semester_semester_number': 1,
             'teacher__employee_number': 'RT-EMP-9',
             'subject__code': 'RTCS201',
@@ -397,7 +389,7 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
         program = Program.objects.get(program_code='RT_SP2')
         other_subject = Subject.objects.create(
             program=program, code='RTCS202', name='RT Other Subject', units=3,
-            lec_hours=3, lab_hours=0, semester=self.semester,
+            total_hours=3, is_lab=False, semester=self.semester,
             year_level=1,
         )
         other_section = Section.objects.create(
@@ -458,16 +450,14 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
     def test_import_reports_an_ambiguous_subject_instead_of_crashing(self):
         """Two subjects sharing a code must not raise MultipleObjectsReturned."""
         Program.objects.create(program_code='RT_SP9', program_description='RT Other Program')
-        other_curriculum = Curriculum.objects.create(
-            code='RT_CURR9', name='RT Curriculum 9', program=Program.objects.get(program_code='RT_SP9'), academic_year='2024-2025'
-        )
+        other_curriculum = Curriculum.objects.create(academic_year='2025-2026')
         other_semester = Semester.objects.create(
             curriculum=other_curriculum, semester_number=1, is_active=True,
         )
         Subject.objects.create(
             program=Program.objects.get(program_code='RT_SP9'), code='RTCS201',
-            name='RT Subject In Another Program', units=3, lec_hours=3,
-            lab_hours=0, semester=other_semester, year_level=1,
+            name='RT Subject In Another Program', units=3, total_hours=3,
+            is_lab=False, semester=other_semester, year_level=1,
         )
 
         result = self._import_rows([self._schedule_sheet(
@@ -482,16 +472,14 @@ class ScheduleRoundTripTests(RoundTripTestMixin, TestCase):
 
     def test_import_resolves_an_ambiguous_subject_using_the_program_code(self):
         Program.objects.create(program_code='RT_SP9', program_description='RT Other Program')
-        other_curriculum = Curriculum.objects.create(
-            code='RT_CURR10', name='RT Curriculum 10', program=Program.objects.get(program_code='RT_SP9'), academic_year='2024-2025'
-        )
+        other_curriculum = Curriculum.objects.create(academic_year='2025-2026')
         other_semester = Semester.objects.create(
             curriculum=other_curriculum, semester_number=1, is_active=True,
         )
         Subject.objects.create(
             program=Program.objects.get(program_code='RT_SP9'), code='RTCS201',
-            name='RT Subject In Another Program', units=3, lec_hours=3,
-            lab_hours=0, semester=other_semester, year_level=1,
+            name='RT Subject In Another Program', units=3, total_hours=3,
+            is_lab=False, semester=other_semester, year_level=1,
         )
 
         result = self._import_rows([self._schedule_sheet()])

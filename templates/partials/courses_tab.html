@@ -1,0 +1,286 @@
+<div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-1">
+  <form method="GET" class="w-100" style="max-width: 420px;">
+    <input type="hidden" name="tab" value="courses">
+    <div class="input-group">
+      <span class="input-group-text"><i class="ti ti-search"></i></span>
+      <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by code, name or program...">
+      {% if query %}
+      <a href="?tab=courses" class="btn btn-outline-secondary">Clear</a>
+      {% endif %}
+      <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+  </form>
+
+  {% if can_manage %}
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#subjectModal" data-mode="create">
+    <i class='fas fa-plus-circle me-2'></i> Add Course
+  </button>
+  <button type="button" class="btn btn-outline-success" onclick="location.href='{% url "subject:subject_export_excel" %}'">
+    <i class="fas fa-download me-1"></i> Export Excel
+  </button>
+  <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#subjectImportModal">
+    <i class="fas fa-upload me-1"></i> Import Excel
+  </button>
+  {% endif %}
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" id="subjectToastContainer" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+  <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
+    <div class="d-flex">
+      <div class="toast-body">{{ message }}</div>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div id="subjectAlert" class="alert alert-danger d-none" role="alert"></div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      All Courses
+      {% if query %}
+      <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter table-hover card-table text-nowrap" id="subjectTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Program</th>
+          <th>Year</th>
+          <th>Sem</th>
+          <th>Units</th>
+          <th>Type</th>
+          <th>Total Hrs</th>
+          <th>Prerequisite</th>
+          {% if can_manage %}
+          <th class="w-1">Actions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody id="subjectTableBody">
+      {% for subject in subjects %}
+      <tr data-row-id="{{ subject.id }}">
+          <td class="text-muted">{{ forloop.counter0|add:subjects.start_index }}</td>
+          <td class="fw-semibold">{{ subject.code }}</td>
+          <td class="text-muted">{{ subject.name }}</td>
+          <td class="text-muted">{{ subject.program.program_code }}</td>
+          <td>{{ subject.year_level }}</td>
+          <td>{{ subject.semester }}</td>
+          <td>{{ subject.units }}</td>
+          <td>
+            {% if subject.is_lab %}
+            <span class="badge bg-warning-lt text-warning">Lab</span>
+            {% else %}
+            <span class="badge bg-info-lt text-info">Lecture</span>
+            {% endif %}
+          </td>
+          <td class="text-muted">{{ subject.total_hours }}h</td>
+          <td class="text-muted">
+            {% if subject.prerequisite %}{{ subject.prerequisite.code }}{% else %}—{% endif %}
+          </td>
+          {% if can_manage %}
+          <td>
+            <div class="d-flex gap-1">
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#subjectModal" data-mode="edit" data-id="{{ subject.id }}" data-program="{{ subject.program.id }}" data-code="{{ subject.code }}" data-name="{{ subject.name }}" data-units="{{ subject.units }}" data-total-hours="{{ subject.total_hours }}" data-is-lab="{{ subject.is_lab|yesno:'true,false' }}" data-semester="{{ subject.semester.id }}" data-semester-number="{{ subject.semester.semester_number }}" data-year-level="{{ subject.year_level }}" data-prerequisite="{{ subject.prerequisite_id_display }}" title="Edit">
+                <i class="fas fa-edit text-primary"></i>
+              </button>
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSubjectModal" data-id="{{ subject.id }}" data-code="{{ subject.code }}" title="Delete">
+                <i class="fas fa-trash-alt text-danger"></i>
+              </button>
+            </div>
+          </td>
+          {% endif %}
+      </tr>
+      {% empty %}
+      <tr>
+          <td colspan="{% if can_manage %}11{% else %}10{% endif %}">
+              <div class="empty py-5">
+                  <div class="empty-icon">
+                      <i class="fas fa-book fa-2x text-muted"></i>
+                  </div>
+                  <p class="empty-title">No courses found</p>
+                  <p class="empty-subtitle">Try adjusting your search or add a new course.</p>
+              </div>
+          </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if subjects.paginator.num_pages > 1 %}
+  <div class="card-footer d-flex align-items-center">
+    <p class="m-0 text-muted">
+      Showing <span class="fw-medium">{{ subjects.start_index }}</span>
+      to <span class="fw-medium">{{ subjects.end_index }}</span>
+      of <span class="fw-medium">{{ subjects.paginator.count }}</span> records
+    </p>
+    <ul class="pagination m-0 ms-auto">
+      {% if subjects.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?tab=courses&amp;page={{ subjects.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+          <i class="ti ti-chevron-left"></i> prev
+        </a>
+      </li>
+      {% endif %}
+      {% for num in subjects.paginator.page_range %}
+      <li class="page-item {% if subjects.number == num %}active{% endif %}">
+        <a class="page-link" href="?tab=courses&amp;page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
+      </li>
+      {% endfor %}
+      {% if subjects.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?tab=courses&amp;page={{ subjects.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+          next <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+
+<div class="modal modal-blur fade" id="subjectModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="subjectModalTitle">Add Course</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="subjectForm">
+        {% csrf_token %}
+        <input type="hidden" name="id" id="subject_id">
+        <div class="modal-body">
+          <div id="subjectFormError" class="alert alert-danger d-none"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Program</label>
+              <select name="program" id="subject_program" class="form-select" required>
+                <option value="">Select program</option>
+                {% for p in programs %}
+                <option value="{{ p.id }}">{{ p.program_code }} — {{ p.program_description }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Code</label>
+              <input type="text" name="code" id="subject_code" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Name</label>
+              <input type="text" name="name" id="subject_name" class="form-control" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Units</label>
+              <input type="number" name="units" id="subject_units" class="form-control" step="0.1" min="0" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label" for="subject_total_hours">Total Hours</label>
+              <input type="number" name="total_hours" id="subject_total_hours" class="form-control" min="0" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label d-block">Course Type</label>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="is_lab" id="subject_is_lab" value="true">
+                <label class="form-check-label" for="subject_is_lab">Laboratory course</label>
+              </div>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Curriculum / Semester</label>
+              <select name="semester" id="subject_semester" class="form-select" required>
+                <option value="">Select curriculum &amp; semester</option>
+                {% for sem in semesters %}
+                <option value="{{ sem.id }}">A.Y. {{ sem.curriculum.academic_year }} — {{ sem.get_semester_number_display }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Year Level</label>
+              <select name="year_level" id="subject_year_level" class="form-select" required>
+                <option value="">Select year level</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Prerequisite <span class="text-muted">(optional)</span></label>
+              <select name="prerequisite" id="subject_prerequisite" class="form-select">
+                <option value="">None</option>
+                {% for s in all_subjects %}
+                <option value="{{ s.id }}">{{ s.code }} — {{ s.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="subjectSubmitBtn">Save Course</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="deleteSubjectModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">Delete Course</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Are you sure you want to delete <strong id="deleteSubjectName"></strong>?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteSubjectBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Course Import Modal -->
+<div class="modal modal-blur fade" id="subjectImportModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Courses from Excel</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="subjectImportForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div id="subjectImportError" class="alert alert-danger d-none"></div>
+          <div id="subjectImportResult" class="alert alert-success d-none"></div>
+          <div class="mb-3">
+            <label class="form-label">Select Excel File (.xlsx)</label>
+            <input type="file" name="file" id="subjectImportFile" class="form-control" accept=".xlsx" required>
+          </div>
+          <div class="alert alert-info">
+            <small>
+              <strong>Required columns:</strong> program_program_code, code, name, units, total_hours, semester_curriculum_code, semester_semester_number, year_level<br>
+              Optional: is_lab (TRUE/FALSE), prerequisite_code<br>
+              Example: BSMA, BSMA101, Mathematics Orientation, 3.0, 3, 2024-2025, 1, 1,
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="subjectImportBtn">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

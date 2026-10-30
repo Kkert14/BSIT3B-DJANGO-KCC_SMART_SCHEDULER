@@ -85,7 +85,7 @@
             <td class="text-muted">{{ forloop.counter0|add:sections.start_index }}</td>
             <td class="fw-semibold">{{ section.name }}</td>
             <td class="text-muted">{{ section.program.program_code }}</td>
-            <td class="text-muted">{{ section.semester.curriculum.code }} — Sem {{ section.semester.semester_number }}</td>
+            <td class="text-muted">A.Y. {{ section.semester.curriculum.academic_year }} — {{ section.semester.get_semester_number_display }}</td>
             <td>{{ section.year_level }}</td>
             <td>{{ section.capacity }}</td>
             <td>
@@ -98,7 +98,7 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-program-code="{{ section.program.program_code }}" data-program-name="{{ section.program.program_description }}" data-name="{{ section.name }}" data-semester="{{ section.semester.id }}" data-curriculum="{{ section.semester.curriculum.code }}" data-semester-number="{{ section.semester.semester_number }}" data-year-level="{{ section.year_level }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-program-code="{{ section.program.program_code }}" data-program-name="{{ section.program.program_description }}" data-name="{{ section.name }}" data-semester="{{ section.semester.id }}" data-semester-number="{{ section.semester.semester_number }}" data-year-level="{{ section.year_level }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSectionModal" data-id="{{ section.id }}" data-name="{{ section.name }}" title="Delete">
@@ -245,7 +245,7 @@
               <select name="semester" id="section_semester" class="form-select" required>
                 <option value="">Select curriculum &amp; semester</option>
                 {% for sem in semesters %}
-                <option value="{{ sem.id }}">{{ sem.curriculum.code }} — Sem {{ sem.semester_number }} ({{ sem.curriculum.academic_year }})</option>
+                <option value="{{ sem.id }}">A.Y. {{ sem.curriculum.academic_year }} — {{ sem.get_semester_number_display }}</option>
                 {% endfor %}
               </select>
             </div>

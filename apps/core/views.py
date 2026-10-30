@@ -207,7 +207,7 @@ def _collect_conflicts(schedules):
 @login_required(login_url='login')
 def home(request):
     semester = (
-        Semester.objects.select_related('curriculum__program')
+        Semester.objects.select_related('curriculum')
         .filter(is_active=True, curriculum__is_active=True)
         .first()
     )
@@ -261,7 +261,7 @@ def home(request):
             semester=semester,
             year_level=selected_section.year_level,
         )
-        required_hours = sum(subject.total_weekly_hours for subject in offered_subjects)
+        required_hours = sum(subject.total_hours for subject in offered_subjects)
 
     weekly_hours = sum(_hours_between(s.start_time, s.end_time) for s in timetable)
     subjects_done = len({s.subject_id for s in timetable})
@@ -391,14 +391,15 @@ def home(request):
         )
     complete_subjects = sum(
         1 for subject in offered_subjects
-        if scheduled_lecture.get(subject.id, 0) >= subject.lec_hours
-        and scheduled_lab.get(subject.id, 0) >= subject.lab_hours
+        if (scheduled_lab if subject.is_lab else scheduled_lecture).get(
+            subject.id, 0
+        ) >= subject.total_hours
     )
 
     if offered_subjects:
         foot_left = (
             f'{complete_subjects} of {offered_subjects.count()} offered subjects meet their weekly '
-            'lecture and laboratory hours.'
+            'contact hours.'
         )
     else:
         foot_left = f'{len(timetable)} classes on the timetable this week.'
@@ -440,7 +441,7 @@ def home(request):
         'badge': badge,
         'foot_left': foot_left,
         'foot_right': (
-            f'Semester {semester.semester_number} · {semester.curriculum.academic_year}'
+            f'{semester.get_semester_number_display()} · {semester.curriculum.academic_year}'
             if semester else ''
         ),
         'room_rows': room_rows,

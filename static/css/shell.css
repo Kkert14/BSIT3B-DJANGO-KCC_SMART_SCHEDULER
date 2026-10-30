@@ -116,8 +116,21 @@ body.ss-body *::after {
 
 /* active curriculum / semester picker */
 
+.ss-pickers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .ss-ctx {
   position: relative;
+}
+
+.ss-ctx-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ss-ctx-btn {
@@ -210,6 +223,23 @@ body.ss-body *::after {
 
 .ss-ctx-i.on .ss-check {
   visibility: visible;
+}
+
+.ss-ctx-i-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ss-ctx-i-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: #8e9ab5;
+}
+
+.ss-ctx-i.on .ss-ctx-i-sub {
+  color: #dceaff;
 }
 
 /* right side of the topbar */
@@ -1679,8 +1709,13 @@ select.ss-input {
     display: none;
   }
 
+  .ss-pickers {
+    gap: 6px;
+    min-width: 0;
+  }
+
   .ss-ctx-btn {
-    max-width: 190px;
+    max-width: 128px;
     overflow: hidden;
   }
 

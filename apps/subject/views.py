@@ -1,4 +1,5 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404
+from django.urls import reverse
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -22,8 +23,8 @@ from apps.utils.import_export import (
 )
 
 
-@login_required(login_url='login')
-def subject_list_page(request):
+def subject_list_context(request):
+    """Context for the Courses tab of the Programs hub."""
     query = request.GET.get('q', '').strip()
     subjects_list = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all()
     if query:
@@ -39,13 +40,22 @@ def subject_list_page(request):
     programs = Program.objects.filter(is_active=True).order_by('program_code')
     semesters = Semester.objects.select_related('curriculum').all().order_by('curriculum__academic_year', 'semester_number')
     all_subjects = Subject.objects.all().order_by('code')
-    return render(request, 'subject_list.html', {
+    return {
         'subjects': subjects,
         'query': query,
         'programs': programs,
         'semesters': semesters,
         'all_subjects': all_subjects,
-    })
+    }
+
+
+@login_required(login_url='login')
+def subject_list_page(request):
+    url = f"{reverse('program:program_list')}?tab=courses"
+    extra = request.GET.urlencode()
+    if extra:
+        url = f'{url}&{extra}'
+    return redirect(url)
 
 
 @login_required(login_url='login')
@@ -63,7 +73,7 @@ def subject_list_ajax(request):
     page_number = request.GET.get('page', 1)
     subjects = paginator.get_page(page_number)
     data = list(subjects.object_list.values(
-        'id', 'code', 'name', 'units', 'lec_hours', 'lab_hours',
+        'id', 'code', 'name', 'units', 'total_hours', 'is_lab',
         'program_id', 'semester_id', 'year_level',
         'prerequisite_id',
     ))
@@ -100,8 +110,8 @@ def subject_get_ajax(request, pk):
         'code': subject.code,
         'name': subject.name,
         'units': str(subject.units),
-        'lec_hours': subject.lec_hours,
-        'lab_hours': subject.lab_hours,
+        'total_hours': subject.total_hours,
+        'is_lab': subject.is_lab,
         'semester': subject.semester.id,
         'semester_number': subject.semester.semester_number,
         'academic_year': subject.semester.curriculum.academic_year,
@@ -125,8 +135,8 @@ def subject_save_ajax(request):
     code = request.POST.get('code', '').strip()
     name = request.POST.get('name', '').strip()
     units = request.POST.get('units', '').strip()
-    lec_hours = request.POST.get('lec_hours', '').strip()
-    lab_hours = request.POST.get('lab_hours', '').strip()
+    total_hours = request.POST.get('total_hours', '').strip()
+    is_lab = request.POST.get('is_lab') == 'true'
     semester_id = request.POST.get('semester', '').strip()
     year_level = request.POST.get('year_level', '').strip()
     prerequisite_id = request.POST.get('prerequisite', '').strip()
@@ -148,14 +158,12 @@ def subject_save_ajax(request):
         units = float(units)
     except (ValueError, TypeError):
         return JsonResponse({'error': 'Units must be a number.'}, status=400)
+    if not total_hours:
+        return JsonResponse({'error': 'Total hours is required.'}, status=400)
     try:
-        lec_hours = int(lec_hours) if lec_hours else 0
+        total_hours = int(total_hours)
     except (ValueError, TypeError):
-        return JsonResponse({'error': 'Lecture hours must be a number.'}, status=400)
-    try:
-        lab_hours = int(lab_hours) if lab_hours else 0
-    except (ValueError, TypeError):
-        return JsonResponse({'error': 'Laboratory hours must be a number.'}, status=400)
+        return JsonResponse({'error': 'Total hours must be a number.'}, status=400)
     if not semester_id:
         return JsonResponse({'error': 'Semester is required.'}, status=400)
     try:
@@ -190,8 +198,8 @@ def subject_save_ajax(request):
     subject.code = code
     subject.name = name
     subject.units = units
-    subject.lec_hours = lec_hours
-    subject.lab_hours = lab_hours
+    subject.total_hours = total_hours
+    subject.is_lab = is_lab
     subject.semester = semester
     subject.year_level = year_level
     subject.prerequisite = prerequisite
@@ -210,8 +218,8 @@ def subject_save_ajax(request):
         'code': subject.code,
         'name': subject.name,
         'units': str(subject.units),
-        'lec_hours': subject.lec_hours,
-        'lab_hours': subject.lab_hours,
+        'total_hours': subject.total_hours,
+        'is_lab': subject.is_lab,
         'semester': subject.semester.id,
         'semester_number': subject.semester.semester_number,
         'academic_year': subject.semester.curriculum.academic_year,
@@ -238,7 +246,7 @@ def subject_export_excel(request):
     subjects = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all().order_by('program__program_code', 'code')
     wb = queryset_to_excel(
         subjects,
-        ['program__program_code', 'code', 'name', 'units', 'lec_hours', 'lab_hours', 'semester__curriculum__academic_year', 'semester__semester_number', 'year_level', 'semester__curriculum__code', 'prerequisite__code'],
+        ['program__program_code', 'code', 'name', 'units', 'total_hours', 'is_lab', 'semester__curriculum__academic_year', 'semester__semester_number', 'year_level', 'semester__curriculum__code', 'prerequisite__code'],
         sheet_name='Subjects',
         title='Subjects Export',
     )
@@ -265,15 +273,15 @@ def subject_import_excel(request):
         code = get_str(row, 'code')
         name = get_str(row, 'name')
         units = get_str(row, 'units')
-        lec_hours = get_str(row, 'lec_hours')
-        lab_hours = get_str(row, 'lab_hours')
+        total_hours = get_str(row, 'total_hours')
+        is_lab = parse_bool(get_value(row, 'is_lab'), default=False)
         curriculum_code = get_str(row, 'semester_curriculum_code')
         semester_number = get_str(row, 'semester_semester_number')
         year_level = get_str(row, 'year_level')
         prereq_code = get_str(row, 'prerequisite_code')
 
-        if not program_code or not code or not name or not units or not curriculum_code or not semester_number or not year_level:
-            errors.append(f'Row {idx}: program_program_code, code, name, units, semester_curriculum_code, semester_semester_number, year_level, and units are required.')
+        if not program_code or not code or not name or not units or not total_hours or not curriculum_code or not semester_number or not year_level:
+            errors.append(f'Row {idx}: program_program_code, code, name, units, total_hours, semester_curriculum_code, semester_semester_number, and year_level are required.')
             continue
 
         try:
@@ -295,15 +303,9 @@ def subject_import_excel(request):
             continue
 
         try:
-            lec_hours_val = int(lec_hours) if lec_hours else 0
+            total_hours_val = int(total_hours)
         except ValueError:
-            errors.append(f'Row {idx}: lec_hours must be a number.')
-            continue
-
-        try:
-            lab_hours_val = int(lab_hours) if lab_hours else 0
-        except ValueError:
-            errors.append(f'Row {idx}: lab_hours must be a number.')
+            errors.append(f'Row {idx}: total_hours must be a number.')
             continue
 
         try:
@@ -328,8 +330,8 @@ def subject_import_excel(request):
                 defaults={
                     'name': name,
                     'units': units_val,
-                    'lec_hours': lec_hours_val,
-                    'lab_hours': lab_hours_val,
+                    'total_hours': total_hours_val,
+                    'is_lab': is_lab,
                     'year_level': year_level_val,
                     'prerequisite': prerequisite,
                 },

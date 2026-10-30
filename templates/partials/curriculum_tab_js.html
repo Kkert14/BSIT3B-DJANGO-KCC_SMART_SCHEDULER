@@ -1,0 +1,232 @@
+<script>
+(function() {
+  const curriculumModalEl = document.getElementById('curriculumModal');
+  const semesterModalEl = document.getElementById('semesterModal');
+  const deleteCurriculumModalEl = document.getElementById('deleteCurriculumModal');
+  const deleteSemesterModalEl = document.getElementById('deleteSemesterModal');
+  const curriculumForm = document.getElementById('curriculumForm');
+  const semesterForm = document.getElementById('semesterForm');
+  const alertBox = document.getElementById('curriculumAlert');
+  const curriculumTitle = document.getElementById('curriculumModalTitle');
+  const semesterTitle = document.getElementById('semesterModalTitle');
+  const curriculumSubmitBtn = document.getElementById('curriculumSubmitBtn');
+  const semesterSubmitBtn = document.getElementById('semesterSubmitBtn');
+  const deleteCurriculumBtn = document.getElementById('confirmDeleteCurriculumBtn');
+  const deleteSemesterBtn = document.getElementById('confirmDeleteSemesterBtn');
+  const academicYearSelect = document.getElementById('curriculum_academic_year');
+  const semesterGroup = document.getElementById('curriculumSemestersGroup');
+  const semesterChecks = semesterGroup.querySelectorAll('input[name="semester_numbers"]');
+  let currentCurriculumId = null;
+  let currentSemesterId = null;
+
+  document.querySelectorAll('#curriculumToastContainer .toast').forEach(function(toastEl) {
+    bootstrap.Toast.getOrCreateInstance(toastEl).show();
+  });
+
+  function refreshYearOptions(currentYear) {
+    Array.prototype.forEach.call(academicYearSelect.options, function(option) {
+      if (!option.value) return;
+      const used = option.getAttribute('data-existing') === 'true';
+      option.disabled = used && option.value !== currentYear;
+    });
+    academicYearSelect.value = currentYear || '';
+  }
+
+  function showSemesterChoices(editing) {
+    semesterGroup.classList.toggle('d-none', editing);
+    Array.prototype.forEach.call(semesterChecks, function(checkbox) {
+      checkbox.disabled = editing;
+      checkbox.checked = !editing && (checkbox.value === '1' || checkbox.value === '2');
+    });
+  }
+
+  function resetCurriculumForm() {
+    curriculumForm.reset();
+    document.getElementById('curriculum_id').value = '';
+    curriculumTitle.textContent = 'Add Curriculum';
+    curriculumSubmitBtn.textContent = 'Save Curriculum';
+    alertBox.classList.add('d-none');
+    alertBox.textContent = '';
+    currentCurriculumId = null;
+    document.getElementById('curriculum_is_active').checked = false;
+    refreshYearOptions('');
+  }
+
+  function resetSemesterForm() {
+    semesterForm.reset();
+    document.getElementById('semester_id').value = '';
+    document.getElementById('semester_curriculum').value = '';
+    document.getElementById('semester_curriculum_display').value = '';
+    semesterTitle.textContent = 'Add Semester';
+    semesterSubmitBtn.textContent = 'Save Semester';
+    currentSemesterId = null;
+    document.getElementById('semester_is_active').checked = false;
+  }
+
+  // Curriculum modal
+  curriculumModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) {
+      resetCurriculumForm();
+      return;
+    }
+    const mode = button.getAttribute('data-mode');
+    if (mode === 'edit') {
+      const currentYear = button.getAttribute('data-academic-year');
+      curriculumTitle.textContent = 'Edit Curriculum';
+      curriculumSubmitBtn.textContent = 'Update Curriculum';
+      currentCurriculumId = button.getAttribute('data-id');
+      document.getElementById('curriculum_id').value = currentCurriculumId;
+      refreshYearOptions(currentYear);
+      document.getElementById('curriculum_is_active').checked = button.getAttribute('data-active') === 'true';
+      showSemesterChoices(true);
+    } else {
+      resetCurriculumForm();
+      showSemesterChoices(false);
+    }
+  });
+
+  // Semester modal
+  semesterModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) {
+      resetSemesterForm();
+      return;
+    }
+    const mode = button.getAttribute('data-mode');
+    const curriculumId = button.getAttribute('data-curriculum');
+    const academicYear = button.getAttribute('data-academic-year');
+    const curriculumLabel = academicYear ? 'A.Y. ' + academicYear : '';
+
+    if (mode === 'edit') {
+      semesterTitle.textContent = 'Edit Semester';
+      semesterSubmitBtn.textContent = 'Update Semester';
+      currentSemesterId = button.getAttribute('data-id');
+      document.getElementById('semester_id').value = currentSemesterId;
+      document.getElementById('semester_curriculum').value = curriculumId;
+      document.getElementById('semester_curriculum_display').value = curriculumLabel;
+      document.getElementById('semester_semester_number').value = button.getAttribute('data-semester-number');
+      document.getElementById('semester_is_active').checked = button.getAttribute('data-active') === 'true';
+    } else {
+      resetSemesterForm();
+      document.getElementById('semester_curriculum').value = curriculumId;
+      document.getElementById('semester_curriculum_display').value = curriculumLabel;
+    }
+  });
+
+  // Delete curriculum modal
+  deleteCurriculumModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (button) {
+      currentCurriculumId = button.getAttribute('data-id');
+      const year = button.getAttribute('data-academic-year');
+      document.getElementById('deleteCurriculumName').textContent = year ? 'A.Y. ' + year : '';
+    }
+  });
+
+  // Delete semester modal
+  deleteSemesterModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (button) {
+      currentSemesterId = button.getAttribute('data-id');
+      const year = button.getAttribute('data-academic-year');
+      document.getElementById('deleteSemesterName').textContent =
+        button.getAttribute('data-semester-label') + (year ? ' (A.Y. ' + year + ')' : '');
+    }
+  });
+
+  // Curriculum form submit
+  curriculumForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(curriculumForm);
+
+    fetch('{% url "curriculum:curriculum_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        alertBox.textContent = data.error;
+        alertBox.classList.remove('d-none');
+        return;
+      }
+      bootstrap.Modal.getInstance(curriculumModalEl).hide();
+      window.location.reload();
+    })
+    .catch(() => {
+      alertBox.textContent = 'Something went wrong.';
+      alertBox.classList.remove('d-none');
+    });
+  });
+
+  // Semester form submit
+  semesterForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(semesterForm);
+
+    fetch('{% url "curriculum:semester_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        // Show error in semester modal
+        let errorBox = document.getElementById('semesterFormError');
+        errorBox.textContent = data.error;
+        errorBox.classList.remove('d-none');
+        return;
+      }
+      bootstrap.Modal.getInstance(semesterModalEl).hide();
+      window.location.reload();
+    })
+    .catch(() => {
+      alertBox.textContent = 'Something went wrong.';
+      alertBox.classList.remove('d-none');
+    });
+  });
+
+  // Delete curriculum
+  deleteCurriculumBtn.addEventListener('click', function() {
+    if (!currentCurriculumId) return;
+    fetch('/curriculum/ajax/delete/' + currentCurriculumId + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'deleted') {
+        bootstrap.Modal.getInstance(deleteCurriculumModalEl).hide();
+        window.location.reload();
+      } else if (data.error) {
+        alertBox.textContent = data.error;
+        alertBox.classList.remove('d-none');
+        bootstrap.Modal.getInstance(deleteCurriculumModalEl).hide();
+      }
+    });
+  });
+
+  // Delete semester
+  deleteSemesterBtn.addEventListener('click', function() {
+    if (!currentSemesterId) return;
+    fetch('/curriculum/semester/ajax/delete/' + currentSemesterId + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'deleted') {
+        bootstrap.Modal.getInstance(deleteSemesterModalEl).hide();
+        window.location.reload();
+      } else if (data.error) {
+        alertBox.textContent = data.error;
+        alertBox.classList.remove('d-none');
+        bootstrap.Modal.getInstance(deleteSemesterModalEl).hide();
+      }
+    });
+  });
+})();
+</script>

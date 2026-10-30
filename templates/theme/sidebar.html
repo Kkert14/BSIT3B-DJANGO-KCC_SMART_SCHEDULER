@@ -7,9 +7,6 @@
     <a class="ss-nav-link {% if request.resolver_match.app_name == 'users' %}on{% endif %}" href="{% url 'users:user_list' %}">
       <i class="fa-solid fa-users"></i>Users
     </a>
-    <a class="ss-nav-link {% if request.resolver_match.app_name == 'curriculum' %}on{% endif %}" href="{% url 'curriculum:curriculum_list' %}">
-      <i class="fa-solid fa-book-open"></i>Curriculum
-    </a>
   {% endif %}
   <!-- <a class="ss-nav-link {% if request.resolver_match.app_name == 'info' %}on{% endif %}" href="{% url 'info:info_list' %}">
     <i class="fa-solid fa-circle-info"></i>Info
@@ -30,9 +27,6 @@
   </a>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'section' %}on{% endif %}" href="{% url 'section:section_list' %}">
     <i class="fa-solid fa-layer-group"></i>Sections
-  </a>
-  <a class="ss-nav-link {% if request.resolver_match.app_name == 'subject' %}on{% endif %}" href="{% url 'subject:subject_list' %}">
-    <i class="fa-solid fa-book"></i>Courses
   </a>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'schedule' %}on{% endif %}" href="{% url 'schedule:schedule_list' %}">
     <i class="fa-solid fa-calendar-days"></i>Scheduling

@@ -9,8 +9,8 @@ class Subject(models.Model):
     code = models.CharField(max_length=20)
     name = models.CharField(max_length=150)
     units = models.DecimalField(max_digits=3, decimal_places=1)
-    lec_hours = models.PositiveSmallIntegerField(default=0)
-    lab_hours = models.PositiveSmallIntegerField(default=0)
+    total_hours = models.PositiveSmallIntegerField(default=0)
+    is_lab = models.BooleanField(default=False)
     program = models.ForeignKey(
         Program,
         on_delete=models.RESTRICT,
@@ -39,11 +39,6 @@ class Subject(models.Model):
 
     def __str__(self):
         return f"{self.code} — {self.name}"
-
-    @property
-    def total_weekly_hours(self):
-        """Total contact hours per week (Lecture + Laboratory)."""
-        return (self.lec_hours or 0) + (self.lab_hours or 0)
 
     @property
     def prerequisite_id_display(self):

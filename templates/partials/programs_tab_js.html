@@ -1,0 +1,172 @@
+<script>
+(function() {
+  const modalEl = document.getElementById('programModal');
+  const deleteModalEl = document.getElementById('deleteProgramModal');
+  const form = document.getElementById('programForm');
+  const alertBox = document.getElementById('programAlert');
+  const title = document.getElementById('programModalTitle');
+  const submitBtn = document.getElementById('programSubmitBtn');
+  const deleteBtn = document.getElementById('confirmDeleteProgramBtn');
+  const deleteName = document.getElementById('deleteProgramName');
+  let currentId = null;
+
+  document.querySelectorAll('#programToastContainer .toast').forEach(function(toastEl) {
+    bootstrap.Toast.getOrCreateInstance(toastEl).show();
+  });
+
+  function clearCustomOptions(select) {
+    Array.prototype.slice.call(select.querySelectorAll('option[data-custom]')).forEach(function(opt) {
+      opt.remove();
+    });
+  }
+
+  // Keep a stored value that is not in the preset list selectable.
+  function setSelectValue(select, value) {
+    clearCustomOptions(select);
+    if (!value) {
+      select.value = '';
+      return;
+    }
+    const exists = Array.prototype.some.call(select.options, function(opt) {
+      return opt.value === value;
+    });
+    if (!exists) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      option.setAttribute('data-custom', '1');
+      select.appendChild(option);
+    }
+    select.value = value;
+  }
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('program_id').value = '';
+    clearCustomOptions(document.getElementById('program_major'));
+    clearCustomOptions(document.getElementById('program_department'));
+    title.textContent = 'Add Program';
+    submitBtn.textContent = 'Save Program';
+    alertBox.classList.add('d-none');
+    alertBox.textContent = '';
+    currentId = null;
+    document.getElementById('program_is_active').checked = true;
+  }
+
+  modalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) {
+      resetForm();
+      return;
+    }
+    const mode = button.getAttribute('data-mode');
+    if (mode === 'edit') {
+      title.textContent = 'Edit Program';
+      submitBtn.textContent = 'Update Program';
+      currentId = button.getAttribute('data-id');
+      document.getElementById('program_id').value = currentId;
+      document.getElementById('program_program_code').value = button.getAttribute('data-program-code');
+      document.getElementById('program_program_description').value = button.getAttribute('data-program-description');
+      setSelectValue(document.getElementById('program_major'), button.getAttribute('data-major'));
+      setSelectValue(document.getElementById('program_department'), button.getAttribute('data-department'));
+      document.getElementById('program_is_active').checked = button.getAttribute('data-active') === 'true';
+    } else {
+      resetForm();
+    }
+  });
+
+  deleteModalEl.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (button) {
+      currentId = button.getAttribute('data-id');
+      deleteName.textContent = button.getAttribute('data-program-code');
+    }
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(form);
+    formData.set('is_active', document.getElementById('program_is_active').checked ? 'true' : 'false');
+
+    fetch('{% url "program:program_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        alertBox.textContent = data.error;
+        alertBox.classList.remove('d-none');
+        return;
+      }
+      window.location.reload();
+    })
+    .catch(() => {
+      alertBox.textContent = 'Something went wrong.';
+      alertBox.classList.remove('d-none');
+    });
+  });
+
+  deleteBtn.addEventListener('click', function() {
+    if (!currentId) return;
+    fetch('/programs/ajax/delete/' + currentId + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'deleted') {
+        window.location.reload();
+      }
+    });
+  });
+
+  // Import Excel
+  const importForm = document.getElementById('programImportForm');
+  const importError = document.getElementById('programImportError');
+  const importResult = document.getElementById('programImportResult');
+  const importBtn = document.getElementById('programImportBtn');
+
+  if (importForm) {
+    importForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(importForm);
+      importBtn.disabled = true;
+      importError.classList.add('d-none');
+      importResult.classList.add('d-none');
+      importError.textContent = '';
+      importResult.textContent = '';
+
+      fetch('{% url "program:program_import_excel" %}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        importBtn.disabled = false;
+        if (data.error) {
+          importError.textContent = data.error;
+          importError.classList.remove('d-none');
+          return;
+        }
+        importResult.innerHTML = '<strong>Import complete!</strong> Created: ' + data.created;
+        if (data.errors && data.errors.length) {
+          importResult.innerHTML += '<br><strong>Errors:</strong><br>' + data.errors.join('<br>');
+        }
+        importResult.classList.remove('d-none');
+        setTimeout(() => {
+          bootstrap.Modal.getInstance(document.getElementById('programImportModal')).hide();
+          window.location.reload();
+        }, 2000);
+      })
+      .catch(() => {
+        importBtn.disabled = false;
+        importError.textContent = 'Something went wrong.';
+        importError.classList.remove('d-none');
+      });
+    });
+  }
+})();
+</script>

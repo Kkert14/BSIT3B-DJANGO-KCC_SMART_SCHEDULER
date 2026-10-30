@@ -21,7 +21,7 @@
     <select name="semester" onchange="this.form.submit()">
       <option value="">All semesters</option>
       {% for sem in semesters %}
-        <option value="{{ sem.id }}" {% if filter_semester == sem.id|stringformat:'s' %}selected{% endif %}>{{ sem.curriculum.code }} · Semester {{ sem.semester_number }}</option>
+        <option value="{{ sem.id }}" {% if filter_semester == sem.id|stringformat:'s' %}selected{% endif %}>A.Y. {{ sem.curriculum.academic_year }} · {{ sem.get_semester_number_display }}</option>
       {% endfor %}
     </select>
   </label>
@@ -230,29 +230,24 @@
           <span class="ss-step-k">STEP 1</span>
           <h2 id="scheduleModalTitle">Select section</h2>
 
-          <div class="ss-field">
-            <label for="f_program">Program</label>
-            <select class="ss-input" id="f_program">
-              <option value="">Select a program…</option>
-              {% for program in programs %}
-                <option value="{{ program.id }}">{{ program.program_code }} — {{ program.program_description }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
           <div class="ss-row">
             <div class="ss-field">
-              <label for="f_curriculum">Curriculum</label>
-              <select class="ss-input" id="f_curriculum">
-                <option value="">Select…</option>
-                {% for cur in curricula %}
-                  <option value="{{ cur.id }}" data-program="{{ cur.program_id }}">{{ cur.code }} — {{ cur.academic_year }}</option>
+              <label for="f_program">Program</label>
+              <select class="ss-input" id="f_program">
+                <option value="">Select a program…</option>
+                {% for program in programs %}
+                  <option value="{{ program.id }}">{{ program.program_code }} — {{ program.program_description }}</option>
                 {% endfor %}
               </select>
             </div>
             <div class="ss-field">
-              <label for="f_academic_year">Academic year</label>
-              <input class="ss-input" id="f_academic_year" readonly placeholder="—">
+              <label for="f_curriculum">Academic year</label>
+              <select class="ss-input" id="f_curriculum">
+                <option value="">Select…</option>
+                {% for cur in curricula %}
+                  <option value="{{ cur.id }}">A.Y. {{ cur.academic_year }}</option>
+                {% endfor %}
+              </select>
             </div>
           </div>
 
@@ -262,7 +257,7 @@
               <select class="ss-input" id="f_semester" name="semester">
                 <option value="">Select…</option>
                 {% for sem in semesters %}
-                  <option value="{{ sem.id }}" data-curriculum="{{ sem.curriculum_id }}" data-year="{{ sem.curriculum.academic_year }}">{{ sem.curriculum.code }} · Semester {{ sem.semester_number }}</option>
+                  <option value="{{ sem.id }}" data-curriculum="{{ sem.curriculum_id }}">A.Y. {{ sem.curriculum.academic_year }} · {{ sem.get_semester_number_display }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -279,7 +274,7 @@
 
           <div class="ss-note">
             <b>Note</b>
-            Pick the program, curriculum, semester and section before assigning the subject, time and room.
+            Pick the program, academic year, semester and section before assigning the subject, time and room.
           </div>
 
           <button class="ss-btn primary ss-proceed" type="button" id="f_proceed" disabled>Proceed</button>
@@ -295,7 +290,7 @@
               <select class="ss-input" id="f_subject" name="subject">
                 <option value="">Select subject…</option>
                 {% for subject in subjects %}
-                  <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-semester="{{ subject.semester_id }}" data-lec="{{ subject.lec_hours }}" data-lab="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}</option>
+                  <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-semester="{{ subject.semester_id }}">{{ subject.code }} — {{ subject.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -440,7 +435,6 @@
 
   var program = document.getElementById("f_program");
   var curriculum = document.getElementById("f_curriculum");
-  var academicYear = document.getElementById("f_academic_year");
   var semester = document.getElementById("f_semester");
   var section = document.getElementById("f_section");
   var proceed = document.getElementById("f_proceed");
@@ -533,23 +527,10 @@
     if (!ready) lockStep2();
   }
 
-  function updateAcademicYear() {
-    var semesterOption = findOption(semester, semester.value);
-    academicYear.value = semesterOption && semesterOption.value ? semesterOption.dataset.year : "";
-  }
-
-  function refreshCurricula() {
-    filterOptions(curriculum, function (option) {
-      return !program.value || option.dataset.program === program.value;
-    });
-    refreshSemesters();
-  }
-
   function refreshSemesters() {
     filterOptions(semester, function (option) {
       return !curriculum.value || option.dataset.curriculum === curriculum.value;
     });
-    updateAcademicYear();
     refreshSections();
   }
 
@@ -583,15 +564,12 @@
     });
   }
 
-  program.addEventListener("change", refreshCurricula);
+  program.addEventListener("change", refreshSections);
   curriculum.addEventListener("change", function () {
     refreshSemesters();
     refreshProceed();
   });
-  semester.addEventListener("change", function () {
-    updateAcademicYear();
-    refreshSections();
-  });
+  semester.addEventListener("change", refreshSections);
   section.addEventListener("change", function () {
     refreshSubjects();
     refreshProceed();
@@ -712,7 +690,6 @@
     deleteBtn.classList.add("d-none");
     saveBtn.textContent = "Create schedule";
     lockStep2();
-    academicYear.value = "";
     hoursEl.textContent = "Weekly hours: —";
     clearAlerts();
 
@@ -727,15 +704,11 @@
   }
 
   function selectSemesterChain(semesterId) {
+    if (!semesterId) return;
     var semesterOption = findOption(semester, semesterId);
     if (!semesterOption) return;
-    var curriculumOption = findOption(curriculum, semesterOption.dataset.curriculum);
-    if (curriculumOption) {
-      program.value = curriculumOption.dataset.program;
-      program.dispatchEvent(new Event("change"));
-      curriculum.value = curriculumOption.value;
-      curriculum.dispatchEvent(new Event("change"));
-    }
+    curriculum.value = semesterOption.dataset.curriculum;
+    curriculum.dispatchEvent(new Event("change"));
     semester.value = semesterOption.value;
     semester.dispatchEvent(new Event("change"));
   }
@@ -752,6 +725,8 @@
 
     section.value = data.section;
     section.dispatchEvent(new Event("change"));
+    var sectionOption = findOption(section, data.section);
+    if (sectionOption) program.value = sectionOption.dataset.program;
 
     subject.value = data.subject;
     var roomOption = findOption(room, data.room);

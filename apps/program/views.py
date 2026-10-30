@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,8 +7,10 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import IntegrityError
 
-from .models import Program
-from apps.users.decorators import admin_required, admin_required_api
+from .models import DEPARTMENT_CHOICES, MAJOR_CHOICES, Program
+from apps.curriculum.views import curriculum_list_context
+from apps.subject.views import subject_list_context
+from apps.users.decorators import admin_required, admin_required_api, is_admin
 from apps.utils.import_export import (
     excel_to_dict_list,
     get_str,
@@ -20,35 +22,62 @@ from apps.utils.import_export import (
 )
 
 
-@login_required(login_url='login')
-def program_list_page(request):
+PROGRAM_TABS = ('programs', 'curriculum', 'courses')
+
+
+def program_list_context(request):
+    """Context for the Programs tab of the Programs hub."""
     query = request.GET.get('q', '').strip()
     programs_list = Program.objects.all()
     if query:
         programs_list = programs_list.filter(
-            Q(program_code__icontains=query) | Q(program_description__icontains=query)
+            Q(program_code__icontains=query)
+            | Q(program_description__icontains=query)
+            | Q(major__icontains=query)
+            | Q(department__icontains=query)
         )
     paginator = Paginator(programs_list, 10)
     page_number = request.GET.get('page', 1)
     programs = paginator.get_page(page_number)
-    return render(request, 'program_list.html', {
+    return {
         'programs': programs,
         'query': query,
-    })
+        'department_choices': DEPARTMENT_CHOICES,
+        'major_choices': MAJOR_CHOICES,
+    }
+
+
+@login_required(login_url='login')
+def program_list_page(request):
+    """Programs hub: Programs, Curriculum and Courses in one page."""
+    tab = request.GET.get('tab', 'programs')
+    if tab not in PROGRAM_TABS:
+        tab = 'programs'
+
+    if tab == 'curriculum' and not is_admin(request.user):
+        messages.error(
+            request,
+            'You do not have permission to perform this action. Required role: admin.',
+        )
+        return redirect('dashboard')
+
+    if tab == 'curriculum':
+        context = curriculum_list_context(request)
+    elif tab == 'courses':
+        context = subject_list_context(request)
+    else:
+        context = program_list_context(request)
+
+    context['active_tab'] = tab
+    return render(request, 'program_list.html', context)
 
 
 @login_required(login_url='login')
 def program_list_ajax(request):
-    query = request.GET.get('q', '').strip()
-    programs_list = Program.objects.all()
-    if query:
-        programs_list = programs_list.filter(
-            Q(program_code__icontains=query) | Q(program_description__icontains=query)
-        )
-    paginator = Paginator(programs_list, 10)
-    page_number = request.GET.get('page', 1)
-    programs = paginator.get_page(page_number)
-    data = list(programs.object_list.values('id', 'program_code', 'program_description', 'is_active'))
+    programs = program_list_context(request)['programs']
+    data = list(programs.object_list.values(
+        'id', 'program_code', 'program_description', 'major', 'department', 'is_active'
+    ))
     return JsonResponse({
         'data': data,
         'has_next': programs.has_next(),
@@ -66,6 +95,8 @@ def program_get_ajax(request, pk):
         'id': program.id,
         'program_code': program.program_code,
         'program_description': program.program_description,
+        'major': program.major,
+        'department': program.department,
         'is_active': program.is_active,
     })
 
@@ -82,6 +113,8 @@ def program_save_ajax(request):
 
     program_code = request.POST.get('program_code', '').strip()
     program_description = request.POST.get('program_description', '').strip()
+    major = request.POST.get('major', '').strip()
+    department = request.POST.get('department', '').strip()
     is_active = request.POST.get('is_active') == 'true'
 
     if not program_code:
@@ -99,6 +132,8 @@ def program_save_ajax(request):
 
     program.program_code = program_code
     program.program_description = program_description
+    program.major = major
+    program.department = department
     program.is_active = is_active
 
     try:
@@ -112,6 +147,8 @@ def program_save_ajax(request):
         'id': program.id,
         'program_code': program.program_code,
         'program_description': program.program_description,
+        'major': program.major,
+        'department': program.department,
         'is_active': program.is_active,
     })
 
@@ -122,7 +159,7 @@ def program_export_excel(request):
     programs = Program.objects.all().order_by('program_code')
     wb = queryset_to_excel(
         programs,
-        ['program_code', 'program_description', 'is_active'],
+        ['program_code', 'program_description', 'major', 'department', 'is_active'],
         sheet_name='Programs',
         title='Programs Export',
     )
@@ -147,6 +184,8 @@ def program_import_excel(request):
     for idx, row in enumerate(data, start=2):
         program_code = get_str(row, 'program_code')
         program_description = get_str(row, 'program_description')
+        major = get_str(row, 'major')
+        department = get_str(row, 'department')
         is_active = parse_bool(get_value(row, 'is_active'))
 
         if not program_code or not program_description:
@@ -156,7 +195,12 @@ def program_import_excel(request):
         try:
             program, created_flag = Program.objects.update_or_create(
                 program_code=program_code,
-                defaults={'program_description': program_description, 'is_active': is_active},
+                defaults={
+                    'program_description': program_description,
+                    'major': major,
+                    'department': department,
+                    'is_active': is_active,
+                },
             )
             if created_flag:
                 created += 1

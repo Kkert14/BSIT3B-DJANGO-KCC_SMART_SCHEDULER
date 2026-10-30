@@ -62,28 +62,39 @@
         if (e.key === 'Escape') closeSidebar();
       });
 
-      // Active curriculum / semester picker
-      var ctxBtn = document.getElementById('ss-ctx-btn');
-      var ctxMenu = document.getElementById('ss-ctx-menu');
-      if (ctxBtn && ctxMenu) {
-        ctxBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          ctxMenu.hidden = !ctxMenu.hidden;
-          ctxBtn.setAttribute('aria-expanded', String(!ctxMenu.hidden));
-        });
-        document.addEventListener('click', function (e) {
-          if (!ctxMenu.hidden && !e.target.closest('#ss-ctx')) {
-            ctxMenu.hidden = true;
-            ctxBtn.setAttribute('aria-expanded', 'false');
-          }
-        });
-        document.addEventListener('keydown', function (e) {
-          if (e.key === 'Escape') {
-            ctxMenu.hidden = true;
-            ctxBtn.setAttribute('aria-expanded', 'false');
-          }
+      // Context pickers (academic year / semester)
+      var ctxGroups = document.querySelectorAll('[data-ss-ctx]');
+
+      function closeCtx(except) {
+        ctxGroups.forEach(function (group) {
+          if (group === except) return;
+          var btn = group.querySelector('.ss-ctx-btn');
+          var menu = group.querySelector('.ss-ctx-menu');
+          if (!menu) return;
+          menu.hidden = true;
+          if (btn) btn.setAttribute('aria-expanded', 'false');
         });
       }
+
+      ctxGroups.forEach(function (group) {
+        var btn = group.querySelector('.ss-ctx-btn');
+        var menu = group.querySelector('.ss-ctx-menu');
+        if (!btn || !menu) return;
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var open = menu.hidden;
+          closeCtx(group);
+          menu.hidden = !open;
+          btn.setAttribute('aria-expanded', String(open));
+        });
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('[data-ss-ctx]')) closeCtx(null);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeCtx(null);
+      });
 
     })();
   </script>

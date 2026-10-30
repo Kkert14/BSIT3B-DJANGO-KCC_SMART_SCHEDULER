@@ -12,34 +12,57 @@
     </span>
   </a>
 
-  <div class="ss-ctx" id="ss-ctx">
-    <button class="ss-ctx-btn" type="button" id="ss-ctx-btn" aria-haspopup="listbox" aria-expanded="false">
-      <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>
-      {% if active_curriculum %}
-        <span>{{ active_curriculum.code }} &middot; {{ active_curriculum.academic_year }} &middot; Semester {{ active_semester.semester_number }}</span>
-      {% else %}
-        <span>No active curriculum</span>
-      {% endif %}
-      <i class="ss-chev" aria-hidden="true"></i>
-    </button>
+  <div class="ss-pickers">
+    <div class="ss-ctx" data-ss-ctx>
+      <button class="ss-ctx-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+        <span class="ss-ctx-label">
+          {% if active_curriculum %}A.Y. {{ active_curriculum.academic_year }}{% else %}No academic year{% endif %}
+        </span>
+        <i class="ss-chev" aria-hidden="true"></i>
+      </button>
 
-    <div class="ss-ctx-menu" id="ss-ctx-menu" role="listbox" hidden>
-      {% for cur in curricula %}
-        <div class="ss-ctx-h">{{ cur.code }} &mdash; {{ cur.academic_year }}</div>
-        {% for sem in cur.semesters.all %}
+      <div class="ss-ctx-menu" role="listbox" hidden>
+        <div class="ss-ctx-h">Academic Year</div>
+        {% for cur in curricula %}
+          <a class="ss-ctx-i{% if active_curriculum and active_curriculum.pk == cur.pk %} on{% endif %}"
+             role="option"
+             aria-selected="{% if active_curriculum and active_curriculum.pk == cur.pk %}true{% else %}false{% endif %}"
+             href="{% url 'curriculum:set_active_curriculum' cur.id %}">
+            <span class="ss-ctx-i-main">
+              A.Y. {{ cur.academic_year }}
+            </span>
+            <span class="ss-check"><i class="fa-solid fa-check"></i></span>
+          </a>
+        {% empty %}
+          <span class="ss-ctx-i" style="color:#7f8bab">No curricula yet</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="ss-ctx" data-ss-ctx>
+      <button class="ss-ctx-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+        <span class="ss-ctx-label">
+          {% if active_semester %}{{ active_semester.get_semester_number_display }}{% else %}Semester{% endif %}
+        </span>
+        <i class="ss-chev" aria-hidden="true"></i>
+      </button>
+
+      <div class="ss-ctx-menu" role="listbox" hidden>
+        <div class="ss-ctx-h">Semester</div>
+        {% for sem in active_semesters %}
           <a class="ss-ctx-i{% if active_semester and active_semester.pk == sem.pk %} on{% endif %}"
              role="option"
              aria-selected="{% if active_semester and active_semester.pk == sem.pk %}true{% else %}false{% endif %}"
              href="{% url 'curriculum:set_active_semester' sem.id %}">
-            Semester {{ sem.semester_number }}
+            <span class="ss-ctx-i-main">{{ sem.get_semester_number_display }}</span>
             <span class="ss-check"><i class="fa-solid fa-check"></i></span>
           </a>
         {% empty %}
-          <span class="ss-ctx-i" style="color:#7f8bab">No semesters</span>
+          <span class="ss-ctx-i" style="color:#7f8bab">Select an academic year first</span>
         {% endfor %}
-      {% empty %}
-        <span class="ss-ctx-h">No curricula yet</span>
-      {% endfor %}
+      </div>
     </div>
   </div>
 
