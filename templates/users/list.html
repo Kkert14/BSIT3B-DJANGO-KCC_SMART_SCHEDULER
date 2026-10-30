@@ -3,48 +3,28 @@
 <div class="container-xl">
 
  <!-- BEGIN PAGE HEADER -->
-<div class="page-header d-print-none" aria-label="Page header">
-  <div class="container-xl">
-
-    <div class="row align-items-center">
-
-      <!-- LEFT -->
-      <div class="col">
-
-        <div class="page-pretitle">Overview</div>
-
-        <!-- TITLE + SEARCH (DESKTOP ONLY) -->
-        <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
-          <h2 class="page-title mb-0">User Management</h2>
-        </div>
-
-        <!-- TITLE ONLY (MOBILE) -->
-        <h2 class="page-title mb-0 d-md-none">User Management</h2>
-
-      </div>
-
-        <!-- RIGHT -->
-        <div class="col-auto">
-        <div class="btn-list">
-          <button type="button"
-             class="btn btn-primary"
-             data-bs-toggle="modal"
-             data-bs-target="#editUserModal"
-             data-mode="create">
-            <i class="ti ti-plus me-1"></i> Add User
-          </button>
-        </div>
-      </div>
-
-    </div>
+<div class="ss-page-head">
+  <div>
+    <div class="ss-ov">Access</div>
+    <h1 class="ss-page-title">User Management</h1>
+    <p class="ss-sub">Accounts and roles for everyone who signs in.</p>
+  </div>
+  <div class="ss-actions">
+    <button type="button"
+       class="ss-btn primary"
+       data-bs-toggle="modal"
+       data-bs-target="#editUserModal"
+       data-mode="create">
+      <i class="fa-solid fa-plus"></i> Add User
+    </button>
   </div>
 </div>
-<br>
 
 <!-- SEARCH BAR -->
-<form method="GET" class="mb-3">
-    <div class="input-group" style="max-width: 400px;">
-        <span class="input-group-text"><i class="ti ti-search"></i></span>
+<div class="ss-toolbar">
+  <form method="GET" class="ss-search">
+    <div class="input-group">
+        <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
         <input type="text"
                name="q"
                value="{{ query }}"
@@ -55,7 +35,8 @@
         {% endif %}
         <button type="submit" class="btn btn-primary">Search</button>
     </div>
-</form>
+  </form>
+</div>
 
 <div id="userAlert" class="alert alert-info alert-dismissible fade {% if not messages %}d-none{% endif %}{% if messages %}show{% endif %}" role="alert">
     <i class="fas fa-circle-check alert-icon" aria-hidden="true"></i>
@@ -97,12 +78,19 @@
                         <td class="text-muted">{{ u.id }}</td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
+                                {% if u.first_name or u.last_name %}
                                 <span class="avatar avatar-sm bg-blue-lt">
                                     {{ u.first_name|first|upper }}{{ u.last_name|first|upper }}
                                 </span>
                                 <div>
                                     <div class="fw-medium">{{ u.first_name }} {{ u.last_name }}</div>
                                 </div>
+                                {% else %}
+                                <span class="avatar avatar-sm bg-blue-lt">{{ u.username|slice:":2"|upper }}</span>
+                                <div>
+                                    <div class="fw-medium text-muted">{{ u.username }}</div>
+                                </div>
+                                {% endif %}
                             </div>
                         </td>
                         <td class="text-muted">{{ u.username }}</td>
@@ -139,7 +127,7 @@
                                    data-active="{{ u.is_active|yesno:'true,false' }}"
                                    data-role="{{ u.profile.role }}"
                                     title="Edit">
-                                    <i class="ti ti-pencil text-primary"></i>
+                                    <i class="fa-solid fa-pen text-primary"></i>
                                 </a>
                                 <a href="#"
                                    class="btn btn-ghost-secondary btn-icon btn-sm"
@@ -148,7 +136,7 @@
                                    data-id="{{ u.id }}"
                                    data-name="{{ u.username }}"
                                    title="Delete">
-                                    <i class="ti ti-trash text-danger"></i>
+                                    <i class="fa-solid fa-trash-can text-danger"></i>
                                 </a>
                             </div>
                         </td>
@@ -182,7 +170,7 @@
                 {% if users.has_previous %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ users.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
-                        <i class="ti ti-chevron-left"></i> prev
+                        <i class="fa-solid fa-chevron-left"></i> prev
                     </a>
                 </li>
                 {% endif %}
@@ -194,7 +182,7 @@
                 {% if users.has_next %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ users.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
-                        next <i class="ti ti-chevron-right"></i>
+                        next <i class="fa-solid fa-chevron-right"></i>
                     </a>
                 </li>
                 {% endif %}

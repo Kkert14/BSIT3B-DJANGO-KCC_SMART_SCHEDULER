@@ -1181,9 +1181,16 @@ def _build_report_context(request):
         schedules = schedules.filter(section__year_level=filter_year_level)
     if filter_section:
         schedules = schedules.filter(section_id=filter_section)
-    if filter_teacher:
-        schedules = schedules.filter(teacher_id=filter_teacher)
-    schedules = list(schedules)
+    if teacher_profile is not None:
+        schedules = schedules.filter(teacher_id=teacher_profile.id)
+    base_schedules = list(schedules)
+    if filter_teacher and teacher_profile is None:
+        schedules = [
+            sched for sched in base_schedules
+            if sched.teacher_id == int(filter_teacher)
+        ]
+    else:
+        schedules = base_schedules
 
     curricula = Curriculum.objects.order_by('-academic_year')
     programs = Program.objects.order_by('program_code')
@@ -1240,36 +1247,41 @@ def _build_report_context(request):
     sheets = []
     load_rows = []
     load_totals = None
+    teacher_cards = []
 
-    if show_load_summary:
+    if report == 'faculty' and teacher_profile is None:
         grouped = {}
-        for sched in schedules:
+        for sched in base_schedules:
             grouped.setdefault(sched.teacher_id, []).append(sched)
         scheduled_rows = []
         for teacher in teachers:
-            teacher_schedules = grouped.get(teacher.id, [])
-            rows = _report_rows(teacher_schedules, time_mode)
+            rows = _report_rows(grouped.get(teacher.id, []), time_mode)
             totals = _report_totals(rows)
             scheduled_rows.extend(rows)
-            load_rows.append({
+            teacher_cards.append({
+                'id': teacher.id,
                 'name': teacher.full_name,
                 'employee_number': teacher.employee_number,
-                'position': teacher.position or '—',
-                **totals,
+                'position': teacher.position,
+                'initials': (
+                    f'{teacher.first_name[:1]}{teacher.last_name[:1]}'.upper()
+                ),
+                'search': ' '.join(filter(None, (
+                    teacher.full_name, teacher.employee_number, teacher.position,
+                ))).lower(),
+                'blocks': totals['blocks'],
+                'courses': totals['courses'],
+                'total_display': totals['total_display'],
+                'lecture_display': totals['lecture_display'],
+                'lab_display': totals['lab_display'],
+                'total_hours': totals['total_hours'],
             })
-            if rows:
-                sheets.append({
-                    'title': teacher.full_name,
-                    'scope': f'{teacher.employee_number} · {report_title}',
-                    'rows': rows,
-                    'grid': _report_grid(teacher_schedules, time_mode),
-                    'totals': totals,
-                    'show_teacher': False,
-                })
+        load_rows = list(teacher_cards)
         load_totals = _report_totals(scheduled_rows)
         load_totals['blocks'] = sum(row['blocks'] for row in load_rows)
         load_totals['courses'] = sum(row['courses'] for row in load_rows)
-    else:
+
+    if not show_load_summary:
         rows = _report_rows(schedules, time_mode)
         totals = _report_totals(rows)
         sheets.append({
@@ -1307,10 +1319,39 @@ def _build_report_context(request):
         'view': view,
     }
 
+    common_params = {'year': filter_year, 'semester': filter_semester}
+    report_tabs = []
+    if role == ROLE_ADMIN:
+        for value, label in REPORT_TYPES:
+            tab_params = dict(common_params, report=value)
+            if value in ('master', 'timetable'):
+                if filter_program:
+                    tab_params['program'] = filter_program
+                if filter_year_level:
+                    tab_params['year_level'] = filter_year_level
+            if value == 'timetable' and filter_section:
+                tab_params['section'] = filter_section
+            if value == 'faculty' and filter_teacher:
+                tab_params['teacher'] = filter_teacher
+            report_tabs.append({
+                'value': value,
+                'label': label,
+                'query': urlencode({
+                    key: val for key, val in tab_params.items() if val
+                }),
+            })
+    faculty_base_query = urlencode({
+        key: value for key, value in dict(
+            common_params, report='faculty'
+        ).items() if value
+    })
+
     return {
         'report': report,
         'report_label': report_title,
         'report_types': REPORT_TYPES if role == ROLE_ADMIN else (REPORT_TYPES[2],),
+        'report_tabs': report_tabs,
+        'faculty_base_query': faculty_base_query,
         'view': view,
         'can_choose_view': report != 'master',
         'filter_year': filter_year,
@@ -1328,6 +1369,7 @@ def _build_report_context(request):
             for level in year_level_values
         ],
         'teachers': teachers,
+        'teacher_cards': teacher_cards,
         'selected_teacher': selected_teacher,
         'is_teacher_view': teacher_profile is not None,
         'sheets': sheets,

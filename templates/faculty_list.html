@@ -1,26 +1,19 @@
 {% extends "theme/base.html" %}
 {% block content %}
 <div class="container-xl">
-  <div class="page-header d-print-none" aria-label="Page header">
-    <div class="container-xl">
-      <div class="row align-items-center">
-        <div class="col">
-          <div class="page-pretitle">Overview</div>
-          <div class="d-flex align-items-center gap-3 flex-wrap d-none d-md-flex">
-            <h2 class="page-title mb-0">Faculty</h2>
-          </div>
-          <h2 class="page-title mb-0 d-md-none">Faculty</h2>
-        </div>
-      </div>
+  <div class="ss-page-head">
+    <div>
+      <div class="ss-ov">People</div>
+      <h1 class="ss-page-title">Faculty</h1>
+      <p class="ss-sub">Instructors and staff who can be assigned to schedules.</p>
     </div>
   </div>
-  <br>
 
-  <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-1">
-    <form method="GET" class="w-100" style="max-width: 420px;">
+  <div class="ss-toolbar">
+    <form method="GET" class="ss-search">
       <div class="input-group">
-        <span class="input-group-text"><i class="ti ti-search"></i></span>
-        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by employee number, name, email, or position...">
+        <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search faculty...">
         {% if query %}
         <a href="{% url 'faculty:faculty_list' %}" class="btn btn-outline-secondary">Clear</a>
         {% endif %}
@@ -29,7 +22,7 @@
     </form>
 
     {% if can_manage %}
-    <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#facultyModal" data-mode="create">
+    <button type="button" class="btn btn-primary ms-auto" data-bs-toggle="modal" data-bs-target="#facultyModal" data-mode="create">
       <i class='fas fa-plus-circle me-2'></i> Add Faculty
     </button>
     {% endif %}
@@ -132,7 +125,7 @@
         {% if faculty.has_previous %}
         <li class="page-item">
           <a class="page-link" href="?page={{ faculty.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
-            <i class="ti ti-chevron-left"></i> prev
+            <i class="fa-solid fa-chevron-left"></i> prev
           </a>
         </li>
         {% endif %}
@@ -144,7 +137,7 @@
         {% if faculty.has_next %}
         <li class="page-item">
           <a class="page-link" href="?page={{ faculty.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
-            next <i class="ti ti-chevron-right"></i>
+            next <i class="fa-solid fa-chevron-right"></i>
           </a>
         </li>
         {% endif %}

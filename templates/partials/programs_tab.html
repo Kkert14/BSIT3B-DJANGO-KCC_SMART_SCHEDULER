@@ -1,7 +1,7 @@
-<div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-1">
-  <form method="GET" class="w-100" style="max-width: 420px;">
+<div class="ss-toolbar">
+  <form method="GET" class="ss-search">
     <div class="input-group">
-      <span class="input-group-text"><i class="ti ti-search"></i></span>
+      <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
       <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by code or name...">
       {% if query %}
       <a href="{% url 'program:program_list' %}" class="btn btn-outline-secondary">Clear</a>
@@ -11,7 +11,7 @@
   </form>
 
   {% if can_manage %}
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#programModal" data-mode="create">
+  <button type="button" class="btn btn-primary ms-auto" data-bs-toggle="modal" data-bs-target="#programModal" data-mode="create">
     <i class='fas fa-plus-circle me-2'></i> Add Program
   </button>
   {% endif %}
@@ -113,7 +113,7 @@
       {% if programs.has_previous %}
       <li class="page-item">
         <a class="page-link" href="?page={{ programs.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
-          <i class="ti ti-chevron-left"></i> prev
+          <i class="fa-solid fa-chevron-left"></i> prev
         </a>
       </li>
       {% endif %}
@@ -125,7 +125,7 @@
       {% if programs.has_next %}
       <li class="page-item">
         <a class="page-link" href="?page={{ programs.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
-          next <i class="ti ti-chevron-right"></i>
+          next <i class="fa-solid fa-chevron-right"></i>
         </a>
       </li>
       {% endif %}

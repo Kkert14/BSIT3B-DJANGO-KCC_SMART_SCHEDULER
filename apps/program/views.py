@@ -73,6 +73,11 @@ def program_list_page(request):
         context = program_list_context(request)
 
     context['active_tab'] = tab
+    context['tab_counts'] = {
+        'programs': Program.objects.count(),
+        'curriculum': Curriculum.objects.count(),
+        'courses': Subject.objects.count(),
+    }
     return render(request, 'program_list.html', context)
 
 
