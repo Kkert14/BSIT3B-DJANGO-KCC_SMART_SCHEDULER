@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
@@ -10,15 +10,6 @@ from django.db.models import Q
 
 from apps.users.decorators import admin_required, admin_required_api
 from apps.users.models import UserProfile
-from apps.utils.import_export import (
-    excel_to_dict_list,
-    get_str,
-    get_value,
-    parse_bool,
-    parse_time,
-    queryset_to_excel,
-    workbook_to_response,
-)
 
 
 # PAGE
@@ -184,72 +175,6 @@ def user_delete_ajax(request, pk):
 
 
 # EXPORT USERS TO EXCEL
-@login_required(login_url='login')
-@admin_required
-def user_export_excel(request):
-    users = User.objects.select_related('profile').all().order_by('username')
-    wb = queryset_to_excel(
-        users,
-        ['username', 'first_name', 'last_name', 'email', 'profile__role', 'is_active', 'date_joined'],
-        sheet_name='Users',
-        title='Users Export',
-    )
-    return workbook_to_response(wb, 'users_export.xlsx')
 
 
 # IMPORT USERS FROM EXCEL
-@admin_required_api
-@login_required(login_url='login')
-@require_POST
-def user_import_excel(request):
-    if 'file' not in request.FILES:
-        return JsonResponse({'error': 'No file uploaded.'}, status=400)
-
-    uploaded_file = request.FILES['file']
-    try:
-        data = excel_to_dict_list(uploaded_file.read())
-    except Exception as e:
-        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
-
-    created = 0
-    errors = []
-    for idx, row in enumerate(data, start=2):
-        username = get_str(row, 'username')
-        first_name = get_str(row, 'first_name')
-        last_name = get_str(row, 'last_name')
-        email = get_str(row, 'email')
-        role = get_str(row, 'profile__role', 'student')
-        is_active = parse_bool(get_value(row, 'is_active'))
-
-        if not username:
-            errors.append(f'Row {idx}: username is required.')
-            continue
-
-        try:
-            user, created_flag = User.objects.update_or_create(
-                username=username,
-                defaults={
-                    'first_name': first_name,
-                    'last_name': last_name,
-                    'email': email,
-                    'is_active': is_active,
-                },
-            )
-            if created_flag:
-                user.set_password('changeme123')  # Default password
-                user.save()
-                created += 1
-
-            # Save/update user profile role
-            profile, _ = UserProfile.objects.update_or_create(
-                user=user,
-                defaults={'role': role},
-            )
-        except Exception as e:
-            errors.append(f'Row {idx}: {str(e)}')
-
-    return JsonResponse({
-        'status': 'success',
-        'created': created,
-        'errors': errors,
-    })

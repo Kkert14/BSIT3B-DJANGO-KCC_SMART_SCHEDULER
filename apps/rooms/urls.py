@@ -9,6 +9,4 @@ urlpatterns = [
     path('ajax/get/<int:pk>/', views.room_get_ajax, name='room_get_ajax'),
     path('ajax/save/', views.room_save_ajax, name='room_save_ajax'),
     path('ajax/delete/<int:pk>/', views.room_delete_ajax, name='room_delete_ajax'),
-    path('export/excel/', views.room_export_excel, name='room_export_excel'),
-    path('import/excel/', views.room_import_excel, name='room_import_excel'),
 ]

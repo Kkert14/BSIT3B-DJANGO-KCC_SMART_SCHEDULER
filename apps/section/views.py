@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -11,15 +11,6 @@ from apps.curriculum.models import Semester
 from apps.program.models import Program
 from .models import Section
 from apps.users.decorators import admin_required, admin_required_api
-from apps.utils.import_export import (
-    excel_to_dict_list,
-    get_str,
-    get_value,
-    parse_bool,
-    parse_time,
-    queryset_to_excel,
-    workbook_to_response,
-)
 
 
 @login_required(login_url='login')
@@ -175,94 +166,6 @@ def section_save_ajax(request):
         'academic_year': section.semester.curriculum.academic_year,
         'capacity': section.capacity,
         'is_active': section.is_active,
-    })
-
-
-@login_required(login_url='login')
-@admin_required
-def section_export_excel(request):
-    sections = Section.objects.select_related('program', 'semester__curriculum').all().order_by('program__program_code', 'name')
-    wb = queryset_to_excel(
-        sections,
-        ['program__program_code', 'name', 'year_level', 'semester__curriculum__code', 'semester__semester_number', 'capacity', 'is_active'],
-        sheet_name='Sections',
-        title='Sections Export',
-    )
-    return workbook_to_response(wb, 'sections_export.xlsx')
-
-
-@admin_required_api
-@login_required(login_url='login')
-@require_POST
-def section_import_excel(request):
-    if 'file' not in request.FILES:
-        return JsonResponse({'error': 'No file uploaded.'}, status=400)
-
-    uploaded_file = request.FILES['file']
-    try:
-        data = excel_to_dict_list(uploaded_file.read())
-    except Exception as e:
-        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
-
-    created = 0
-    errors = []
-    for idx, row in enumerate(data, start=2):
-        program_code = get_str(row, 'program_program_code')
-        name = get_str(row, 'name')
-        year_level = get_str(row, 'year_level')
-        curriculum_code = get_str(row, 'semester_curriculum_code')
-        semester_number = get_str(row, 'semester_semester_number')
-        capacity = get_str(row, 'capacity')
-        is_active = parse_bool(get_value(row, 'is_active'))
-
-        if not program_code or not name or not year_level or not curriculum_code or not semester_number:
-            errors.append(f'Row {idx}: program_code, name, year_level, semester_curriculum_code, and semester_semester_number are required.')
-            continue
-
-        try:
-            program = Program.objects.get(program_code=program_code)
-        except Program.DoesNotExist:
-            errors.append(f'Row {idx}: program with code "{program_code}" not found.')
-            continue
-
-        try:
-            semester = Semester.objects.get(curriculum__code=curriculum_code, semester_number=int(semester_number))
-        except (Semester.DoesNotExist, ValueError):
-            errors.append(f'Row {idx}: semester {semester_number} in curriculum "{curriculum_code}" not found.')
-            continue
-
-        try:
-            year_level_val = int(year_level)
-        except ValueError:
-            errors.append(f'Row {idx}: year_level must be a number.')
-            continue
-
-        try:
-            capacity_val = int(capacity) if capacity else 1
-        except ValueError:
-            errors.append(f'Row {idx}: capacity must be a number.')
-            continue
-
-        try:
-            section, created_flag = Section.objects.update_or_create(
-                program=program,
-                name=name,
-                semester=semester,
-                year_level=year_level_val,
-                defaults={
-                    'capacity': capacity_val,
-                    'is_active': is_active,
-                },
-            )
-            if created_flag:
-                created += 1
-        except Exception as e:
-            errors.append(f'Row {idx}: {str(e)}')
-
-    return JsonResponse({
-        'status': 'success',
-        'created': created,
-        'errors': errors,
     })
 
 

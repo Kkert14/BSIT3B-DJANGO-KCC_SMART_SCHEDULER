@@ -17,7 +17,7 @@ Delmar Velasco
 | Python | 3.11 or 3.12 | Django 5.0 does not support Python 3.13+ |
 | Django | 5.0.14 | 5.1+ requires MariaDB 10.5+ |
 | MariaDB / MySQL | 10.4+ / 8.0.11+ | |
-| openpyxl | 3.1.5 | Excel import/export |
+| openpyxl | 3.1.5 | Excel report export |
 
 ## Setup
 
@@ -51,38 +51,19 @@ HSTS automatically.
 
 ## Roles
 
-| Role | Read | Create / edit / delete | Export | Import |
-|---|---|---|---|---|
-| Administrator | yes | yes | yes | yes |
-| Teacher | yes | no | no | no |
-| Student | yes | no | no | no |
+| Role | Read | Create / edit / delete |
+|---|---|---|
+| Administrator | yes | yes |
+| Teacher | yes | no |
+| Student | yes | no |
 
 Role lives on `UserProfile.role`. Superusers bypass every check. The write
 controls are hidden from the UI for non-admins, and the API returns `403` with
 a JSON error.
 
-## Excel import / export
-
-Every list page can export to `.xlsx` and import back. The export writes a
-title row, a header row and the data; the importer recognises that format and
-also accepts a hand-written file whose first row is the header.
-
-Related columns are identified by their full path, so the schedule export
-carries `Subject Program Code` and `Room Building Code` as well - subject
-codes, section names and room names repeat across programs and buildings.
-
-Imports run through the same validation as the UI, so a spreadsheet cannot
-create a double booking. Rows that fail are reported per row rather than
-aborting the whole file.
-
-A manual smoke check is available:
-
-```bash
-python scripts/manual_export_import_check.py
-```
-
-It talks to the real development database and creates and removes a couple of
-`SMOKE_*` rows.
+Schedule reports (master list, section timetable, faculty schedule) are open to
+administrators and to teachers whose account is linked to a faculty record;
+teachers only ever see their own load.
 
 ## Tests
 
@@ -91,4 +72,4 @@ python manage.py test        # Django test runner
 python -m pytest             # pytest
 ```
 
-Both runners discover the same 52 tests.
+Both runners discover the same 38 tests.

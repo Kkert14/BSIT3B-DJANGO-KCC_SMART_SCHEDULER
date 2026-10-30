@@ -93,7 +93,6 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.users',
     'apps.info',
-    'apps.utils',
     'apps.curriculum',
     'apps.building',
     'apps.program',

@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -9,15 +9,6 @@ from django.db import IntegrityError
 
 from .models import Building
 from apps.users.decorators import admin_required, admin_required_api
-from apps.utils.import_export import (
-    excel_to_dict_list,
-    get_str,
-    get_value,
-    parse_bool,
-    parse_time,
-    queryset_to_excel,
-    workbook_to_response,
-)
 
 
 @login_required(login_url='login')
@@ -128,56 +119,6 @@ def building_delete_ajax(request, pk):
 
 
 # EXPORT BUILDINGS TO EXCEL
-@login_required(login_url='login')
-@admin_required
-def building_export_excel(request):
-    buildings = Building.objects.all().order_by('code')
-    wb = queryset_to_excel(
-        buildings,
-        ['code', 'name', 'is_active'],
-        sheet_name='Buildings',
-        title='Buildings Export',
-    )
-    return workbook_to_response(wb, 'buildings_export.xlsx')
 
 
 # IMPORT BUILDINGS FROM EXCEL
-@admin_required_api
-@login_required(login_url='login')
-@require_POST
-def building_import_excel(request):
-    if 'file' not in request.FILES:
-        return JsonResponse({'error': 'No file uploaded.'}, status=400)
-
-    uploaded_file = request.FILES['file']
-    try:
-        data = excel_to_dict_list(uploaded_file.read())
-    except Exception as e:
-        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
-
-    created = 0
-    errors = []
-    for idx, row in enumerate(data, start=2):
-        code = get_str(row, 'code')
-        name = get_str(row, 'name')
-        is_active = parse_bool(get_value(row, 'is_active'))
-
-        if not code or not name:
-            errors.append(f'Row {idx}: code and name are required.')
-            continue
-
-        try:
-            building, created_flag = Building.objects.update_or_create(
-                code=code,
-                defaults={'name': name, 'is_active': is_active},
-            )
-            if created_flag:
-                created += 1
-        except Exception as e:
-            errors.append(f'Row {idx}: {str(e)}')
-
-    return JsonResponse({
-        'status': 'success',
-        'created': created,
-        'errors': errors,
-    })

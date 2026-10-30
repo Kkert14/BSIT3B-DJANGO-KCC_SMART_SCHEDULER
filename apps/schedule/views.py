@@ -1,16 +1,18 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from urllib.parse import urlencode
 
 import math
 
-from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from apps.curriculum.models import Curriculum, Semester
 from apps.faculty.models import Faculty
@@ -19,15 +21,12 @@ from apps.section.models import Section
 from apps.rooms.models import Room
 from apps.building.models import Building
 from apps.program.models import Program
-from apps.users.decorators import admin_required, admin_required_api
-from apps.utils.import_export import (
-    excel_to_dict_list,
-    get_str,
-    get_value,
-    parse_bool,
-    parse_time,
-    queryset_to_excel,
-    workbook_to_response,
+from apps.users.decorators import (
+    admin_required_api,
+    get_user_role,
+    teacher_required,
+    ROLE_ADMIN,
+    ROLE_TEACHER,
 )
 from .models import Schedule
 
@@ -463,17 +462,6 @@ def schedule_list_page(request):
         for level in year_level_values
     ]
 
-    editor_semester = None
-    if filter_semester:
-        editor_scope = Semester.objects.filter(semester_number=filter_semester)
-        if filter_year:
-            editor_scope = editor_scope.filter(curriculum_id=filter_year)
-        elif active_curriculum:
-            editor_scope = editor_scope.filter(curriculum=active_curriculum)
-        editor_semester = editor_scope.select_related('curriculum').first()
-    if editor_semester is None:
-        editor_semester = active_semester
-
     time_slots = [
         (f'{minutes // 60:02d}:{minutes % 60:02d}', f'{(minutes + 30) // 60:02d}:{(minutes + 30) % 60:02d}')
         for minutes in range(7 * 60, 17 * 60, 30)
@@ -613,7 +601,7 @@ def schedule_list_page(request):
         'filter_section': filter_section,
         'semester_filter_choices': Semester.SEMESTER_CHOICES,
         'year_level_choices': year_level_choices,
-        'editor_semester_id': editor_semester.id if editor_semester else '',
+        'editor_semester_id': active_semester.id if active_semester else '',
         'semesters': semesters,
         'active_semester': active_semester,
         'has_grid_events': any(value not in (None, 'skip') for row in slot_cells for value in row),
@@ -918,192 +906,566 @@ def schedule_delete_ajax(request, pk):
     return JsonResponse({'status': 'deleted'})
 
 
-def _resolve_unique(queryset, description, disambiguate_hint=''):
-    """Return the single row matching ``queryset``.
+# ---------------------------------------------------------------- reports
+REPORT_TYPES = (
+    ('master', 'Master list'),
+    ('timetable', 'Section timetable'),
+    ('faculty', 'Faculty schedule'),
+)
+REPORT_LABELS = dict(REPORT_TYPES)
+REPORT_HEADERS = [
+    'Day', 'Start', 'End', 'Hours', 'Course code', 'Course title',
+    'Type', 'Program', 'Year', 'Section', 'Faculty', 'Room',
+]
 
-    Raises ``ValueError`` when nothing matches, or when the lookup is
-    ambiguous. Subject codes, section names and room names repeat across
-    programs and buildings, so a spreadsheet column on its own does not
-    always identify a single row.
-    """
-    matches = list(queryset[:2])
-    if not matches:
-        raise ValueError(f'{description} not found.')
-    if len(matches) > 1:
-        hint = f' {disambiguate_hint}' if disambiguate_hint else ''
-        raise ValueError(
-            f'{description} is ambiguous - it matches more than one row.{hint}'
+
+def _report_clock(minutes, mode):
+    """Format a minute offset from midnight as 24-hour or 12-hour text."""
+    hours, mins = divmod(int(minutes) % (24 * 60), 60)
+    if mode != 'standard':
+        return f'{hours:02d}:{mins:02d}'
+    suffix = 'AM' if hours < 12 else 'PM'
+    return f'{hours % 12 or 12}:{mins:02d} {suffix}'
+
+
+def _report_time(value, mode):
+    return _report_clock(value.hour * 60 + value.minute, mode)
+
+
+def _report_hours(value):
+    """Trim trailing zeros from an hours figure (1.5 -> '1.5', 2.0 -> '2')."""
+    return f'{value:.2f}'.rstrip('0').rstrip('.')
+
+
+def _report_rows(schedules, mode):
+    rows = []
+    for sched in schedules:
+        hours = _time_duration_hours(sched.start_time, sched.end_time)
+        rows.append({
+            'day': DAY_NAMES.get(sched.day_of_week, str(sched.day_of_week)),
+            'day_num': sched.day_of_week,
+            'start': _report_time(sched.start_time, mode),
+            'end': _report_time(sched.end_time, mode),
+            'hours': hours,
+            'hours_display': _report_hours(hours),
+            'subject_id': sched.subject_id,
+            'subject_code': sched.subject.code,
+            'subject_name': sched.subject.name,
+            'class_type': sched.class_type,
+            'is_lab': sched.class_type == 'Laboratory',
+            'program': sched.section.program.program_code,
+            'year_level': YEAR_LEVEL_LABELS.get(
+                sched.section.year_level, f'{sched.section.year_level}th year'
+            ),
+            'section': sched.section.name,
+            'teacher': sched.teacher.full_name,
+            'employee_number': sched.teacher.employee_number,
+            'room': f'{sched.room.building.code} {sched.room.room_name}',
+        })
+    return rows
+
+
+def _report_totals(rows):
+    lecture = sum(row['hours'] for row in rows if not row['is_lab'])
+    lab = sum(row['hours'] for row in rows if row['is_lab'])
+    return {
+        'blocks': len(rows),
+        'courses': len({row['subject_id'] for row in rows}),
+        'lecture_hours': lecture,
+        'lab_hours': lab,
+        'total_hours': lecture + lab,
+        'lecture_display': _report_hours(lecture),
+        'lab_display': _report_hours(lab),
+        'total_display': _report_hours(lecture + lab),
+    }
+
+
+def _report_grid(schedules, mode):
+    """Build a day-by-time grid for a single section or faculty member."""
+    if not schedules:
+        return {'days': [], 'rows': [], 'has_events': False}
+
+    starts = [s.start_time.hour * 60 + s.start_time.minute for s in schedules]
+    ends = [s.end_time.hour * 60 + s.end_time.minute for s in schedules]
+    start_minutes = min(7 * 60, (min(starts) // 30) * 30)
+    end_minutes = max(17 * 60, math.ceil(max(ends) / 30) * 30)
+
+    used_days = {s.day_of_week for s in schedules}
+    days = [(number, DAY_NAMES[number]) for number in range(1, 6)]
+    days += [(number, DAY_NAMES[number]) for number in (6, 7) if number in used_days]
+
+    slot_starts = list(range(start_minutes, end_minutes, 30))
+    slot_index = {value: index for index, value in enumerate(slot_starts)}
+    cells = [[None for _ in days] for _ in slot_starts]
+
+    for sched in schedules:
+        start_at = slot_index.get(
+            (sched.start_time.hour * 60 + sched.start_time.minute) // 30 * 30
         )
-    return matches[0]
+        if start_at is None:
+            continue
+        raw_end = math.ceil(
+            (sched.end_time.hour * 60 + sched.end_time.minute) / 30
+        ) * 30
+        end_at = min(
+            max(slot_index.get(raw_end, len(slot_starts)), start_at + 1),
+            len(slot_starts),
+        )
+        column = next(
+            (index for index, (number, _) in enumerate(days)
+             if number == sched.day_of_week),
+            None,
+        )
+        if column is None or cells[start_at][column] is not None:
+            continue
+        cells[start_at][column] = {'schedule': sched, 'rowspan': end_at - start_at}
+        for row in range(start_at + 1, end_at):
+            if cells[row][column] is None:
+                cells[row][column] = 'skip'
+
+    rows = []
+    for index, minutes in enumerate(slot_starts):
+        cells_out = []
+        for value in cells[index]:
+            if value == 'skip':
+                cells_out.append({'kind': 'skip'})
+            elif value:
+                cells_out.append({
+                    'kind': 'event',
+                    'schedule': value['schedule'],
+                    'rowspan': value['rowspan'],
+                })
+            else:
+                cells_out.append({'kind': 'empty'})
+        rows.append({
+            'start': _report_clock(minutes, mode),
+            'end': _report_clock(minutes + 30, mode),
+            'major': index % 2 == 0,
+            'cells': cells_out,
+        })
+
+    return {'days': days, 'rows': rows, 'has_events': True}
 
 
-@login_required(login_url='login')
-@admin_required
-def schedule_export_excel(request):
-    schedules = Schedule.objects.select_related(
-        'teacher', 'subject', 'section', 'room', 'semester__curriculum'
-    ).all().order_by('day_of_week', 'start_time')
-    wb = queryset_to_excel(
-        schedules,
-        [
-            'semester__curriculum__code', 'semester__semester_number',
-            'teacher__employee_number',
-            'subject__code', 'subject__program__program_code',
-            'section__name', 'section__program__program_code',
-            'room__room_name', 'room__building__code',
-            'class_type', 'day_of_week', 'start_time', 'end_time',
-        ],
-        sheet_name='Schedules',
-        title='Schedules Export',
+def _build_report_context(request):
+    """Return ``(context, None)`` or ``(None, redirect)`` for report pages."""
+    role = get_user_role(request.user)
+    teacher_profile = None
+    if role == ROLE_TEACHER:
+        teacher_profile = Faculty.objects.filter(user=request.user).first()
+        if teacher_profile is None:
+            messages.error(
+                request,
+                'Your account is not linked to a faculty record yet. '
+                'Ask an administrator to link it before viewing reports.',
+            )
+            return None, redirect('schedule:schedule_list')
+
+    report = request.GET.get('report', '').strip()
+    if teacher_profile is not None:
+        report = 'faculty'
+    if report not in REPORT_LABELS:
+        report = 'master'
+
+    active_curriculum = Curriculum.objects.filter(is_active=True).first()
+    active_semester = (
+        Semester.objects.select_related('curriculum')
+        .filter(is_active=True, curriculum__is_active=True)
+        .first()
     )
-    return workbook_to_response(wb, 'schedules_export.xlsx')
 
+    year_param = request.GET.get('year')
+    if year_param is None:
+        filter_year = str(active_curriculum.id) if active_curriculum else ''
+    else:
+        filter_year = year_param.strip()
+    if filter_year and not filter_year.isdigit():
+        filter_year = ''
 
-@admin_required_api
-@login_required(login_url='login')
-@require_POST
-def schedule_import_excel(request):
-    if 'file' not in request.FILES:
-        return JsonResponse({'error': 'No file uploaded.'}, status=400)
-
-    uploaded_file = request.FILES['file']
-    try:
-        data = excel_to_dict_list(uploaded_file.read())
-    except Exception as e:
-        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
-
-    created = 0
-    errors = []
-    for idx, row in enumerate(data, start=2):
-        curriculum_code = get_str(row, 'semester_curriculum_code')
-        semester_number = get_str(row, 'semester_semester_number')
-        teacher_emp = get_str(row, 'teacher__employee_number')
-        subject_code = get_str(row, 'subject__code')
-        subject_program_code = get_str(row, 'subject_program_program_code')
-        section_name = get_str(row, 'section__name')
-        section_program_code = get_str(row, 'section_program_program_code')
-        room_name = get_str(row, 'room__room_name')
-        building_code = get_str(row, 'room__building__code')
-        class_type = get_str(row, 'class_type', 'Lecture')
-        day_of_week = get_str(row, 'day_of_week')
-        start = parse_time(get_value(row, 'start_time'))
-        end = parse_time(get_value(row, 'end_time'))
-
-        if not all([curriculum_code, semester_number, teacher_emp, subject_code, section_name, room_name, class_type, day_of_week, start, end]):
-            errors.append(f'Row {idx}: all fields are required.')
-            continue
-
-        try:
-            semester_val = int(semester_number)
-        except ValueError:
-            errors.append(f'Row {idx}: semester must be a number.')
-            continue
-
-        try:
-            semester = Semester.objects.get(curriculum__code=curriculum_code, semester_number=semester_val)
-        except Semester.DoesNotExist:
-            errors.append(f'Row {idx}: semester {semester_val} in curriculum "{curriculum_code}" not found.')
-            continue
-
-        try:
-            teacher = Faculty.objects.get(employee_number=teacher_emp)
-        except Faculty.DoesNotExist:
-            errors.append(f'Row {idx}: teacher with employee number "{teacher_emp}" not found.')
-            continue
-
-        # Subject codes repeat across programs, so narrow the lookup down with
-        # whichever extra columns the spreadsheet provides.
-        try:
-            subject_qs = Subject.objects.filter(code=subject_code, semester=semester)
-            if subject_program_code:
-                subject_qs = subject_qs.filter(program__program_code=subject_program_code)
-            subject = _resolve_unique(
-                subject_qs,
-                f'course with code "{subject_code}"',
-                'Add a "Subject Program Code" column to disambiguate.',
-            )
-        except ValueError as exc:
-            errors.append(f'Row {idx}: {exc}')
-            continue
-
-        # Section names repeat across programs and year levels too.
-        try:
-            section_qs = Section.objects.filter(name=section_name, semester=semester)
-            if section_program_code:
-                section_qs = section_qs.filter(program__program_code=section_program_code)
-            section = _resolve_unique(
-                section_qs,
-                f'section with name "{section_name}"',
-                'Add a "Section Program Code" column to disambiguate.',
-            )
-        except ValueError as exc:
-            errors.append(f'Row {idx}: {exc}')
-            continue
-
-        # Room names repeat across buildings.
-        try:
-            room_qs = Room.objects.filter(room_name=room_name)
-            if building_code:
-                room_qs = room_qs.filter(building__code=building_code)
-            room = _resolve_unique(
-                room_qs,
-                f'room with name "{room_name}"',
-                'Add a "Room Building Code" column to disambiguate.',
-            )
-        except ValueError as exc:
-            errors.append(f'Row {idx}: {exc}')
-            continue
-
-        if class_type not in ('Lecture', 'Laboratory'):
-            errors.append(f'Row {idx}: class_type must be Lecture or Laboratory.')
-            continue
-
-        try:
-            day_of_week_val = int(day_of_week)
-        except ValueError:
-            errors.append(f'Row {idx}: day_of_week must be a number (1-7).')
-            continue
-
-        # Imported rows go through the same conflict validation as rows added
-        # through the UI, so a spreadsheet cannot create double bookings.
-        existing = Schedule.objects.filter(
-            semester=semester,
-            teacher=teacher,
-            subject=subject,
-            section=section,
-            room=room,
-            day_of_week=day_of_week_val,
-        ).first()
-        conflict = _check_schedule_conflicts(
-            semester, teacher, subject, section, room,
-            class_type, day_of_week_val, start, end,
-            exclude_id=existing.id if existing else None,
+    semester_param = request.GET.get('semester')
+    if semester_param is None:
+        filter_semester = (
+            str(active_semester.semester_number) if active_semester else ''
         )
-        if conflict:
-            errors.append(f'Row {idx}: {conflict["conflicts"][0]["message"]}')
-            continue
+    else:
+        filter_semester = semester_param.strip()
+    if filter_semester not in {'1', '2', '3'}:
+        filter_semester = ''
 
-        try:
-            schedule, created_flag = Schedule.objects.update_or_create(
-                semester=semester,
-                teacher=teacher,
-                subject=subject,
-                section=section,
-                room=room,
-                day_of_week=day_of_week_val,
-                defaults={
-                    'class_type': class_type,
-                    'start_time': start,
-                    'end_time': end,
-                },
+    filter_program = request.GET.get('program', '').strip()
+    if filter_program and not filter_program.isdigit():
+        filter_program = ''
+    filter_year_level = request.GET.get('year_level', '').strip()
+    if filter_year_level and not filter_year_level.isdigit():
+        filter_year_level = ''
+    filter_section = request.GET.get('section', '').strip()
+    if filter_section and not filter_section.isdigit():
+        filter_section = ''
+
+    curriculum_scope = Section.objects.filter(is_active=True)
+    if filter_year:
+        curriculum_scope = curriculum_scope.filter(semester__curriculum_id=filter_year)
+    if filter_semester:
+        curriculum_scope = curriculum_scope.filter(semester__semester_number=filter_semester)
+    if filter_program:
+        curriculum_scope = curriculum_scope.filter(program_id=filter_program)
+    year_level_values = list(
+        curriculum_scope.values_list('year_level', flat=True).distinct().order_by('year_level')
+    )
+    if filter_year_level and filter_year_level not in {str(level) for level in year_level_values}:
+        filter_year_level = ''
+
+    section_choices = Section.objects.filter(is_active=True).select_related('program')
+    if filter_year:
+        section_choices = section_choices.filter(semester__curriculum_id=filter_year)
+    if filter_semester:
+        section_choices = section_choices.filter(semester__semester_number=filter_semester)
+    if filter_program:
+        section_choices = section_choices.filter(program_id=filter_program)
+    if filter_year_level:
+        section_choices = section_choices.filter(year_level=filter_year_level)
+    section_choices = section_choices.order_by(
+        'program__program_code', 'year_level', 'name'
+    )
+
+    if report == 'timetable':
+        if filter_section and not section_choices.filter(pk=filter_section).exists():
+            filter_section = ''
+        if not filter_section and section_choices:
+            filter_section = str(section_choices[0].id)
+    else:
+        filter_section = ''
+
+    teachers = Faculty.objects.filter(is_active=True).order_by('last_name', 'first_name')
+    filter_teacher = ''
+    if teacher_profile is not None:
+        filter_teacher = str(teacher_profile.id)
+    elif report == 'faculty':
+        filter_teacher = request.GET.get('teacher', '').strip()
+        if filter_teacher and not filter_teacher.isdigit():
+            filter_teacher = ''
+        if filter_teacher and not teachers.filter(pk=filter_teacher).exists():
+            filter_teacher = ''
+
+    selected_teacher = (
+        teachers.filter(pk=filter_teacher).first() if filter_teacher else None
+    )
+    if report == 'faculty' and teacher_profile is not None:
+        selected_teacher = teacher_profile
+
+    view = request.GET.get('view', '').strip()
+    if report == 'master':
+        view = 'table'
+    if view not in ('table', 'grid'):
+        view = 'table'
+
+    time_mode = (
+        'standard' if request.COOKIES.get('time_format') == 'standard' else 'military'
+    )
+
+    schedules = (
+        Schedule.objects.select_related(
+            'teacher', 'subject', 'section__program', 'room__building',
+            'semester__curriculum',
+        )
+        .order_by('day_of_week', 'start_time', 'section__program__program_code',
+                  'section__name')
+    )
+    if filter_year:
+        schedules = schedules.filter(semester__curriculum_id=filter_year)
+    if filter_semester:
+        schedules = schedules.filter(semester__semester_number=filter_semester)
+    if filter_program:
+        schedules = schedules.filter(section__program_id=filter_program)
+    if filter_year_level:
+        schedules = schedules.filter(section__year_level=filter_year_level)
+    if filter_section:
+        schedules = schedules.filter(section_id=filter_section)
+    if filter_teacher:
+        schedules = schedules.filter(teacher_id=filter_teacher)
+    schedules = list(schedules)
+
+    curricula = Curriculum.objects.order_by('-academic_year')
+    programs = Program.objects.order_by('program_code')
+    semesters_by_number = dict(Semester.SEMESTER_CHOICES)
+
+    year_label = 'All academic years'
+    if filter_year:
+        curriculum_obj = curricula.filter(pk=filter_year).first()
+        if curriculum_obj:
+            year_label = f'A.Y. {curriculum_obj.academic_year}'
+    semester_label = (
+        semesters_by_number.get(int(filter_semester), 'All semesters')
+        if filter_semester else 'All semesters'
+    )
+    term_label = f'{year_label} · {semester_label}'
+
+    if report == 'timetable':
+        selected_section = section_choices.filter(pk=filter_section).first()
+        if selected_section is not None:
+            scope_label = ' · '.join(part for part in (
+                selected_section.program.program_code,
+                selected_section.name,
+                YEAR_LEVEL_LABELS.get(selected_section.year_level, ''),
+            ) if part)
+        else:
+            scope_label = 'Select a section'
+    elif report == 'faculty':
+        if selected_teacher is not None:
+            scope_label = (
+                f'{selected_teacher.full_name} · {selected_teacher.employee_number}'
             )
-            if created_flag:
-                created += 1
-        except Exception as e:
-            errors.append(f'Row {idx}: {str(e)}')
+        else:
+            scope_label = 'All faculty'
+    else:
+        scope_parts = []
+        if filter_program:
+            program_obj = programs.filter(pk=filter_program).first()
+            scope_parts.append(
+                program_obj.program_code if program_obj else 'Selected program'
+            )
+        else:
+            scope_parts.append('All programs')
+        if filter_year_level:
+            scope_parts.append(
+                YEAR_LEVEL_LABELS.get(
+                    int(filter_year_level), f'{filter_year_level}th year'
+                )
+            )
+        scope_label = ' · '.join(scope_parts)
 
-    return JsonResponse({
-        'status': 'success',
-        'created': created,
-        'errors': errors,
-    })
+    report_title = REPORT_LABELS[report]
+
+    show_load_summary = report == 'faculty' and selected_teacher is None
+    sheets = []
+    load_rows = []
+    load_totals = None
+
+    if show_load_summary:
+        grouped = {}
+        for sched in schedules:
+            grouped.setdefault(sched.teacher_id, []).append(sched)
+        scheduled_rows = []
+        for teacher in teachers:
+            teacher_schedules = grouped.get(teacher.id, [])
+            rows = _report_rows(teacher_schedules, time_mode)
+            totals = _report_totals(rows)
+            scheduled_rows.extend(rows)
+            load_rows.append({
+                'name': teacher.full_name,
+                'employee_number': teacher.employee_number,
+                'position': teacher.position or '—',
+                **totals,
+            })
+            if rows:
+                sheets.append({
+                    'title': teacher.full_name,
+                    'scope': f'{teacher.employee_number} · {report_title}',
+                    'rows': rows,
+                    'grid': _report_grid(teacher_schedules, time_mode),
+                    'totals': totals,
+                    'show_teacher': False,
+                })
+        load_totals = _report_totals(scheduled_rows)
+        load_totals['blocks'] = sum(row['blocks'] for row in load_rows)
+        load_totals['courses'] = sum(row['courses'] for row in load_rows)
+    else:
+        rows = _report_rows(schedules, time_mode)
+        totals = _report_totals(rows)
+        sheets.append({
+            'title': selected_teacher.full_name if selected_teacher else report_title,
+            'scope': (
+                f'{selected_teacher.employee_number} · {report_title}'
+                if selected_teacher else scope_label
+            ),
+            'rows': rows,
+            'grid': _report_grid(schedules, time_mode),
+            'totals': totals,
+            'show_teacher': report != 'faculty',
+        })
+
+    if show_load_summary:
+        export_schedules = sorted(
+            schedules,
+            key=lambda s: (
+                s.teacher.last_name.lower(), s.teacher.first_name.lower(),
+                s.day_of_week, s.start_time,
+            ),
+        )
+    else:
+        export_schedules = schedules
+    export_rows = _report_rows(export_schedules, time_mode)
+
+    params = {
+        'report': report,
+        'year': filter_year,
+        'semester': filter_semester,
+        'program': filter_program,
+        'year_level': filter_year_level,
+        'section': filter_section,
+        'teacher': filter_teacher,
+        'view': view,
+    }
+
+    return {
+        'report': report,
+        'report_label': report_title,
+        'report_types': REPORT_TYPES if role == ROLE_ADMIN else (REPORT_TYPES[2],),
+        'view': view,
+        'can_choose_view': report != 'master',
+        'filter_year': filter_year,
+        'filter_semester': filter_semester,
+        'filter_program': filter_program,
+        'filter_year_level': filter_year_level,
+        'filter_section': filter_section,
+        'filter_teacher': filter_teacher,
+        'curricula': curricula,
+        'programs': programs,
+        'semester_filter_choices': Semester.SEMESTER_CHOICES,
+        'section_choices': section_choices,
+        'year_level_choices': [
+            (level, YEAR_LEVEL_LABELS.get(level, f'{level}th year'))
+            for level in year_level_values
+        ],
+        'teachers': teachers,
+        'selected_teacher': selected_teacher,
+        'is_teacher_view': teacher_profile is not None,
+        'sheets': sheets,
+        'sheet_count': len(sheets),
+        'show_load_summary': show_load_summary,
+        'load_rows': load_rows,
+        'load_totals': load_totals,
+        'export_rows': export_rows,
+        'has_any': bool(schedules),
+        'report_title': report_title,
+        'scope_label': scope_label,
+        'term_label': term_label,
+        'generated_at': timezone.localtime(),
+        'query_string': urlencode({key: value for key, value in params.items() if value}),
+        'time_format': time_mode,
+    }, None
+
+
+@teacher_required
+def schedule_reports(request):
+    context, redirect_response = _build_report_context(request)
+    if redirect_response is not None:
+        return redirect_response
+    return render(request, 'schedule_reports.html', context)
+
+
+@teacher_required
+def schedule_reports_export(request):
+    from io import BytesIO
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    context, redirect_response = _build_report_context(request)
+    if redirect_response is not None:
+        return redirect_response
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = context['report_label'][:31]
+
+    last_column = len(REPORT_HEADERS)
+    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last_column)
+    title_cell = sheet.cell(row=1, column=1, value=f"Smart Scheduler — {context['report_label']}")
+    title_cell.font = Font(bold=True, size=14)
+    sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last_column)
+    sheet.cell(
+        row=2, column=1,
+        value=f"Term: {context['term_label']}    Scope: {context['scope_label']}",
+    )
+    sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=last_column)
+    sheet.cell(
+        row=3, column=1,
+        value=f"Generated: {context['generated_at'].strftime('%b %d, %Y %H:%M')}",
+    )
+
+    header_row = 5
+    header_fill = PatternFill('solid', fgColor='EEF2FB')
+    for column, label in enumerate(REPORT_HEADERS, start=1):
+        cell = sheet.cell(row=header_row, column=column, value=label)
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    teacher_column = REPORT_HEADERS.index('Faculty')
+    row_index = header_row + 1
+    for row in context['export_rows']:
+        values = [
+            row['day'], row['start'], row['end'], row['hours'],
+            row['subject_code'], row['subject_name'], row['class_type'],
+            row['program'], row['year_level'], row['section'],
+            row['teacher'], row['room'],
+        ]
+        for column, value in enumerate(values, start=1):
+            cell = sheet.cell(row=row_index, column=column, value=value)
+            if column == 4:
+                cell.number_format = '0.0'
+        sheet.cell(row=row_index, column=teacher_column).font = Font(bold=True)
+        row_index += 1
+
+    total_row = row_index
+    sheet.cell(row=total_row, column=1, value='TOTAL').font = Font(bold=True)
+    total_hours = sum(row['hours'] for row in context['export_rows'])
+    hours_cell = sheet.cell(row=total_row, column=4, value=total_hours)
+    hours_cell.number_format = '0.0'
+    hours_cell.font = Font(bold=True)
+    sheet.cell(row=total_row, column=2, value=f"{len(context['export_rows'])} block(s)")
+
+    widths = [12, 10, 10, 8, 14, 34, 12, 12, 10, 18, 24, 18]
+    for index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = width
+    sheet.freeze_panes = sheet.cell(row=header_row + 1, column=1)
+
+    if context['show_load_summary']:
+        load_sheet = workbook.create_sheet('Faculty load')
+        load_headers = [
+            'Faculty', 'Employee no.', 'Position', 'Blocks', 'Courses',
+            'Lecture hours', 'Lab hours', 'Total hours',
+        ]
+        for column, label in enumerate(load_headers, start=1):
+            cell = load_sheet.cell(row=1, column=column, value=label)
+            cell.font = Font(bold=True)
+            cell.fill = header_fill
+        load_row_index = 2
+        for row in context['load_rows']:
+            for column, value in enumerate([
+                row['name'], row['employee_number'], row['position'],
+                row['blocks'], row['courses'], row['lecture_hours'],
+                row['lab_hours'], row['total_hours'],
+            ], start=1):
+                cell = load_sheet.cell(row=load_row_index, column=column, value=value)
+                if column >= 6:
+                    cell.number_format = '0.0'
+            load_row_index += 1
+        totals = context['load_totals']
+        for column, value in enumerate([
+            'TOTAL', '', '', totals['blocks'], totals['courses'],
+            totals['lecture_hours'], totals['lab_hours'], totals['total_hours'],
+        ], start=1):
+            cell = load_sheet.cell(row=load_row_index, column=column, value=value)
+            cell.font = Font(bold=True)
+            if column >= 6:
+                cell.number_format = '0.0'
+        widths = [26, 16, 22, 9, 9, 14, 11, 12]
+        for index, width in enumerate(widths, start=1):
+            load_sheet.column_dimensions[get_column_letter(index)].width = width
+
+    stream = BytesIO()
+    workbook.save(stream)
+    response = HttpResponse(
+        stream.getvalue(),
+        content_type=(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ),
+    )
+    filename = f'schedule_report_{context["report"]}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+

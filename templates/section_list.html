@@ -32,12 +32,6 @@
     <button type="button" class="btn btn-primary mt-n4" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="create">
       <i class='fas fa-plus-circle me-2'></i> Add Section
     </button>
-    <button type="button" class="btn btn-outline-success mt-n4" onclick="location.href='{% url "section:section_export_excel" %}'">
-      <i class="fas fa-download me-1"></i> Export Excel
-    </button>
-    <button type="button" class="btn btn-outline-primary mt-n4" data-bs-toggle="modal" data-bs-target="#sectionImportModal">
-      <i class="fas fa-upload me-1"></i> Import Excel
-    </button>
     {% endif %}
   </div>
 
@@ -280,38 +274,6 @@
 </div>
 
 <!-- Section Import Modal -->
-<div class="modal modal-blur fade" id="sectionImportModal" tabindex="-1">
-  <div class="modal-dialog modal-md modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Import Sections from Excel</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form id="sectionImportForm" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="modal-body">
-          <div id="sectionImportError" class="alert alert-danger d-none"></div>
-          <div id="sectionImportResult" class="alert alert-success d-none"></div>
-          <div class="mb-3">
-            <label class="form-label">Select Excel File (.xlsx)</label>
-            <input type="file" name="file" id="sectionImportFile" class="form-control" accept=".xlsx" required>
-          </div>
-          <div class="alert alert-info">
-            <small>
-              <strong>Required columns:</strong> program_program_code, name, year_level, curriculum_code, semester_number, capacity, is_active<br>
-              Example: BSA, SEC-A, 1, 2026-2027, 40, true
-            </small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="sectionImportBtn">Import</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 {% endblock %}
 
 {% block extra_js %}
@@ -413,52 +375,6 @@
     });
   });
 
-  // Import Excel
-  const importForm = document.getElementById('sectionImportForm');
-  const importError = document.getElementById('sectionImportError');
-  const importResult = document.getElementById('sectionImportResult');
-  const importBtn = document.getElementById('sectionImportBtn');
-
-  if (importForm) {
-    importForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const formData = new FormData(importForm);
-      importBtn.disabled = true;
-      importError.classList.add('d-none');
-      importResult.classList.add('d-none');
-      importError.textContent = '';
-      importResult.textContent = '';
-
-      fetch('{% url "section:section_import_excel" %}', {
-        method: 'POST',
-        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
-        body: formData
-      })
-      .then(response => response.json())
-      .then(data => {
-        importBtn.disabled = false;
-        if (data.error) {
-          importError.textContent = data.error;
-          importError.classList.remove('d-none');
-          return;
-        }
-        importResult.innerHTML = '<strong>Import complete!</strong> Created: ' + data.created;
-        if (data.errors && data.errors.length) {
-          importResult.innerHTML += '<br><strong>Errors:</strong><br>' + data.errors.join('<br>');
-        }
-        importResult.classList.remove('d-none');
-        setTimeout(() => {
-          bootstrap.Modal.getInstance(document.getElementById('sectionImportModal')).hide();
-          window.location.reload();
-        }, 2000);
-      })
-      .catch(() => {
-        importBtn.disabled = false;
-        importError.textContent = 'Something went wrong.';
-        importError.classList.remove('d-none');
-      });
-    });
-  }
 })();
 </script>
 {% endblock %}

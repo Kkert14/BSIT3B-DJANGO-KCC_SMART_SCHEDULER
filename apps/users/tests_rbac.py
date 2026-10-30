@@ -27,40 +27,21 @@ User = get_user_model()
 WRITE_ENDPOINTS = [
     'building:building_save_ajax',
     'building:building_delete_ajax',
-    'building:building_import_excel',
     'program:program_save_ajax',
     'program:program_delete_ajax',
-    'program:program_import_excel',
     'rooms:room_save_ajax',
     'rooms:room_delete_ajax',
-    'rooms:room_import_excel',
     'schedule:schedule_save_ajax',
     'schedule:schedule_batch_save_ajax',
     'schedule:schedule_delete_ajax',
-    'schedule:schedule_import_excel',
     'section:section_save_ajax',
     'section:section_delete_ajax',
-    'section:section_import_excel',
     'subject:subject_save_ajax',
     'subject:subject_delete_ajax',
-    'subject:subject_import_excel',
     'faculty:faculty_save_ajax',
     'faculty:faculty_delete_ajax',
-    'faculty:faculty_import_excel',
     'users:user_save_ajax',
     'users:user_delete_ajax',
-    'users:user_import_excel',
-]
-
-EXPORT_ENDPOINTS = [
-    'building:building_export_excel',
-    'program:program_export_excel',
-    'rooms:room_export_excel',
-    'schedule:schedule_export_excel',
-    'section:section_export_excel',
-    'subject:subject_export_excel',
-    'faculty:faculty_export_excel',
-    'users:user_export_excel',
 ]
 
 # Pages every signed-in user may read.
@@ -211,27 +192,6 @@ class WriteEndpointAccessTests(RoleTestMixin, TestCase):
         self.assertFalse(Building.objects.filter(code='RBAC_NEW').exists())
 
 
-class ExportAccessTests(RoleTestMixin, TestCase):
-    """Exports are admin-only and redirect browsers back to the dashboard."""
-
-    def setUp(self):
-        self.student = self.make_user('rbac_export_student', 'student')
-        self.admin = self.make_user('rbac_export_admin', 'admin')
-
-    def test_student_is_redirected_away_from_every_export(self):
-        for url_name in EXPORT_ENDPOINTS:
-            with self.subTest(endpoint=url_name):
-                response = self.call(self.student, 'get', url_name)
-                self.assertEqual(response.status_code, 302)
-                self.assertEqual(response.url, reverse('dashboard'))
-
-    def test_admin_can_export(self):
-        for url_name in EXPORT_ENDPOINTS:
-            with self.subTest(endpoint=url_name):
-                response = self.call(self.admin, 'get', url_name)
-                self.assertEqual(response.status_code, 200)
-
-
 class ReadAccessTests(RoleTestMixin, TestCase):
     """Every signed-in role keeps read access to the list pages."""
 
@@ -333,17 +293,6 @@ class TemplateGatingTests(RoleTestMixin, TestCase):
         response = self.call(self.student, 'get', 'building:building_list')
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b'data-mode="create"', response.content)
-
-    def test_student_does_not_see_export_or_import_buttons(self):
-        response = self.call(self.student, 'get', 'building:building_list')
-        # The button markup, not the JavaScript that references these URLs.
-        self.assertNotIn(b'export/excel/', response.content)
-        self.assertNotIn(b'data-bs-target="#buildingImportModal"', response.content)
-
-    def test_admin_sees_export_and_import_buttons(self):
-        response = self.call(self.admin, 'get', 'building:building_list')
-        self.assertIn(b'export/excel/', response.content)
-        self.assertIn(b'data-bs-target="#buildingImportModal"', response.content)
 
     def test_student_does_not_see_the_actions_column(self):
         response = self.call(self.student, 'get', 'building:building_list')

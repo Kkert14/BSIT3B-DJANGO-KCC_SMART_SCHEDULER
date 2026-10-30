@@ -121,53 +121,6 @@
     });
   });
 
-  // Import Excel
-  const importForm = document.getElementById('programImportForm');
-  const importError = document.getElementById('programImportError');
-  const importResult = document.getElementById('programImportResult');
-  const importBtn = document.getElementById('programImportBtn');
-
-  if (importForm) {
-    importForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const formData = new FormData(importForm);
-      importBtn.disabled = true;
-      importError.classList.add('d-none');
-      importResult.classList.add('d-none');
-      importError.textContent = '';
-      importResult.textContent = '';
-
-      fetch('{% url "program:program_import_excel" %}', {
-        method: 'POST',
-        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
-        body: formData
-      })
-      .then(response => response.json())
-      .then(data => {
-        importBtn.disabled = false;
-        if (data.error) {
-          importError.textContent = data.error;
-          importError.classList.remove('d-none');
-          return;
-        }
-        importResult.innerHTML = '<strong>Import complete!</strong> Created: ' + data.created;
-        if (data.errors && data.errors.length) {
-          importResult.innerHTML += '<br><strong>Errors:</strong><br>' + data.errors.join('<br>');
-        }
-        importResult.classList.remove('d-none');
-        setTimeout(() => {
-          bootstrap.Modal.getInstance(document.getElementById('programImportModal')).hide();
-          window.location.reload();
-        }, 2000);
-      })
-      .catch(() => {
-        importBtn.disabled = false;
-        importError.textContent = 'Something went wrong.';
-        importError.classList.remove('d-none');
-      });
-    });
-  }
-
   // Program curriculum modal
   const coursesModalEl = document.getElementById('programCoursesModal');
   const coursesBody = document.getElementById('programCoursesBody');

@@ -3,7 +3,7 @@
 # Python version: 3.11 or 3.12
 #   Django 5.0 supports Python 3.10-3.12 only. Python 3.13+ breaks the
 #   template context copy in django/test/client.py, which makes the test
-#   client unusable. See scripts/ for the manual smoke checks.
+#   client unusable.
 #
 # Database: MySQL 8.0.11+ / MariaDB 10.4+
 #   Django 5.1+ requires MariaDB 10.5+, so 5.0.x is the newest release that

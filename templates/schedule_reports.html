@@ -1,0 +1,279 @@
+{% extends 'theme/base.html' %}
+{% block title %}Schedule reports · Smart Scheduler{% endblock %}
+
+{% block content %}
+<div class="ss-page-head">
+  <div>
+    <div class="ss-ov">Scheduling</div>
+    <h1 class="ss-page-title">Schedule reports</h1>
+    <p class="ss-sub">{% if is_teacher_view %}Your weekly teaching load — ready to print or export.{% else %}Master lists, section timetables and faculty loads — ready to print or export.{% endif %}</p>
+  </div>
+  <div class="ss-actions">
+    <a class="ss-btn" href="{% url 'schedule:schedule_list' %}"><i class="fa-solid fa-arrow-left"></i> Back to schedules</a>
+    <button type="button" class="ss-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print</button>
+    <a class="ss-btn primary" href="{% url 'schedule:schedule_reports_export' %}?{{ query_string }}"><i class="fa-solid fa-file-excel"></i> Export Excel</a>
+  </div>
+</div>
+
+<form class="ss-toolbar ss-reports-toolbar" method="get">
+  <label class="ss-filter" style="flex:0 1 170px; min-width:0;">
+    <small>Report</small>
+    {% if is_teacher_view %}
+      <select disabled><option>My schedule</option></select>
+    {% else %}
+      <select name="report" onchange="this.form.submit()">
+        {% for value, label in report_types %}
+          <option value="{{ value }}" {% if report == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    {% endif %}
+  </label>
+  <label class="ss-filter" style="flex:0 1 135px; min-width:0;">
+    <small>Academic year</small>
+    <select name="year" onchange="this.form.submit()">
+      <option value="">All academic years</option>
+      {% for cur in curricula %}
+        <option value="{{ cur.id }}" {% if filter_year == cur.id|stringformat:'s' %}selected{% endif %}>A.Y. {{ cur.academic_year }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="ss-filter" style="flex:0 1 110px; min-width:0;">
+    <small>Semester</small>
+    <select name="semester" onchange="this.form.submit()">
+      <option value="">All semesters</option>
+      {% for value, label in semester_filter_choices %}
+        <option value="{{ value }}" {% if filter_semester == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% if report == 'master' or report == 'timetable' %}
+  <label class="ss-filter" style="flex:0 1 180px; min-width:0;">
+    <small>Program</small>
+    <select name="program" onchange="this.form.submit()">
+      <option value="">All programs</option>
+      {% for p in programs %}
+        <option value="{{ p.id }}" {% if filter_program == p.id|stringformat:'s' %}selected{% endif %}>{{ p.program_code }} — {{ p.program_description }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="ss-filter" style="flex:0 1 110px; min-width:0;">
+    <small>Year level</small>
+    <select name="year_level" onchange="this.form.submit()">
+      <option value="">All year levels</option>
+      {% for value, label in year_level_choices %}
+        <option value="{{ value }}" {% if filter_year_level == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if report == 'timetable' %}
+  <label class="ss-filter" style="flex:0 1 170px; min-width:0;">
+    <small>Section</small>
+    <select name="section" onchange="this.form.submit()">
+      {% for sec in section_choices %}
+        <option value="{{ sec.id }}" {% if filter_section == sec.id|stringformat:'s' %}selected{% endif %}>{{ sec.name }} · {{ sec.program.program_code }}</option>
+      {% empty %}
+        <option value="">No sections</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if report == 'faculty' and not is_teacher_view %}
+  <label class="ss-filter" style="flex:1 1 190px; min-width:0;">
+    <small>Faculty</small>
+    <select name="teacher" onchange="this.form.submit()">
+      <option value="">All faculty</option>
+      {% for t in teachers %}
+        <option value="{{ t.id }}" {% if filter_teacher == t.id|stringformat:'s' %}selected{% endif %}>{{ t.last_name }}, {{ t.first_name }}{% if t.position %} · {{ t.position }}{% endif %}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if can_choose_view %}
+  <label class="ss-filter" style="flex:0 0 110px; min-width:0;">
+    <small>View</small>
+    <select name="view" onchange="this.form.submit()">
+      <option value="table" {% if view == 'table' %}selected{% endif %}>Table</option>
+      <option value="grid" {% if view == 'grid' %}selected{% endif %}>Grid</option>
+    </select>
+  </label>
+  {% endif %}
+  <label class="ss-filter" style="flex:0 0 105px; margin-left:auto; min-width:0;">
+    <small>Time format</small>
+    <select id="reportTimeFormat">
+      <option value="military" {% if time_format != 'standard' %}selected{% endif %}>24-hour</option>
+      <option value="standard" {% if time_format == 'standard' %}selected{% endif %}>12-hour</option>
+    </select>
+  </label>
+</form>
+
+{% if has_any or show_load_summary %}
+<div class="report-sheets">
+  {% for sheet in sheets %}
+  <section class="report-sheet">
+    <header class="report-sheet-head">
+      <div>
+        <div class="report-brand"><i class="fa-solid fa-calendar-days"></i> Smart Scheduler</div>
+        <h2>{{ sheet.title }}</h2>
+        <p class="report-scope">{{ sheet.scope }}</p>
+      </div>
+      <div class="report-meta">
+        <div><b>Term</b><span>{{ term_label }}</span></div>
+        <div><b>Generated</b><span>{{ generated_at|date:"M d, Y H:i" }}</span></div>
+        <div><b>Blocks</b><span>{{ sheet.totals.blocks }}</span></div>
+        <div><b>Total hours</b><span>{{ sheet.totals.total_display }}h</span></div>
+      </div>
+    </header>
+
+    {% if view == 'grid' and sheet.grid.has_events %}
+      <div class="report-grid-wrap">
+        <table class="report-grid">
+          <thead>
+            <tr>
+              <th class="t">TIME</th>
+              {% for day_num, day_name in sheet.grid.days %}<th>{{ day_name }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sheet.grid.rows %}
+              <tr>
+                <td class="t">{{ row.start }}</td>
+                {% for cell in row.cells %}
+                  {% if cell.kind == 'skip' %}
+                  {% elif cell.kind == 'event' %}
+                    <td class="has-ev" rowspan="{{ cell.rowspan }}">
+                      <div class="report-event{% if cell.schedule.class_type == 'Laboratory' %} lab{% endif %}">
+                        <b>{{ cell.schedule.subject.code }}</b>
+                        <span>{{ cell.schedule.section.name }}</span>
+                        {% if sheet.show_teacher %}<span>{{ cell.schedule.teacher.last_name }}</span>{% endif %}
+                        <span>{{ cell.schedule.room.building.code }} {{ cell.schedule.room.room_name }}</span>
+                      </div>
+                    </td>
+                  {% else %}
+                    <td></td>
+                  {% endif %}
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Time</th>
+            <th>Course</th>
+            <th>Type</th>
+            <th>Section</th>
+            {% if sheet.show_teacher %}<th>Faculty</th>{% endif %}
+            <th>Room</th>
+            <th class="num">Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in sheet.rows %}
+            <tr>
+              <td>{{ r.day }}</td>
+              <td class="nowrap">{{ r.start }} – {{ r.end }}</td>
+              <td><b>{{ r.subject_code }}</b> <span class="muted">{{ r.subject_name }}</span></td>
+              <td><span class="ss-type{% if r.is_lab %} lab{% endif %}">{{ r.class_type }}</span></td>
+              <td>{{ r.section }} <span class="muted">{{ r.program }}</span></td>
+              {% if sheet.show_teacher %}<td>{{ r.teacher }}</td>{% endif %}
+              <td class="muted">{{ r.room }}</td>
+              <td class="num">{{ r.hours_display }}h</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="{% if sheet.show_teacher %}8{% else %}7{% endif %}" class="report-empty-cell">No classes match these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+        {% if sheet.rows %}
+        <tfoot>
+          <tr>
+            <td colspan="{% if sheet.show_teacher %}7{% else %}6{% endif %}" class="num">Total — {{ sheet.totals.blocks }} block(s), {{ sheet.totals.courses }} course(s)</td>
+            <td class="num">{{ sheet.totals.total_display }}h</td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  {% if show_load_summary %}
+  <section class="report-sheet">
+    <header class="report-sheet-head">
+      <div>
+        <div class="report-brand"><i class="fa-solid fa-user-group"></i> Smart Scheduler</div>
+        <h2>Faculty load summary</h2>
+        <p class="report-scope">{{ term_label }} · All faculty</p>
+      </div>
+      <div class="report-meta">
+        <div><b>Generated</b><span>{{ generated_at|date:"M d, Y H:i" }}</span></div>
+        <div><b>Faculty</b><span>{{ load_rows|length }}</span></div>
+        <div><b>Blocks</b><span>{{ load_totals.blocks }}</span></div>
+        <div><b>Total hours</b><span>{{ load_totals.total_display }}h</span></div>
+      </div>
+    </header>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Faculty</th>
+          <th>Employee no.</th>
+          <th>Position</th>
+          <th class="num">Blocks</th>
+          <th class="num">Courses</th>
+          <th class="num">Lecture</th>
+          <th class="num">Laboratory</th>
+          <th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in load_rows %}
+          <tr>
+            <td><b>{{ row.name }}</b></td>
+            <td class="muted">{{ row.employee_number }}</td>
+            <td class="muted">{{ row.position }}</td>
+            <td class="num">{{ row.blocks }}</td>
+            <td class="num">{{ row.courses }}</td>
+            <td class="num">{{ row.lecture_display }}h</td>
+            <td class="num">{{ row.lab_display }}h</td>
+            <td class="num"><b>{{ row.total_display }}h</b></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="report-empty-cell">No active faculty yet.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if load_rows %}
+      <tfoot>
+        <tr>
+          <td colspan="3" class="num">Total</td>
+          <td class="num">{{ load_totals.blocks }}</td>
+          <td class="num">{{ load_totals.courses }}</td>
+          <td class="num">{{ load_totals.lecture_display }}h</td>
+          <td class="num">{{ load_totals.lab_display }}h</td>
+          <td class="num">{{ load_totals.total_display }}h</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </section>
+  {% endif %}
+</div>
+{% else %}
+<div class="ss-empty">No classes match these filters. Adjust the term, program or section to build a report.</div>
+{% endif %}
+
+<script>
+  (function () {
+    var timeFormat = document.getElementById('reportTimeFormat');
+    if (timeFormat) {
+      timeFormat.addEventListener('change', function () {
+        document.cookie = 'time_format=' + timeFormat.value + '; path=/; max-age=31536000';
+        timeFormat.form.submit();
+      });
+    }
+  })();
+</script>
+{% endblock %}

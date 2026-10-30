@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -14,15 +14,6 @@ from apps.curriculum.views import curriculum_list_context
 from apps.subject.models import Subject
 from apps.subject.views import subject_list_context
 from apps.users.decorators import admin_required, admin_required_api, is_admin
-from apps.utils.import_export import (
-    excel_to_dict_list,
-    get_str,
-    get_value,
-    parse_bool,
-    parse_time,
-    queryset_to_excel,
-    workbook_to_response,
-)
 
 
 PROGRAM_TABS = ('programs', 'curriculum', 'courses')
@@ -258,67 +249,6 @@ def program_save_ajax(request):
         'major': program.major,
         'department': program.department,
         'is_active': program.is_active,
-    })
-
-
-@login_required(login_url='login')
-@admin_required
-def program_export_excel(request):
-    programs = Program.objects.all().order_by('program_code')
-    wb = queryset_to_excel(
-        programs,
-        ['program_code', 'program_description', 'major', 'department', 'is_active'],
-        sheet_name='Programs',
-        title='Programs Export',
-    )
-    return workbook_to_response(wb, 'programs_export.xlsx')
-
-
-@admin_required_api
-@login_required(login_url='login')
-@require_POST
-def program_import_excel(request):
-    if 'file' not in request.FILES:
-        return JsonResponse({'error': 'No file uploaded.'}, status=400)
-
-    uploaded_file = request.FILES['file']
-    try:
-        data = excel_to_dict_list(uploaded_file.read())
-    except Exception as e:
-        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
-
-    created = 0
-    errors = []
-    for idx, row in enumerate(data, start=2):
-        program_code = get_str(row, 'program_code')
-        program_description = get_str(row, 'program_description')
-        major = get_str(row, 'major')
-        department = get_str(row, 'department')
-        is_active = parse_bool(get_value(row, 'is_active'))
-
-        if not program_code or not program_description:
-            errors.append(f'Row {idx}: program_code and program_description are required.')
-            continue
-
-        try:
-            program, created_flag = Program.objects.update_or_create(
-                program_code=program_code,
-                defaults={
-                    'program_description': program_description,
-                    'major': major,
-                    'department': department,
-                    'is_active': is_active,
-                },
-            )
-            if created_flag:
-                created += 1
-        except Exception as e:
-            errors.append(f'Row {idx}: {str(e)}')
-
-    return JsonResponse({
-        'status': 'success',
-        'created': created,
-        'errors': errors,
     })
 
 

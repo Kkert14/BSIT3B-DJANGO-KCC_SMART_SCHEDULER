@@ -10,7 +10,7 @@ Two flavours of guard are provided:
     dashboard with an explanatory message.
 
 ``api_role_required``
-    For JSON endpoints (``*_ajax`` / ``*_import_excel``). A user without the
+    For JSON endpoints (``*_ajax``). A user without the
     required role receives a JSON ``403`` instead of a redirect, so the
     front-end ``fetch()`` handlers can surface the error instead of choking on
     an HTML response.

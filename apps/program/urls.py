@@ -14,6 +14,4 @@ urlpatterns = [
     ),
     path('ajax/save/', views.program_save_ajax, name='program_save_ajax'),
     path('ajax/delete/<int:pk>/', views.program_delete_ajax, name='program_delete_ajax'),
-    path('export/excel/', views.program_export_excel, name='program_export_excel'),
-    path('import/excel/', views.program_import_excel, name='program_import_excel'),
 ]

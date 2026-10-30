@@ -10,15 +10,6 @@ from django.db import IntegrityError
 
 from .models import Faculty
 from apps.users.decorators import admin_required, admin_required_api
-from apps.utils.import_export import (
-    excel_to_dict_list,
-    get_str,
-    get_value,
-    parse_bool,
-    parse_time,
-    queryset_to_excel,
-    workbook_to_response,
-)
 
 User = get_user_model()
 
@@ -167,82 +158,6 @@ def faculty_save_ajax(request):
         'email': faculty_member.email,
         'position': faculty_member.position,
         'is_active': faculty_member.is_active,
-    })
-
-
-@login_required(login_url='login')
-@admin_required
-def faculty_export_excel(request):
-    faculty_qs = Faculty.objects.select_related('user').all().order_by('employee_number')
-    wb = queryset_to_excel(
-        faculty_qs,
-        [
-            'employee_number', 'first_name', 'last_name', 'email', 'position',
-            'user__username', 'is_active',
-        ],
-        sheet_name='Faculty',
-        title='Faculty Export',
-    )
-    return workbook_to_response(wb, 'faculty_export.xlsx')
-
-
-@admin_required_api
-@login_required(login_url='login')
-@require_POST
-def faculty_import_excel(request):
-    if 'file' not in request.FILES:
-        return JsonResponse({'error': 'No file uploaded.'}, status=400)
-
-    uploaded_file = request.FILES['file']
-    try:
-        data = excel_to_dict_list(uploaded_file.read())
-    except Exception as e:
-        return JsonResponse({'error': f'Failed to read file: {str(e)}'}, status=400)
-
-    created = 0
-    errors = []
-    for idx, row in enumerate(data, start=2):
-        employee_number = get_str(row, 'employee_number')
-        first_name = get_str(row, 'first_name')
-        last_name = get_str(row, 'last_name')
-        email = get_str(row, 'email')
-        position = get_str(row, 'position')
-        username = get_str(row, 'user__username')
-        is_active = parse_bool(get_value(row, 'is_active'))
-
-        if not employee_number or not first_name or not last_name:
-            errors.append(f'Row {idx}: employee_number, first_name, and last_name are required.')
-            continue
-
-        user = None
-        if username:
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                errors.append(f'Row {idx}: user with username "{username}" not found.')
-                continue
-
-        try:
-            faculty_member, created_flag = Faculty.objects.update_or_create(
-                employee_number=employee_number,
-                defaults={
-                    'user': user,
-                    'first_name': first_name,
-                    'last_name': last_name,
-                    'email': email,
-                    'position': position,
-                    'is_active': is_active,
-                },
-            )
-            if created_flag:
-                created += 1
-        except Exception as e:
-            errors.append(f'Row {idx}: {str(e)}')
-
-    return JsonResponse({
-        'status': 'success',
-        'created': created,
-        'errors': errors,
     })
 
 
