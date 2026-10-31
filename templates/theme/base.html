@@ -1,11 +1,17 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"{% if appearance %} data-bs-theme="{{ appearance.theme }}" style="--ss-blue: {{ appearance.accent }}; --tblr-primary: {{ appearance.accent }}; --tblr-primary-rgb: {{ appearance.accent_rgb }}; --ss-font: {{ appearance.font_stack }};"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>{% block title %}Smart Scheduler{% endblock %}</title>
+
+  {% if appearance.font == 'inter' or appearance.font == 'poppins' %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family={% if appearance.font == 'inter' %}Inter{% else %}Poppins{% endif %}:wght@400;500;600;700&display=swap" rel="stylesheet">
+  {% endif %}
 
   <!-- Tabler keeps the existing list/form components working inside the new shell -->
   <link href="{% static 'css/tabler.css' %}" rel="stylesheet">

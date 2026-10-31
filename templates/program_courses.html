@@ -10,9 +10,11 @@
       {{ program.program_description }}{% if program.major %} · {{ program.major }}{% endif %}{% if program.department %} · {{ program.department }}{% endif %}
     </p>
   </div>
-  <a href="{% url 'program:program_list' %}" class="btn btn-ghost-secondary ms-auto">
-    <i class="fa-solid fa-arrow-left me-2"></i>Back to Programs
-  </a>
+  <div class="ss-actions">
+    <a class="ss-btn" href="{% url 'program:program_list' %}">
+      <i class="fa-solid fa-arrow-left"></i> Back to Programs
+    </a>
+  </div>
 </div>
 
 <div class="toast-container position-fixed top-0 end-0 p-3" aria-live="polite" aria-atomic="true">

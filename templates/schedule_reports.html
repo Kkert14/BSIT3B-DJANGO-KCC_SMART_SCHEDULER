@@ -31,24 +31,10 @@
 <form class="ss-toolbar ss-reports-toolbar" method="get">
   {% if report %}<input type="hidden" name="report" value="{{ report }}">{% endif %}
   {% if filter_teacher and not is_teacher_view %}<input type="hidden" name="teacher" value="{{ filter_teacher }}">{% endif %}
-  <label class="ss-filter" style="flex:0 1 135px; min-width:0;">
-    <small>Academic year</small>
-    <select name="year" onchange="this.form.submit()">
-      <option value="">All academic years</option>
-      {% for cur in curricula %}
-        <option value="{{ cur.id }}" {% if filter_year == cur.id|stringformat:'s' %}selected{% endif %}>A.Y. {{ cur.academic_year }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label class="ss-filter" style="flex:0 1 110px; min-width:0;">
-    <small>Semester</small>
-    <select name="semester" onchange="this.form.submit()">
-      <option value="">All semesters</option>
-      {% for value, label in semester_filter_choices %}
-        <option value="{{ value }}" {% if filter_semester == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </label>
+  <span class="ss-term">
+    <i class="fa-regular fa-calendar"></i>
+    {% if active_semester %}A.Y. {{ active_semester.curriculum.academic_year }} · {{ active_semester.short_label }}{% else %}No active term{% endif %}
+  </span>
   {% if report == 'master' or report == 'timetable' %}
   <label class="ss-filter" style="flex:0 1 180px; min-width:0;">
     <small>Program</small>
@@ -304,7 +290,7 @@
     {% endif %}
   </div>
   {% else %}
-  <div class="ss-empty">No classes match these filters. Adjust the term, program or section to build a report.</div>
+  <div class="ss-empty">{% if active_semester %}No classes match these filters. Adjust the program, year level or section to build a report.{% else %}No active term selected. Pick a curriculum year and semester in the top bar first.{% endif %}</div>
   {% endif %}
 
   {% if report == 'faculty' and not is_teacher_view %}

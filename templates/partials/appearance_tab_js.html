@@ -1,0 +1,159 @@
+<script>
+  (function () {
+    var form = document.getElementById('appearanceForm');
+    if (!form) return;
+
+    var root = document.documentElement;
+    var accentInput = document.getElementById('appearanceAccent');
+    var colorInput = document.getElementById('appearanceColor');
+    var fontSelect = document.getElementById('appearanceFont');
+    var accentValue = document.getElementById('appearanceAccentValue');
+    var accentChip = document.getElementById('appearanceAccentChip');
+    var statusEl = document.getElementById('appearanceStatus');
+    var revertBtn = document.getElementById('appearanceRevert');
+    var saveBtn = document.getElementById('appearanceSave');
+    var swatches = Array.prototype.slice.call(document.querySelectorAll('.ss-swatch'));
+    var loadedFonts = {};
+
+    var saved = {
+      theme: form.getAttribute('data-theme'),
+      accent: form.getAttribute('data-accent'),
+      font: form.getAttribute('data-font')
+    };
+
+    function hexToRgb(hex) {
+      var clean = (hex || '#2b8be6').replace('#', '');
+      if (clean.length !== 6) clean = '2b8be6';
+      var channels = [clean.slice(0, 2), clean.slice(2, 4), clean.slice(4, 6)];
+      return channels.map(function (part) {
+        return parseInt(part, 16);
+      }).join(', ');
+    }
+
+    function stackFor(font) {
+      var option = fontSelect.querySelector('option[value="' + font + '"]');
+      return option ? option.getAttribute('data-stack') : '';
+    }
+
+    function currentTheme() {
+      var checked = form.querySelector('input[name="theme"]:checked');
+      return checked ? checked.value : 'light';
+    }
+
+    function ensureFont(font) {
+      if (font !== 'inter' && font !== 'poppins') return;
+      if (loadedFonts[font]) return;
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=' +
+        (font === 'inter' ? 'Inter' : 'Poppins') + ':wght@400;500;600;700&display=swap';
+      document.head.appendChild(link);
+      loadedFonts[font] = true;
+    }
+
+    function apply(theme, accent, font) {
+      root.setAttribute('data-bs-theme', theme);
+      root.style.setProperty('--ss-blue', accent);
+      root.style.setProperty('--tblr-primary', accent);
+      root.style.setProperty('--tblr-primary-rgb', hexToRgb(accent));
+      root.style.setProperty('--ss-font', stackFor(font));
+    }
+
+    function isDirty() {
+      return currentTheme() !== saved.theme ||
+        accentInput.value !== saved.accent ||
+        fontSelect.value !== saved.font;
+    }
+
+    function markDirty() {
+      revertBtn.disabled = !isDirty();
+    }
+
+    function setStatus(text, tone, icon) {
+      statusEl.className = 'ss-appearance-status' + (tone ? ' ' + tone : '');
+      statusEl.innerHTML = '<i class="fa-solid ' + icon + '" aria-hidden="true"></i> ' + text;
+    }
+
+    function setAccent(accent) {
+      accent = (accent || '').toLowerCase();
+      accentInput.value = accent;
+      accentValue.textContent = accent;
+      accentChip.style.background = accent;
+      colorInput.value = accent;
+      swatches.forEach(function (swatch) {
+        swatch.classList.toggle('on', swatch.getAttribute('data-accent') === accent);
+      });
+      apply(currentTheme(), accent, fontSelect.value);
+      markDirty();
+    }
+
+    swatches.forEach(function (swatch) {
+      swatch.addEventListener('click', function () {
+        setAccent(swatch.getAttribute('data-accent'));
+      });
+    });
+
+    colorInput.addEventListener('input', function () {
+      setAccent(colorInput.value);
+    });
+
+    Array.prototype.forEach.call(form.querySelectorAll('input[name="theme"]'), function (radio) {
+      radio.addEventListener('change', function () {
+        apply(currentTheme(), accentInput.value, fontSelect.value);
+        markDirty();
+      });
+    });
+
+    fontSelect.addEventListener('change', function () {
+      ensureFont(fontSelect.value);
+      apply(currentTheme(), accentInput.value, fontSelect.value);
+      markDirty();
+    });
+
+    revertBtn.addEventListener('click', function () {
+      Array.prototype.forEach.call(form.querySelectorAll('input[name="theme"]'), function (radio) {
+        radio.checked = radio.value === saved.theme;
+      });
+      fontSelect.value = saved.font;
+      setAccent(saved.accent);
+      markDirty();
+      setStatus('Reverted to the saved appearance.', '', 'fa-circle-info');
+    });
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      saveBtn.disabled = true;
+      setStatus('Saving…', '', 'fa-spinner fa-spin');
+
+      fetch("{% url 'curriculum:appearance_save' %}", {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new URLSearchParams({
+          theme: currentTheme(),
+          accent: accentInput.value,
+          font: fontSelect.value
+        })
+      }).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok) throw new Error(data.error || 'Could not save the appearance settings.');
+          return data;
+        });
+      }).then(function (data) {
+        saved = { theme: data.theme, accent: data.accent, font: data.font };
+        form.setAttribute('data-theme', data.theme);
+        form.setAttribute('data-accent', data.accent);
+        form.setAttribute('data-font', data.font);
+        setAccent(data.accent);
+        markDirty();
+        setStatus('Saved — this appearance now applies to everyone.', 'ok', 'fa-circle-check');
+      }).catch(function (error) {
+        setStatus(error.message, 'error', 'fa-triangle-exclamation');
+      }).finally(function () {
+        saveBtn.disabled = false;
+      });
+    });
+  })();
+</script>

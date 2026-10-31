@@ -140,6 +140,7 @@ def program_courses_page(request, pk):
     for level in sorted({subject.year_level for subject in subjects}):
         level_subjects = [subject for subject in subjects if subject.year_level == level]
         groups.append({
+            'level': level,
             'label': YEAR_LEVEL_LABELS.get(level, f'{level}th year'),
             'subjects': level_subjects,
             'units': sum((subject.units for subject in level_subjects), 0),

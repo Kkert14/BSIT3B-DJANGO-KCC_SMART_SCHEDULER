@@ -14,7 +14,7 @@ from django.db.models import Q
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.curriculum.models import Curriculum, Semester
+from apps.curriculum.models import Semester
 from apps.faculty.models import Faculty
 from apps.subject.models import Subject
 from apps.section.models import Section
@@ -32,6 +32,15 @@ from apps.users.decorators import (
 GRID_START_MINUTES = 7 * 60
 GRID_END_MINUTES = 21 * 60
 from .models import Schedule
+
+
+def _active_semester():
+    """The term selected in the navbar; schedules always live in it."""
+    return (
+        Semester.objects.select_related('curriculum')
+        .filter(is_active=True, curriculum__is_active=True)
+        .first()
+    )
 
 
 def _parse_time(raw):
@@ -278,19 +287,15 @@ def _parse_schedule_target(request):
     Returns ``(values, error)``. ``values`` maps the target names to their
     model instances and is ``None`` when ``error`` is set.
     """
-    semester_id = request.POST.get('semester', '').strip()
     teacher_id = request.POST.get('teacher', '').strip()
     subject_id = request.POST.get('subject', '').strip()
     section_id = request.POST.get('section', '').strip()
     room_id = request.POST.get('room', '').strip()
     class_type = request.POST.get('class_type', '').strip()
 
-    if not semester_id:
-        return None, 'Semester is required.'
-    try:
-        semester = Semester.objects.get(pk=int(semester_id))
-    except (Semester.DoesNotExist, ValueError, TypeError):
-        return None, 'Invalid semester.'
+    semester = _active_semester()
+    if semester is None:
+        return None, 'Select a curriculum year and semester in the top bar first.'
 
     try:
         teacher = Faculty.objects.get(pk=int(teacher_id))
@@ -300,10 +305,14 @@ def _parse_schedule_target(request):
         subject = Subject.objects.get(pk=int(subject_id))
     except (Subject.DoesNotExist, ValueError, TypeError):
         return None, 'Invalid subject.'
+    if subject.semester_id != semester.id:
+        return None, 'That course is not offered in the active term.'
     try:
         section = Section.objects.get(pk=int(section_id))
     except (Section.DoesNotExist, ValueError, TypeError):
         return None, 'Invalid section.'
+    if section.semester_id != semester.id:
+        return None, 'That section is not in the active term.'
     try:
         room = Room.objects.get(pk=int(room_id))
     except (Room.DoesNotExist, ValueError, TypeError):
@@ -368,28 +377,7 @@ def _parse_schedule_slots(rows):
 
 @login_required(login_url='login')
 def schedule_list_page(request):
-    active_curriculum = Curriculum.objects.filter(is_active=True).first()
-    active_semester = (
-        Semester.objects.select_related('curriculum')
-        .filter(is_active=True, curriculum__is_active=True)
-        .first()
-    )
-
-    year_param = request.GET.get('year')
-    if year_param is None:
-        filter_year = str(active_curriculum.id) if active_curriculum else ''
-    else:
-        filter_year = year_param.strip()
-    if filter_year and not filter_year.isdigit():
-        filter_year = ''
-
-    semester_param = request.GET.get('semester')
-    if semester_param is None:
-        filter_semester = str(active_semester.semester_number) if active_semester else ''
-    else:
-        filter_semester = semester_param.strip()
-    if filter_semester not in {'1', '2', '3'}:
-        filter_semester = ''
+    active_semester = _active_semester()
 
     filter_program = request.GET.get('program', '').strip()
     if filter_program and not filter_program.isdigit():
@@ -401,11 +389,13 @@ def schedule_list_page(request):
     filter_section = request.GET.get('section', '').strip()
     query = request.GET.get('q', '').strip()
 
-    year_level_scope = Section.objects.filter(is_active=True)
-    if filter_year:
-        year_level_scope = year_level_scope.filter(semester__curriculum_id=filter_year)
-    if filter_semester:
-        year_level_scope = year_level_scope.filter(semester__semester_number=filter_semester)
+    term_sections = Section.objects.filter(is_active=True)
+    if active_semester:
+        term_sections = term_sections.filter(semester=active_semester)
+    else:
+        term_sections = term_sections.none()
+
+    year_level_scope = term_sections
     if filter_program:
         year_level_scope = year_level_scope.filter(program_id=filter_program)
     year_level_values = list(
@@ -414,11 +404,7 @@ def schedule_list_page(request):
     if filter_year_level and filter_year_level not in {str(level) for level in year_level_values}:
         filter_year_level = ''
 
-    section_choices = Section.objects.filter(is_active=True).select_related('program')
-    if filter_year:
-        section_choices = section_choices.filter(semester__curriculum_id=filter_year)
-    if filter_semester:
-        section_choices = section_choices.filter(semester__semester_number=filter_semester)
+    section_choices = term_sections.select_related('program')
     if filter_program:
         section_choices = section_choices.filter(program_id=filter_program)
     if filter_year_level:
@@ -432,11 +418,11 @@ def schedule_list_page(request):
     schedules_list = Schedule.objects.select_related(
         'teacher', 'subject', 'section__program', 'room__building', 'semester__curriculum'
     ).order_by('day_of_week', 'start_time')
+    if active_semester:
+        schedules_list = schedules_list.filter(semester=active_semester)
+    else:
+        schedules_list = schedules_list.none()
 
-    if filter_year:
-        schedules_list = schedules_list.filter(semester__curriculum_id=filter_year)
-    if filter_semester:
-        schedules_list = schedules_list.filter(semester__semester_number=filter_semester)
     if filter_program:
         schedules_list = schedules_list.filter(section__program_id=filter_program)
     if filter_year_level:
@@ -450,13 +436,8 @@ def schedule_list_page(request):
             Q(section__name__icontains=query) |
             Q(teacher__first_name__icontains=query) |
             Q(teacher__last_name__icontains=query) |
-            Q(room__room_name__icontains=query) |
-            Q(semester__curriculum__academic_year__icontains=query)
+            Q(room__room_name__icontains=query)
         )
-
-    semesters = Semester.objects.select_related('curriculum').order_by(
-        'curriculum__academic_year', 'semester_number'
-    )
 
     year_level_choices = [
         (level, YEAR_LEVEL_LABELS.get(level, f'{level}th year'))
@@ -525,19 +506,27 @@ def schedule_list_page(request):
         })
 
     teachers = Faculty.objects.filter(is_active=True).order_by('last_name', 'first_name')
-    subjects = Subject.objects.select_related('program', 'semester').order_by('code')
-    sections = Section.objects.filter(is_active=True).select_related(
-        'program', 'semester'
-    ).order_by('name')
+    subjects = Subject.objects.select_related('program').order_by('code')
+    sections = term_sections.select_related('program').order_by('name')
+    if active_semester:
+        subjects = subjects.filter(semester=active_semester)
+    else:
+        subjects = subjects.none()
     rooms = Room.objects.filter(is_active=True).select_related('building').order_by(
         'building__code', 'room_name'
     )
     buildings = Building.objects.order_by('code')
-    programs = Program.objects.order_by('program_code')
-    curricula = Curriculum.objects.order_by('-academic_year')
+    programs = Program.objects.filter(
+        id__in=term_sections.values('program_id')
+    ).order_by('program_code')
 
     hours_map = {}
-    for entry in Schedule.objects.values(
+    term_schedules = Schedule.objects.all()
+    if active_semester:
+        term_schedules = term_schedules.filter(semester=active_semester)
+    else:
+        term_schedules = term_schedules.none()
+    for entry in term_schedules.values(
         'semester_id', 'subject_id', 'section_id', 'class_type', 'start_time', 'end_time'
     ):
         key = f"{entry['semester_id']}|{entry['subject_id']}|{entry['section_id']}|{entry['class_type']}"
@@ -558,7 +547,7 @@ def schedule_list_page(request):
             'label': 'Classes',
             'icon': 'fa-regular fa-calendar-days',
             'value': str(len(grid_schedules)),
-            'note': 'In the current filter',
+            'note': 'In the active term' if active_semester else 'No active term',
         },
         {
             'label': 'Lecture hours',
@@ -592,18 +581,12 @@ def schedule_list_page(request):
         'rooms': rooms,
         'buildings': buildings,
         'programs': programs,
-        'curricula': curricula,
         'stats': stats,
         'hours_map': hours_map,
-        'filter_year': filter_year,
-        'filter_semester': filter_semester,
         'filter_program': filter_program,
         'filter_year_level': filter_year_level,
         'filter_section': filter_section,
-        'semester_filter_choices': Semester.SEMESTER_CHOICES,
         'year_level_choices': year_level_choices,
-        'editor_semester_id': active_semester.id if active_semester else '',
-        'semesters': semesters,
         'active_semester': active_semester,
         'has_grid_events': any(value not in (None, 'skip') for row in slot_cells for value in row),
     })
@@ -612,13 +595,13 @@ def schedule_list_page(request):
 @admin_required_api
 @login_required(login_url='login')
 def schedule_faculty_load_ajax(request):
-    """Return weekly load per faculty for a semester, plus one faculty's blocks."""
-    semester_id = request.GET.get('semester', '').strip()
+    """Return weekly load per faculty for the active term, plus one faculty's blocks."""
+    semester = _active_semester()
     teacher_id = request.GET.get('teacher', '').strip()
-    if not semester_id.isdigit():
+    if semester is None:
         return JsonResponse({'teachers': {}, 'blocks': []})
 
-    schedule_qs = Schedule.objects.filter(semester_id=semester_id)
+    schedule_qs = Schedule.objects.filter(semester=semester)
     teachers = {}
     for entry in schedule_qs.values('teacher_id', 'start_time', 'end_time'):
         item = teachers.setdefault(entry['teacher_id'], {'hours': 0.0, 'count': 0})
@@ -653,9 +636,14 @@ def schedule_faculty_load_ajax(request):
 @login_required(login_url='login')
 def schedule_list_ajax(request):
     query = request.GET.get('q', '').strip()
+    semester = _active_semester()
     schedules_list = Schedule.objects.select_related(
         'teacher', 'subject', 'section', 'room', 'semester__curriculum'
-    ).all()
+    )
+    if semester:
+        schedules_list = schedules_list.filter(semester=semester)
+    else:
+        schedules_list = schedules_list.none()
     if query:
         schedules_list = schedules_list.filter(
             Q(subject__code__icontains=query) |
@@ -663,8 +651,7 @@ def schedule_list_ajax(request):
             Q(section__name__icontains=query) |
             Q(teacher__first_name__icontains=query) |
             Q(teacher__last_name__icontains=query) |
-            Q(room__room_name__icontains=query) |
-            Q(semester__curriculum__academic_year__icontains=query)
+            Q(room__room_name__icontains=query)
         )
     paginator = Paginator(schedules_list, 10)
     page_number = request.GET.get('page', 1)
@@ -1114,30 +1101,7 @@ def _build_report_context(request):
     if report not in REPORT_LABELS:
         report = 'master'
 
-    active_curriculum = Curriculum.objects.filter(is_active=True).first()
-    active_semester = (
-        Semester.objects.select_related('curriculum')
-        .filter(is_active=True, curriculum__is_active=True)
-        .first()
-    )
-
-    year_param = request.GET.get('year')
-    if year_param is None:
-        filter_year = str(active_curriculum.id) if active_curriculum else ''
-    else:
-        filter_year = year_param.strip()
-    if filter_year and not filter_year.isdigit():
-        filter_year = ''
-
-    semester_param = request.GET.get('semester')
-    if semester_param is None:
-        filter_semester = (
-            str(active_semester.semester_number) if active_semester else ''
-        )
-    else:
-        filter_semester = semester_param.strip()
-    if filter_semester not in {'1', '2', '3'}:
-        filter_semester = ''
+    active_semester = _active_semester()
 
     filter_program = request.GET.get('program', '').strip()
     if filter_program and not filter_program.isdigit():
@@ -1149,24 +1113,22 @@ def _build_report_context(request):
     if filter_section and not filter_section.isdigit():
         filter_section = ''
 
-    curriculum_scope = Section.objects.filter(is_active=True)
-    if filter_year:
-        curriculum_scope = curriculum_scope.filter(semester__curriculum_id=filter_year)
-    if filter_semester:
-        curriculum_scope = curriculum_scope.filter(semester__semester_number=filter_semester)
+    term_sections = Section.objects.filter(is_active=True)
+    if active_semester:
+        term_sections = term_sections.filter(semester=active_semester)
+    else:
+        term_sections = term_sections.none()
+
+    year_level_scope = term_sections
     if filter_program:
-        curriculum_scope = curriculum_scope.filter(program_id=filter_program)
+        year_level_scope = year_level_scope.filter(program_id=filter_program)
     year_level_values = list(
-        curriculum_scope.values_list('year_level', flat=True).distinct().order_by('year_level')
+        year_level_scope.values_list('year_level', flat=True).distinct().order_by('year_level')
     )
     if filter_year_level and filter_year_level not in {str(level) for level in year_level_values}:
         filter_year_level = ''
 
-    section_choices = Section.objects.filter(is_active=True).select_related('program')
-    if filter_year:
-        section_choices = section_choices.filter(semester__curriculum_id=filter_year)
-    if filter_semester:
-        section_choices = section_choices.filter(semester__semester_number=filter_semester)
+    section_choices = term_sections.select_related('program')
     if filter_program:
         section_choices = section_choices.filter(program_id=filter_program)
     if filter_year_level:
@@ -1218,10 +1180,10 @@ def _build_report_context(request):
         .order_by('day_of_week', 'start_time', 'section__program__program_code',
                   'section__name')
     )
-    if filter_year:
-        schedules = schedules.filter(semester__curriculum_id=filter_year)
-    if filter_semester:
-        schedules = schedules.filter(semester__semester_number=filter_semester)
+    if active_semester:
+        schedules = schedules.filter(semester=active_semester)
+    else:
+        schedules = schedules.none()
     if filter_program:
         schedules = schedules.filter(section__program_id=filter_program)
     if filter_year_level:
@@ -1239,20 +1201,17 @@ def _build_report_context(request):
     else:
         schedules = base_schedules
 
-    curricula = Curriculum.objects.order_by('-academic_year')
-    programs = Program.objects.order_by('program_code')
-    semesters_by_number = dict(Semester.SEMESTER_CHOICES)
+    programs = Program.objects.filter(
+        id__in=term_sections.values('program_id')
+    ).order_by('program_code')
 
-    year_label = 'All academic years'
-    if filter_year:
-        curriculum_obj = curricula.filter(pk=filter_year).first()
-        if curriculum_obj:
-            year_label = f'A.Y. {curriculum_obj.academic_year}'
-    semester_label = (
-        semesters_by_number.get(int(filter_semester), 'All semesters')
-        if filter_semester else 'All semesters'
-    )
-    term_label = f'{year_label} · {semester_label}'
+    if active_semester:
+        term_label = (
+            f'A.Y. {active_semester.curriculum.academic_year} '
+            f'· {active_semester.short_label}'
+        )
+    else:
+        term_label = 'No active term'
 
     if report == 'timetable':
         selected_section = section_choices.filter(pk=filter_section).first()
@@ -1290,7 +1249,9 @@ def _build_report_context(request):
 
     report_title = REPORT_LABELS[report]
 
-    show_load_summary = report == 'faculty' and selected_teacher is None
+    show_load_summary = (
+        report == 'faculty' and selected_teacher is None and active_semester is not None
+    )
     sheets = []
     load_rows = []
     load_totals = None
@@ -1357,8 +1318,6 @@ def _build_report_context(request):
 
     params = {
         'report': report,
-        'year': filter_year,
-        'semester': filter_semester,
         'program': filter_program,
         'year_level': filter_year_level,
         'section': filter_section,
@@ -1366,11 +1325,10 @@ def _build_report_context(request):
         'view': view,
     }
 
-    common_params = {'year': filter_year, 'semester': filter_semester}
     report_tabs = []
     if role == ROLE_ADMIN:
         for value, label in REPORT_TYPES:
-            tab_params = dict(common_params, report=value)
+            tab_params = {'report': value}
             if value in ('master', 'timetable'):
                 if filter_program:
                     tab_params['program'] = filter_program
@@ -1387,11 +1345,7 @@ def _build_report_context(request):
                     key: val for key, val in tab_params.items() if val
                 }),
             })
-    faculty_base_query = urlencode({
-        key: value for key, value in dict(
-            common_params, report='faculty'
-        ).items() if value
-    })
+    faculty_base_query = urlencode({'report': 'faculty'})
 
     return {
         'report': report,
@@ -1401,15 +1355,12 @@ def _build_report_context(request):
         'faculty_base_query': faculty_base_query,
         'view': view,
         'can_choose_view': report != 'master',
-        'filter_year': filter_year,
-        'filter_semester': filter_semester,
+        'active_semester': active_semester,
         'filter_program': filter_program,
         'filter_year_level': filter_year_level,
         'filter_section': filter_section,
         'filter_teacher': filter_teacher,
-        'curricula': curricula,
         'programs': programs,
-        'semester_filter_choices': Semester.SEMESTER_CHOICES,
         'section_choices': section_choices,
         'year_level_choices': [
             (level, YEAR_LEVEL_LABELS.get(level, f'{level}th year'))

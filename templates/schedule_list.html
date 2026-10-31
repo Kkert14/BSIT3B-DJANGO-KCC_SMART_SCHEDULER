@@ -26,73 +26,23 @@
   {% endfor %}
 </div>
 
-<form class="ss-toolbar" method="get">
-  <label class="ss-filter" style="flex:0 1 135px; min-width:0;">
-    <small>Academic year</small>
-    <select name="year" onchange="this.form.submit()">
-      <option value="">All academic years</option>
-      {% for cur in curricula %}
-        <option value="{{ cur.id }}" {% if filter_year == cur.id|stringformat:'s' %}selected{% endif %}>A.Y. {{ cur.academic_year }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label class="ss-filter" style="flex:0 1 110px; min-width:0;">
-    <small>Semester</small>
-    <select name="semester" onchange="this.form.submit()">
-      <option value="">All semesters</option>
-      {% for value, label in semester_filter_choices %}
-        <option value="{{ value }}" {% if filter_semester == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label class="ss-filter" style="flex:0 1 180px; min-width:0;">
-    <small>Program</small>
-    <select name="program" onchange="this.form.submit()">
-      <option value="">All programs</option>
-      {% for p in programs %}
-        <option value="{{ p.id }}" {% if filter_program == p.id|stringformat:'s' %}selected{% endif %}>{{ p.program_code }} — {{ p.program_description }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label class="ss-filter" style="flex:0 1 132px; min-width:0;">
-    <small>Year level</small>
-    <select name="year_level" onchange="this.form.submit()">
-      <option value="">All year levels</option>
-      {% for value, label in year_level_choices %}
-        <option value="{{ value }}" {% if filter_year_level == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label class="ss-filter" style="flex:0 1 145px; min-width:0;">
-    <small>Section</small>
-    <select name="section" onchange="this.form.submit()">
-      <option value="">All sections</option>
-      {% for sec in section_choices %}
-        <option value="{{ sec.id }}" {% if filter_section == sec.id|stringformat:'s' %}selected{% endif %}>{{ sec.name }} · {{ sec.program.program_code }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label class="ss-filter" style="flex:1 1 180px; min-width:0;">
-    <small>Search</small>
-    <input type="search" name="q" value="{{ query }}" placeholder="Course, faculty, room…" onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.form.submit(); }">
-  </label>
-  <label class="ss-filter" style="flex:0 0 105px; margin-left:auto; min-width:0;">
-    <small>Time format</small>
-    <select id="timeFormatSelect">
-      <option value="military" {% if request.COOKIES.time_format != 'standard' %}selected{% endif %}>24-hour</option>
-      <option value="standard" {% if request.COOKIES.time_format == 'standard' %}selected{% endif %}>12-hour</option>
-    </select>
-  </label>
-</form>
+{% if can_manage and not active_semester %}
+<section class="ss-card ss-wk" style="padding:16px;">
+  <div class="ss-alert warn">
+    <b>No active term</b>
+    Pick a curriculum year and semester in the top bar to manage schedules.
+  </div>
+</section>
+{% endif %}
 
-{% if can_manage %}
+{% if can_manage and active_semester %}
 <section class="ss-card ss-wk ss-editor" id="scheduleEditor">
   <div class="ss-wk-head">
     <div class="ss-wk-title">
       <div class="ss-wk-ico"><i class="fa-solid fa-pen-to-square"></i></div>
       <div>
         <h3 id="editorTitle">New schedule</h3>
-        <p class="ss-sub" id="editorSub">Set the term and section, choose the course and room, then build the weekly blocks.</p>
+        <p class="ss-sub" id="editorSub">Pick the section, choose the course and room, then build the weekly blocks.</p>
       </div>
     </div>
   </div>
@@ -104,27 +54,12 @@
     <div class="ss-editor-body">
       <div class="ss-form-grid">
         <section class="ss-form-sec">
-          <div class="ss-form-k"><span>1</span><h2>Term &amp; section</h2><small>Academic year, semester and program</small></div>
+          <div class="ss-form-k"><span>1</span><h2>Section</h2><small>Program and section in the active term</small></div>
 
-          <div class="ss-row">
-            <div class="ss-field">
-              <label for="f_curriculum">Academic year</label>
-              <select class="ss-input" id="f_curriculum">
-                <option value="">Select…</option>
-                {% for cur in curricula %}
-                  <option value="{{ cur.id }}">A.Y. {{ cur.academic_year }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="ss-field">
-              <label for="f_semester">Semester</label>
-              <select class="ss-input" id="f_semester" name="semester">
-                <option value="">Select…</option>
-                {% for sem in semesters %}
-                  <option value="{{ sem.id }}" data-curriculum="{{ sem.curriculum_id }}">{{ sem.get_semester_number_display }}</option>
-                {% endfor %}
-              </select>
-            </div>
+          <div class="ss-editor-term">
+            <i class="fa-regular fa-calendar"></i>
+            <b>A.Y. {{ active_semester.curriculum.academic_year }} · {{ active_semester.short_label }}</b>
+            <span>Active term</span>
           </div>
 
           <div class="ss-row">
@@ -142,7 +77,7 @@
               <select class="ss-input" id="f_section" name="section" disabled>
                 <option value="">Select a program first</option>
                 {% for sec in sections %}
-                  <option value="{{ sec.id }}" data-program="{{ sec.program_id }}" data-semester="{{ sec.semester_id }}">{{ sec.name }}</option>
+                  <option value="{{ sec.id }}" data-program="{{ sec.program_id }}">{{ sec.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -158,7 +93,7 @@
               <select class="ss-input" id="f_subject" name="subject">
                 <option value="">Select course…</option>
                 {% for subject in subjects %}
-                  <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-semester="{{ subject.semester_id }}" data-lecture="{{ subject.lecture_hours }}" data-lab-hours="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}</option>
+                  <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-lecture="{{ subject.lecture_hours }}" data-lab-hours="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -262,6 +197,47 @@
     </div>
   </div>
 
+  <form class="ss-toolbar ss-grid-filters" method="get">
+    <label class="ss-filter" style="flex:0 1 180px; min-width:0;">
+      <small>Program</small>
+      <select name="program" onchange="this.form.submit()">
+        <option value="">All programs</option>
+        {% for p in programs %}
+          <option value="{{ p.id }}" {% if filter_program == p.id|stringformat:'s' %}selected{% endif %}>{{ p.program_code }} — {{ p.program_description }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="ss-filter" style="flex:0 1 132px; min-width:0;">
+      <small>Year level</small>
+      <select name="year_level" onchange="this.form.submit()">
+        <option value="">All year levels</option>
+        {% for value, label in year_level_choices %}
+          <option value="{{ value }}" {% if filter_year_level == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="ss-filter" style="flex:0 1 145px; min-width:0;">
+      <small>Section</small>
+      <select name="section" onchange="this.form.submit()">
+        <option value="">All sections</option>
+        {% for sec in section_choices %}
+          <option value="{{ sec.id }}" {% if filter_section == sec.id|stringformat:'s' %}selected{% endif %}>{{ sec.name }} · {{ sec.program.program_code }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="ss-filter" style="flex:1 1 180px; min-width:0;">
+      <small>Search</small>
+      <input type="search" name="q" value="{{ query }}" placeholder="Course, faculty, room…" onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.form.submit(); }">
+    </label>
+    <label class="ss-filter" style="flex:0 0 105px; margin-left:auto; min-width:0;">
+      <small>Time format</small>
+      <select id="timeFormatSelect">
+        <option value="military" {% if request.COOKIES.time_format != 'standard' %}selected{% endif %}>24-hour</option>
+        <option value="standard" {% if request.COOKIES.time_format == 'standard' %}selected{% endif %}>12-hour</option>
+      </select>
+    </label>
+  </form>
+
   <div id="viewGrid">
     <div class="ss-wk-scroll">
       <table class="ss-wk-table">
@@ -282,7 +258,6 @@
                     <button type="button" class="ss-ev-sm{% if cell.schedule.class_type == 'Laboratory' %} lab{% endif %}{% if can_manage %} js-edit{% endif %}"
                             {% if not can_manage %}disabled{% endif %}
                             data-id="{{ cell.schedule.id }}"
-                            data-semester="{{ cell.schedule.semester_id }}"
                             data-teacher="{{ cell.schedule.teacher_id }}"
                             data-subject="{{ cell.schedule.subject_id }}"
                             data-section="{{ cell.schedule.section_id }}"
@@ -299,7 +274,7 @@
                   </td>
                 {% else %}
                   <td style="padding:2px;">
-                    {% if can_manage %}
+                    {% if can_manage and active_semester %}
                     <button type="button" class="ss-slot js-new"
                             data-day="{{ cell.day }}"
                             data-start="{{ cell.start }}"
@@ -316,7 +291,7 @@
     </div>
 
     {% if not has_grid_events %}
-      <div class="ss-empty">No classes match these filters{% if can_manage %}. Click any free slot to start{% endif %}.</div>
+      <div class="ss-empty">{% if active_semester %}No classes match these filters{% if can_manage %}. Click any free slot to start{% endif %}.{% else %}No active term selected. Pick a curriculum year and semester in the top bar first.{% endif %}</div>
     {% endif %}
   </div>
 
@@ -330,7 +305,6 @@
             <th>Course</th>
             <th>Type</th>
             <th>Section</th>
-            <th>Semester</th>
             <th>Faculty</th>
             <th>Room</th>
             {% if can_manage %}
@@ -346,14 +320,12 @@
               <td><b>{{ s.subject.code }}</b> <span class="muted">{{ s.subject.name }}</span></td>
               <td><span class="ss-type{% if s.class_type == 'Laboratory' %} lab{% endif %}">{{ s.class_type }}</span></td>
               <td>{{ s.section.name }} <span class="muted">{{ s.section.program.program_code }}</span></td>
-              <td class="muted">{{ s.semester.curriculum.academic_year }} · {{ s.semester.short_label }}</td>
               <td class="muted">{{ s.teacher.last_name }}, {{ s.teacher.first_name }}</td>
               <td class="muted">{{ s.room.building.code }} {{ s.room.room_name }}</td>
               {% if can_manage %}
               <td style="text-align:right; white-space:nowrap;">
                 <button type="button" class="ss-icon-btn js-edit" title="Edit"
                         data-id="{{ s.id }}"
-                        data-semester="{{ s.semester_id }}"
                         data-teacher="{{ s.teacher_id }}"
                         data-subject="{{ s.subject_id }}"
                         data-section="{{ s.section_id }}"
@@ -374,7 +346,7 @@
               {% endif %}
             </tr>
           {% empty %}
-            <tr><td colspan="{% if can_manage %}9{% else %}8{% endif %}" style="text-align:center; color:var(--ss-muted); padding:22px;">No schedules match these filters.</td></tr>
+            <tr><td colspan="{% if can_manage %}8{% else %}7{% endif %}" style="text-align:center; color:var(--ss-muted); padding:22px;">No schedules match these filters.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -604,8 +576,6 @@
   var DAY_LABELS = { {% for day_num, day_name in DAYS %}{{ day_num }}: "{{ day_name }}"{% if not forloop.last %}, {% endif %}{% endfor %} };
 
   var program = document.getElementById("f_program");
-  var curriculum = document.getElementById("f_curriculum");
-  var semester = document.getElementById("f_semester");
   var section = document.getElementById("f_section");
   var step2 = document.getElementById("step2");
 
@@ -654,7 +624,7 @@
 
   var csrfToken = form.querySelector("[name=csrfmiddlewaretoken]").value;
   var editorHint = "Pick where the class meets, then plan its weekly time slots.";
-  var editorSemesterId = "{{ editor_semester_id|escapejs }}";
+  var TERM_ID = "{{ active_semester.id|escapejs }}";
 
   var appliedPlan = [];
   var draftPlan = [];
@@ -690,12 +660,11 @@
   }
 
   function loadFacultySummary() {
-    if (!semester.value) {
+    if (!TERM_ID) {
       applyTeacherLoadBadges({});
       return;
     }
-    fetch("{% url 'schedule:schedule_faculty_load_ajax' %}?semester=" +
-      encodeURIComponent(semester.value))
+    fetch("{% url 'schedule:schedule_faculty_load_ajax' %}")
       .then(function (response) { return response.json(); })
       .then(function (data) { applyTeacherLoadBadges(data.teachers || {}); })
       .catch(function () {});
@@ -703,7 +672,7 @@
 
   function loadFacultyBlocks() {
     var teacherId = planTeacher.value;
-    if (!teacherId || !semester.value) {
+    if (!teacherId || !TERM_ID) {
       facultyBlocks = [];
       planLoadPanel.classList.add("d-none");
       planLoadWarn.classList.add("d-none");
@@ -711,8 +680,8 @@
       renderPlanRows();
       return;
     }
-    fetch("{% url 'schedule:schedule_faculty_load_ajax' %}?semester=" +
-      encodeURIComponent(semester.value) + "&teacher=" + encodeURIComponent(teacherId))
+    fetch("{% url 'schedule:schedule_faculty_load_ajax' %}?teacher=" +
+      encodeURIComponent(teacherId))
       .then(function (response) { return response.json(); })
       .then(function (data) {
         if (String(data.teacher_id) !== String(planTeacher.value)) return;
@@ -738,14 +707,14 @@
     var hours = minutes / 60;
     planLoadStat.textContent = facultyBlocks.length
       ? facultyBlocks.length + " block" + (facultyBlocks.length === 1 ? "" : "s") +
-        " · " + hours.toFixed(1) + "h this semester"
-      : "Free this semester";
+        " · " + hours.toFixed(1) + "h this term"
+      : "Free this term";
 
     planLoadList.textContent = "";
     if (!facultyBlocks.length) {
       var empty = document.createElement("span");
       empty.className = "ss-plan-load-empty";
-      empty.textContent = "No classes assigned in this semester yet.";
+      empty.textContent = "No classes assigned in this term yet.";
       planLoadList.appendChild(empty);
       return;
     }
@@ -848,31 +817,24 @@
   }
 
   function refreshStepLock() {
-    if (program.value && curriculum.value && semester.value && section.value) {
+    if (program.value && section.value) {
       unlockStep2();
     } else {
       lockStep2();
     }
   }
 
-  function refreshSemesters() {
-    filterOptions(semester, function (option) {
-      return !curriculum.value || option.dataset.curriculum === curriculum.value;
-    });
-    refreshSections();
-  }
-
   function refreshSections() {
-    var ready = program.value && semester.value;
+    var ready = !!program.value;
     section.disabled = !ready;
     if (section.options.length) {
-      section.options[0].textContent = !program.value
-        ? "Select a program first"
-        : (!semester.value ? "Select a semester first" : "Select a section…");
+      section.options[0].textContent = ready
+        ? "Select a section…"
+        : "Select a program first";
     }
     filterOptions(section, function (option) {
       if (!ready) return false;
-      return option.dataset.program === program.value && option.dataset.semester === semester.value;
+      return option.dataset.program === program.value;
     });
     refreshSubjects();
     refreshStepLock();
@@ -880,7 +842,6 @@
 
   function refreshSubjects() {
     filterOptions(subject, function (option) {
-      if (semester.value && option.dataset.semester !== semester.value) return false;
       if (section.value) {
         var sectionOption = findOption(section, section.value);
         if (sectionOption && option.dataset.program !== sectionOption.dataset.program) return false;
@@ -903,11 +864,6 @@
   }
 
   program.addEventListener("change", refreshSections);
-  curriculum.addEventListener("change", function () {
-    refreshSemesters();
-    refreshStepLock();
-  });
-  semester.addEventListener("change", refreshSections);
   section.addEventListener("change", function () {
     refreshSubjects();
     refreshStepLock();
@@ -923,10 +879,10 @@
   classType.addEventListener("change", updateHours);
 
   function updateHours() {
-    var key = semester.value + "|" + subject.value + "|" + section.value + "|" + classType.value;
+    var key = TERM_ID + "|" + subject.value + "|" + section.value + "|" + classType.value;
     var option = findOption(subject, subject.value);
-    if (!semester.value || !section.value || !option) {
-      hoursEl.textContent = "Weekly hours: pick the term, section and course.";
+    if (!TERM_ID || !section.value || !option) {
+      hoursEl.textContent = "Weekly hours: pick the section and course.";
       renderPlan();
       return;
     }
@@ -965,7 +921,7 @@
   }
 
   function scheduledOtherHours() {
-    var key = semester.value + "|" + subject.value + "|" + section.value + "|" + classType.value;
+    var key = TERM_ID + "|" + subject.value + "|" + section.value + "|" + classType.value;
     var scheduled = HOURS_MAP[key] || 0;
     if (key === originalKey) scheduled -= originalHours;
     return Math.max(0, scheduled);
@@ -1211,11 +1167,6 @@
 
   planTeacher.addEventListener("change", loadFacultyBlocks);
 
-  semester.addEventListener("change", function () {
-    loadFacultySummary();
-    if (planTeacher.value) loadFacultyBlocks();
-  });
-
   addSlotBtn.addEventListener("click", function () {
     clearPlanError();
     var day = slotDay.value;
@@ -1427,28 +1378,17 @@
     clearAlerts();
     clearPlanError();
 
-    [program, curriculum, semester, section, subject, building, room].forEach(function (select) {
+    [program, section, subject, building, room].forEach(function (select) {
       Array.prototype.forEach.call(select.options, function (option) {
         option.hidden = false;
         option.disabled = false;
       });
       select.value = "";
     });
-    selectSemesterChain(editorSemesterId);
     refreshSections();
     refreshRooms();
     refreshStepLock();
     renderPlan();
-  }
-
-  function selectSemesterChain(semesterId) {
-    if (!semesterId) return;
-    var semesterOption = findOption(semester, semesterId);
-    if (!semesterOption) return;
-    curriculum.value = semesterOption.dataset.curriculum;
-    curriculum.dispatchEvent(new Event("change"));
-    semester.value = semesterOption.value;
-    semester.dispatchEvent(new Event("change"));
   }
 
   function openEdit(button) {
@@ -1456,14 +1396,12 @@
     var data = button.dataset;
     editingId = data.id;
     originalHours = hoursBetween(data.start, data.end);
-    originalKey = data.semester + "|" + data.subject + "|" + data.section + "|" + data.classType;
+    originalKey = TERM_ID + "|" + data.subject + "|" + data.section + "|" + data.classType;
     appliedPlan = [{ day: String(data.day), start: data.start, end: data.end }];
     document.getElementById("f_id").value = data.id;
     saveBtn.textContent = "Save changes";
     deleteBtn.classList.remove("d-none");
     deleteTarget = { id: data.id, label: data.label };
-
-    selectSemesterChain(data.semester);
 
     var sectionOption = findOption(section, data.section);
     if (sectionOption) program.value = sectionOption.dataset.program;
@@ -1525,8 +1463,8 @@
     event.preventDefault();
     clearAlerts();
 
-    if (!semester.value) {
-      showAlert("Set an active semester in the navbar first.");
+    if (!TERM_ID) {
+      showAlert("Select a curriculum year and semester in the top bar first.");
       return;
     }
     if (!program.value) {

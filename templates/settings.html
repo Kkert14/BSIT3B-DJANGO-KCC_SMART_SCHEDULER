@@ -6,13 +6,15 @@
   <div>
     <div class="ss-ov">Configuration</div>
     <h1 class="ss-page-title">Settings</h1>
-    <p class="ss-sub">Curriculum years, semesters and the default term used across scheduling.</p>
+    <p class="ss-sub">Curriculum years, semesters, the default term and the system-wide appearance.</p>
   </div>
 </div>
 
+{% include 'partials/appearance_tab.html' %}
 {% include 'partials/curriculum_tab.html' %}
 {% endblock %}
 
 {% block extra_js %}
+{% include 'partials/appearance_tab_js.html' %}
 {% include 'partials/curriculum_tab_js.html' %}
 {% endblock %}

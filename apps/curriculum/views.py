@@ -8,13 +8,14 @@ from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.db import IntegrityError
 
+from apps.core.models import ACCENT_PRESETS, FONT_STACKS, AppearanceSettings
 from apps.users.decorators import admin_required, admin_required_api
 
 from .models import ACADEMIC_YEAR_CHOICES, Curriculum, Semester
 
 
 def curriculum_list_context(request):
-    """Context for the curriculum section of the Settings page."""
+    """Context for the curriculum and appearance sections of Settings."""
     query = request.GET.get('q', '').strip()
     curricula = Curriculum.objects.prefetch_related('semesters').all()
     if query:
@@ -29,6 +30,11 @@ def curriculum_list_context(request):
         'existing_academic_years': list(
             Curriculum.objects.values_list('academic_year', flat=True)
         ),
+        'accent_presets': ACCENT_PRESETS,
+        'font_options': [
+            {'value': value, 'label': label, 'stack': FONT_STACKS[value]}
+            for value, label in AppearanceSettings.FONT_CHOICES
+        ],
     }
 
 
@@ -218,6 +224,40 @@ def semester_delete_ajax(request, pk):
         f'{semester_label} for A.Y. {academic_year} has been deleted successfully.',
     )
     return JsonResponse({'status': 'deleted'})
+
+
+@login_required(login_url='login')
+@admin_required_api
+@require_POST
+def appearance_save_ajax(request):
+    theme = request.POST.get('theme', '').strip()
+    accent = request.POST.get('accent', '').strip().lower()
+    font = request.POST.get('font', '').strip()
+
+    if theme not in dict(AppearanceSettings.THEME_CHOICES):
+        return JsonResponse({'error': 'Choose a valid theme.'}, status=400)
+    if font not in FONT_STACKS:
+        return JsonResponse({'error': 'Choose a valid font.'}, status=400)
+    if not re.match(r'^#[0-9a-f]{6}$', accent):
+        return JsonResponse({'error': 'Choose an accent colour in #rrggbb format.'}, status=400)
+
+    appearance = AppearanceSettings.objects.first()
+    if appearance is None:
+        appearance = AppearanceSettings(pk=1)
+    appearance.theme = theme
+    appearance.accent = accent
+    appearance.font = font
+    appearance.save()
+
+    messages.success(request, 'Appearance settings have been saved.')
+    return JsonResponse({
+        'status': 'success',
+        'theme': appearance.theme,
+        'accent': appearance.accent,
+        'accent_rgb': appearance.accent_rgb,
+        'font': appearance.font,
+        'font_stack': appearance.font_stack,
+    })
 
 
 @login_required(login_url='login')

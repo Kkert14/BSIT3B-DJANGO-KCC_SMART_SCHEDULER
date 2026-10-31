@@ -127,6 +127,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'apps.users.context_processors.role_context',
                 'apps.curriculum.context_processors.active_curriculum_semester',
+                'apps.core.context_processors.appearance',
             ],
         },
     },

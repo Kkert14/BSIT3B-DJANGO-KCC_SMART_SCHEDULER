@@ -1,0 +1,93 @@
+<div class="card ss-appearance" id="appearanceCard">
+  <div class="card-header">
+    <div class="card-title">Appearance</div>
+    <div class="card-subtitle text-muted small">Choose the theme, accent colour and typeface for the whole system. Saved changes apply to every user.</div>
+  </div>
+  <div class="card-body">
+    <form id="appearanceForm"
+          data-theme="{{ appearance.theme }}"
+          data-accent="{{ appearance.accent }}"
+          data-font="{{ appearance.font }}">
+      {% csrf_token %}
+      <div class="ss-appearance-grid">
+        <section class="ss-appearance-block">
+          <div class="ss-appearance-label">Theme</div>
+          <div class="ss-theme-options" role="radiogroup" aria-label="Theme">
+            <label class="ss-theme-opt">
+              <input type="radio" name="theme" value="light" {% if appearance.theme == 'light' %}checked{% endif %}>
+              <span class="ss-theme-card light" aria-hidden="true">
+                <i class="fa-solid fa-sun"></i>
+                <span class="ss-theme-line"></span>
+                <span class="ss-theme-line short"></span>
+              </span>
+              <span class="ss-theme-name">Light</span>
+            </label>
+            <label class="ss-theme-opt">
+              <input type="radio" name="theme" value="dark" {% if appearance.theme == 'dark' %}checked{% endif %}>
+              <span class="ss-theme-card dark" aria-hidden="true">
+                <i class="fa-solid fa-moon"></i>
+                <span class="ss-theme-line"></span>
+                <span class="ss-theme-line short"></span>
+              </span>
+              <span class="ss-theme-name">Dark</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="ss-appearance-block">
+          <div class="ss-appearance-label">Accent colour</div>
+          <div class="ss-swatches">
+            {% for value, label in accent_presets %}
+            <button type="button"
+                    class="ss-swatch{% if appearance.accent == value %} on{% endif %}"
+                    style="--sw: {{ value }}"
+                    data-accent="{{ value }}"
+                    title="{{ label }}"
+                    aria-label="{{ label }}"><i class="fa-solid fa-check" aria-hidden="true"></i></button>
+            {% endfor %}
+            <label class="ss-swatch-custom" title="Custom colour">
+              <input type="color" id="appearanceColor" value="{{ appearance.accent }}" aria-label="Custom accent colour">
+              <i class="fa-solid fa-palette" aria-hidden="true"></i>
+            </label>
+          </div>
+          <div class="ss-accent-meta">
+            <span class="ss-accent-chip" id="appearanceAccentChip" style="background: {{ appearance.accent }}" aria-hidden="true"></span>
+            <code id="appearanceAccentValue">{{ appearance.accent }}</code>
+            <span>or pick any custom colour</span>
+          </div>
+          <input type="hidden" name="accent" id="appearanceAccent" value="{{ appearance.accent }}">
+        </section>
+
+        <section class="ss-appearance-block">
+          <div class="ss-appearance-label">Font</div>
+          <select class="form-select" name="font" id="appearanceFont" aria-label="Font family">
+            {% for option in font_options %}
+            <option value="{{ option.value }}" data-stack="{{ option.stack }}" {% if appearance.font == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+          <p class="ss-appearance-hint">Inter and Poppins load from Google Fonts when selected.</p>
+        </section>
+
+        <section class="ss-appearance-block">
+          <div class="ss-appearance-label">Preview</div>
+          <div class="ss-font-preview">
+            <span class="ss-font-preview-aa" aria-hidden="true">Aa</span>
+            <span class="ss-font-preview-text">
+              <b>BSCS 3-A · Data Structures</b>
+              <span>MWF · 09:00–10:30 · Room 204</span>
+            </span>
+            <span class="ss-font-preview-tag">Lab</span>
+          </div>
+        </section>
+      </div>
+
+      <div class="ss-appearance-foot">
+        <span class="ss-appearance-status" id="appearanceStatus"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Saving applies to everyone.</span>
+        <div class="ss-appearance-actions">
+          <button type="button" class="btn btn-ghost-secondary" id="appearanceRevert" disabled>Revert</button>
+          <button type="submit" class="btn btn-primary" id="appearanceSave"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Save appearance</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

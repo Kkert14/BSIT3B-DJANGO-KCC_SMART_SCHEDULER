@@ -1,38 +1,40 @@
 <div data-course-app data-program-id="{{ program.id }}">
   <div class="card">
-    <div class="card-header d-flex flex-wrap align-items-center gap-2">
-      <div class="card-title">Courses</div>
-      <form method="get" class="d-flex align-items-center gap-2 ms-auto" data-year-form>
-        <label class="form-label mb-0 text-muted small" for="courseYear">Academic year</label>
-        <select class="form-select form-select-sm" id="courseYear" name="year" data-year-select {% if not curricula %}disabled{% endif %}>
-          {% for cur in curricula %}
-          <option value="{{ cur.id }}" {% if filter_year == cur.id|stringformat:'s' %}selected{% endif %}>A.Y. {{ cur.academic_year }}</option>
-          {% empty %}
-          <option value="">No academic years</option>
-          {% endfor %}
-        </select>
-      </form>
-      {% if can_manage and selected_curriculum and semesters %}
-      <button type="button" class="btn btn-primary btn-sm" data-course-add>
-        <i class="fas fa-plus-circle me-2"></i>Add Course
-      </button>
-      {% endif %}
+    <div class="card-header">
+      <div class="ss-course-bar">
+        <form method="get" class="ss-yearpick" data-year-form>
+          <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+          <label for="courseYear">Curriculum year</label>
+          <select id="courseYear" name="year" data-year-select {% if not curricula %}disabled{% endif %}>
+            {% for cur in curricula %}
+            <option value="{{ cur.id }}" {% if filter_year == cur.id|stringformat:'s' %}selected{% endif %}>A.Y. {{ cur.academic_year }}</option>
+            {% empty %}
+            <option value="">No curriculum years</option>
+            {% endfor %}
+          </select>
+        </form>
+        {% if can_manage and selected_curriculum and semesters %}
+        <button type="button" class="btn btn-primary btn-sm ms-auto" data-course-add>
+          <i class="fas fa-plus-circle me-2"></i>Add Course
+        </button>
+        {% endif %}
+      </div>
     </div>
     <div class="card-body">
       <div data-course-view="list">
         {% if not curricula %}
         <div class="empty py-4">
           <div class="empty-icon"><i class="fas fa-calendar fa-2x text-muted"></i></div>
-          <p class="empty-title">No academic years yet</p>
+          <p class="empty-title">No curriculum years yet</p>
           <p class="empty-subtitle">
-            {% if can_manage %}Create an academic year in <a href="{% url 'curriculum:curriculum_list' %}">Settings</a> before adding courses.{% else %}No academic year has been configured yet.{% endif %}
+            {% if can_manage %}Create a curriculum year in <a href="{% url 'curriculum:curriculum_list' %}">Settings</a> before adding courses.{% else %}No curriculum year has been configured yet.{% endif %}
           </p>
         </div>
         {% elif not selected_curriculum %}
         <div class="empty py-4">
           <div class="empty-icon"><i class="fas fa-calendar fa-2x text-muted"></i></div>
-          <p class="empty-title">Pick an academic year</p>
-          <p class="empty-subtitle">Choose from the available academic years above.</p>
+          <p class="empty-title">Pick a curriculum year</p>
+          <p class="empty-subtitle">Choose from the available curriculum years above.</p>
         </div>
         {% else %}
         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
@@ -43,16 +45,16 @@
         </div>
 
         {% for group in groups %}
-        <div class="mb-3">
-          <div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
-            <h4 class="mb-0" style="font-size: 12.5px;">{{ group.label }}</h4>
-            <span class="text-muted small">
+        <section class="ss-year" data-level="{{ group.level }}">
+          <div class="ss-year-head">
+            <span class="ss-year-badge">{{ group.label }}</span>
+            <span class="ss-year-meta">
               {{ group.subjects|length }} course{{ group.subjects|length|pluralize }} ·
               {{ group.units|floatformat:"-1" }} units · {{ group.total_hours }} hrs
             </span>
           </div>
-          <div class="table-responsive border rounded">
-            <table class="table table-sm table-vcenter mb-0 text-nowrap">
+          <div class="table-responsive">
+            <table class="table table-sm table-vcenter mb-0">
               <thead>
                 <tr>
                   <th>Code</th>
@@ -69,9 +71,9 @@
               <tbody>
                 {% for subject in group.subjects %}
                 <tr>
-                  <td class="fw-semibold">{{ subject.code }}</td>
+                  <td class="fw-semibold text-nowrap">{{ subject.code }}</td>
                   <td class="text-muted">{{ subject.name }}</td>
-                  <td>{{ subject.semester.short_label }}</td>
+                  <td class="text-nowrap">{{ subject.semester.short_label }}</td>
                   <td>{{ subject.units }}</td>
                   <td class="text-muted">{% if subject.lecture_hours %}{{ subject.lecture_hours }}h{% else %}—{% endif %}</td>
                   <td class="text-muted">{% if subject.lab_hours %}{{ subject.lab_hours }}h{% else %}—{% endif %}</td>
@@ -108,19 +110,19 @@
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
         {% empty %}
         <div class="empty py-4">
           <div class="empty-icon"><i class="fas fa-book-open fa-2x text-muted"></i></div>
           {% if has_courses %}
           <p class="empty-title">No courses in A.Y. {{ selected_curriculum.academic_year }}</p>
           <p class="empty-subtitle">
-            {% if semesters %}Pick another academic year or add the first course for this year.{% elif can_manage %}This academic year has no semesters yet. Add semesters in <a href="{% url 'curriculum:curriculum_list' %}">Settings</a> first.{% else %}No courses have been added for this academic year.{% endif %}
+            {% if semesters %}Pick another curriculum year or add the first course for this year.{% elif can_manage %}This curriculum year has no semesters yet. Add semesters in <a href="{% url 'curriculum:curriculum_list' %}">Settings</a> first.{% else %}No courses have been added for this curriculum year.{% endif %}
           </p>
           {% else %}
           <p class="empty-title">No courses for this program yet</p>
           <p class="empty-subtitle">
-            {% if can_manage and semesters %}Add the first course to start building this curriculum.{% elif can_manage %}This academic year has no semesters yet. Add semesters in <a href="{% url 'curriculum:curriculum_list' %}">Settings</a> first.{% else %}No courses have been added yet.{% endif %}
+            {% if can_manage and semesters %}Add the first course to start building this curriculum.{% elif can_manage %}This curriculum year has no semesters yet. Add semesters in <a href="{% url 'curriculum:curriculum_list' %}">Settings</a> first.{% else %}No courses have been added yet.{% endif %}
           </p>
           {% endif %}
         </div>
@@ -149,7 +151,7 @@
               <input type="text" class="form-control" value="{{ program.program_code }} — {{ program.program_description }}" readonly>
             </div>
             <div class="col-12 col-md-6">
-              <label class="form-label">Academic year</label>
+              <label class="form-label">Curriculum year</label>
               <input type="text" class="form-control" value="A.Y. {{ selected_curriculum.academic_year }}" readonly>
             </div>
             <div class="col-6 col-md-3">
