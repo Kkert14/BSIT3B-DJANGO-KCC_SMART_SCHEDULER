@@ -1,4 +1,5 @@
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
@@ -160,8 +161,8 @@ DAY_LABELS = {
     6: 'Saturday',
     7: 'Sunday',
 }
-PX_PER_HOUR = 44
-GRID_PAD = 10
+# Class times are local school time; the project default of UTC would shift "today".
+SCHOOL_TIME_ZONE = ZoneInfo('Asia/Manila')
 
 
 def _hours_between(start, end):
@@ -204,6 +205,58 @@ def _collect_conflicts(schedules):
     return found
 
 
+def _dashboard_hero(schedules, today_classes, today_number, now_minutes, teacher_mode=False):
+    """The class to highlight: happening now, next today, or the next class day."""
+    ongoing = None
+    upcoming = None
+    for sched in today_classes:
+        start = sched.start_time.hour * 60 + sched.start_time.minute
+        end = sched.end_time.hour * 60 + sched.end_time.minute
+        if start <= now_minutes < end and ongoing is None:
+            ongoing = sched
+        elif start > now_minutes and upcoming is None:
+            upcoming = sched
+
+    if ongoing is not None:
+        return {'label': 'Happening now', 'state': 'now', 'schedule': ongoing}
+    if upcoming is not None:
+        return {'label': 'Next class today', 'state': 'next', 'schedule': upcoming}
+    if today_classes:
+        count = len(today_classes)
+        return {
+            'label': 'Today',
+            'state': 'done',
+            'title': 'All classes are done for today',
+            'message': f'{count} class meeting{"s" if count != 1 else ""} completed.',
+        }
+
+    for offset in range(1, 8):
+        day_number = (today_number - 1 + offset) % 7 + 1
+        day_classes = [sched for sched in schedules if sched.day_of_week == day_number]
+        if not day_classes:
+            continue
+        first = min(day_classes, key=lambda sched: sched.start_time)
+        return {
+            'label': 'Today',
+            'state': 'empty',
+            'title': 'No classes today',
+            'message': (
+                f'Next class is {DAY_LABELS[day_number]} at '
+                f'{first.start_time:%H:%M} — {first.subject.code}.'
+            ),
+        }
+
+    return {
+        'label': 'Today',
+        'state': 'empty',
+        'title': 'No classes today',
+        'message': (
+            'You have no classes scheduled yet this semester.'
+            if teacher_mode else 'No classes have been scheduled yet this semester.'
+        ),
+    }
+
+
 @login_required(login_url='login')
 def home(request):
     semester = (
@@ -217,89 +270,78 @@ def home(request):
     teacher_mode = faculty is not None
     teacher_without_profile = role == ROLE_TEACHER and faculty is None
 
-    semester_schedules = Schedule.objects.none()
-    scoped = Schedule.objects.none()
-    sections = Section.objects.none()
-    selected_section = None
-
+    schedules = []
     if semester:
-        semester_schedules = Schedule.objects.filter(semester=semester).select_related(
+        queryset = Schedule.objects.filter(semester=semester).select_related(
             'subject', 'section', 'room__building', 'teacher'
         )
         if teacher_mode:
-            scoped = semester_schedules.filter(teacher=faculty)
-            sections = (
-                Section.objects.filter(schedules__teacher=faculty, schedules__semester=semester)
-                .distinct()
-                .order_by('program__program_code', 'year_level', 'name')
-            )
+            queryset = queryset.filter(teacher=faculty)
+        schedules = list(queryset)
+
+    now = timezone.localtime(timezone=SCHOOL_TIME_ZONE)
+    today_number = now.isoweekday()
+    now_minutes = now.hour * 60 + now.minute
+
+    today_classes = sorted(
+        (sched for sched in schedules if sched.day_of_week == today_number),
+        key=lambda sched: sched.start_time,
+    )
+    hero = _dashboard_hero(
+        schedules, today_classes, today_number, now_minutes, teacher_mode
+    )
+
+    marked_next = False
+    for sched in today_classes:
+        start = sched.start_time.hour * 60 + sched.start_time.minute
+        end = sched.end_time.hour * 60 + sched.end_time.minute
+        if end <= now_minutes:
+            sched.day_status = 'done'
+            sched.day_status_label = 'Done'
+        elif start <= now_minutes < end:
+            sched.day_status = 'now'
+            sched.day_status_label = 'Now'
+        elif not marked_next:
+            sched.day_status = 'next'
+            sched.day_status_label = 'Next'
+            marked_next = True
         else:
-            scoped = semester_schedules
-            sections = Section.objects.filter(semester=semester, is_active=True).order_by(
-                'program__program_code', 'year_level', 'name'
-            )
+            sched.day_status = ''
+            sched.day_status_label = ''
 
-        if not teacher_mode:
-            raw_section = request.GET.get('section')
-            if raw_section:
-                selected_section = sections.filter(pk=raw_section).first()
-            if selected_section is None and sections.exists():
-                selected_section = sections.first()
-
-    if teacher_mode:
-        timetable = list(scoped)
-    elif selected_section:
-        timetable = list(semester_schedules.filter(section=selected_section))
-    else:
-        timetable = list(semester_schedules)
-
-    offered_subjects = Subject.objects.none()
-    required_hours = 0
-    if selected_section and semester:
-        offered_subjects = Subject.objects.filter(
-            program=selected_section.program,
-            semester=semester,
-            year_level=selected_section.year_level,
-        )
-        required_hours = sum(subject.total_hours for subject in offered_subjects)
-
-    weekly_hours = sum(_hours_between(s.start_time, s.end_time) for s in timetable)
-    subjects_done = len({s.subject_id for s in timetable})
-
-    conflicts = _collect_conflicts(list(scoped))
+    weekly_hours = sum(_hours_between(s.start_time, s.end_time) for s in schedules)
+    subjects_done = len({s.subject_id for s in schedules})
+    conflicts = _collect_conflicts(schedules)
 
     room_hours = {}
-    for sched in scoped:
+    for sched in schedules:
         key = (sched.room.building.code, sched.room.room_name)
         room_hours[key] = room_hours.get(key, 0) + _hours_between(sched.start_time, sched.end_time)
     rooms = Room.objects.filter(is_active=True).count()
 
-    if required_hours:
-        percent = round(weekly_hours / required_hours * 100)
-        hours_note = f'{_fmt_hours(max(required_hours - weekly_hours, 0))}h still to place'
-        percent_extra = f'{percent}%'
-    else:
-        hours_note = f'{len(timetable)} class meeting{"s" if len(timetable) != 1 else ""} this week'
-        percent_extra = ''
+    offered_total = Subject.objects.filter(semester=semester).count() if semester else 0
 
     if teacher_mode:
-        section_count = len({s.section_id for s in timetable})
+        section_count = len({s.section_id for s in schedules})
         coverage = {
             'label': 'Classes this week',
             'icon': 'fa-regular fa-rectangle-list',
-            'value': str(len(timetable)),
+            'value': str(len(schedules)),
             'extra': '',
             'note': f'{section_count} section{"s" if section_count != 1 else ""} on your load',
         }
     else:
-        total_subjects = offered_subjects.count() if selected_section else subjects_done
         coverage = {
             'label': 'Courses covered',
             'icon': 'fa-regular fa-rectangle-list',
-            'value': f'{subjects_done} / {total_subjects}',
+            'value': (
+                f'{subjects_done} / {offered_total}' if offered_total else str(subjects_done)
+            ),
             'extra': '',
-            'note': 'Courses with at least one class this week'
-            if selected_section else 'Distinct courses on the timetable',
+            'note': (
+                'Courses with at least one class this semester'
+                if offered_total else 'Distinct courses on the timetable'
+            ),
         }
 
     stats = [
@@ -307,8 +349,11 @@ def home(request):
             'label': 'Weekly hours scheduled',
             'icon': 'fa-regular fa-clock',
             'value': f'{_fmt_hours(weekly_hours)}h',
-            'extra': percent_extra,
-            'note': hours_note,
+            'extra': '',
+            'note': (
+                f'{len(schedules)} class meeting'
+                f'{"s" if len(schedules) != 1 else ""} this semester'
+            ),
         },
         coverage,
         {
@@ -324,33 +369,11 @@ def home(request):
             'icon': 'fa-solid fa-door-open',
             'value': f'{len(room_hours)} / {rooms}',
             'extra': '',
-            'note': 'Rooms with at least one class',
+            'note': (
+                'Rooms with at least one class on your load'
+                if teacher_mode else 'Rooms with at least one class'
+            ),
         },
-    ]
-
-    grid_start = 7
-    grid_end = 17
-    for sched in timetable:
-        grid_start = min(grid_start, sched.start_time.hour)
-        grid_end = max(grid_end, sched.end_time.hour + (1 if sched.end_time.minute else 0))
-    for sched in timetable:
-        sched.top_px = round(
-            ((sched.start_time.hour * 60 + sched.start_time.minute) / 60 - grid_start) * PX_PER_HOUR
-        ) + GRID_PAD
-        sched.height_px = max(round(_hours_between(sched.start_time, sched.end_time) * PX_PER_HOUR - 4), 24)
-        sched.time_label = f'{sched.start_time:%H:%M}–{sched.end_time:%H:%M}'
-
-    time_labels = [
-        {
-            'text': f'{slot // 60:02d}:{slot % 60:02d}',
-            'top': (slot / 60 - grid_start) * PX_PER_HOUR + GRID_PAD,
-            'major': slot % 60 == 0,
-        }
-        for slot in range(grid_start * 60, grid_end * 60 + 1, 30)
-    ]
-    day_columns = [
-        {'name': name, 'events': [s for s in timetable if s.day_of_week == num]}
-        for num, name in DAY_LABELS.items()
     ]
 
     attention = [
@@ -366,8 +389,13 @@ def home(request):
         for conflict in conflicts[:4]
     ]
     if not teacher_mode and len(attention) < 4 and semester:
-        busy_sections = set(scoped.values_list('section_id', flat=True))
-        for section in sections:
+        busy_sections = {sched.section_id for sched in schedules}
+        empty_sections = (
+            Section.objects.filter(semester=semester, is_active=True)
+            .select_related('program')
+            .order_by('program__program_code', 'year_level', 'name')
+        )
+        for section in empty_sections:
             if len(attention) >= 4:
                 break
             if section.id in busy_sections:
@@ -382,28 +410,6 @@ def home(request):
                 'action': 'Build its timetable',
             })
 
-    scheduled_lecture = {}
-    scheduled_lab = {}
-    for sched in timetable:
-        bucket = scheduled_lab if sched.class_type == 'Laboratory' else scheduled_lecture
-        bucket[sched.subject_id] = bucket.get(sched.subject_id, 0) + _hours_between(
-            sched.start_time, sched.end_time
-        )
-    complete_subjects = sum(
-        1 for subject in offered_subjects
-        if (scheduled_lab if subject.is_lab else scheduled_lecture).get(
-            subject.id, 0
-        ) >= subject.total_hours
-    )
-
-    if offered_subjects:
-        foot_left = (
-            f'{complete_subjects} of {offered_subjects.count()} offered subjects meet their weekly '
-            'contact hours.'
-        )
-    else:
-        foot_left = f'{len(timetable)} classes on the timetable this week.'
-
     room_rows = sorted(room_hours.items(), key=lambda item: item[1], reverse=True)[:4]
     room_rows = [
         {
@@ -415,36 +421,53 @@ def home(request):
         for (building, room_name), hours in room_rows
     ]
 
+    day_numbers = list(range(1, 7))
+    if any(sched.day_of_week == 7 for sched in schedules):
+        day_numbers.append(7)
+    week_days = []
+    max_day_hours = 0
+    for day_number in day_numbers:
+        day_schedules = [sched for sched in schedules if sched.day_of_week == day_number]
+        hours = sum(_hours_between(s.start_time, s.end_time) for s in day_schedules)
+        max_day_hours = max(max_day_hours, hours)
+        week_days.append({
+            'name': DAY_LABELS[day_number][:3],
+            'classes': len(day_schedules),
+            'hours': hours,
+        })
+    for day in week_days:
+        day['hours_label'] = _fmt_hours(day['hours'])
+        day['bar_width'] = round(day['hours'] / max_day_hours * 100) if max_day_hours else 0
+
     if conflicts:
         badge = {'text': f'{len(conflicts)} conflict{"s" if len(conflicts) != 1 else ""} to resolve', 'ok': False}
     else:
         badge = {'text': 'Schedule healthy', 'ok': True}
 
+    if today_classes:
+        count = len(today_classes)
+        today_label = f'{DAY_LABELS[today_number]} · {count} class meeting{"s" if count != 1 else ""}'
+    else:
+        today_label = f'{DAY_LABELS[today_number]} · no classes'
+
     return render(request, 'home.html', {
         'semester': semester,
         'teacher_mode': teacher_mode,
         'teacher_without_profile': teacher_without_profile,
-        'sections': sections,
-        'selected_section': selected_section,
-        'scope_label': (
-            'My teaching load' if teacher_mode
-            else selected_section.name if selected_section
-            else 'All sections'
-        ),
         'stats': stats,
-        'timetable': timetable,
-        'day_columns': day_columns,
-        'time_labels': time_labels,
-        'grid_height': (grid_end - grid_start) * PX_PER_HOUR + GRID_PAD,
         'conflicts': conflicts,
         'attention': attention,
         'badge': badge,
-        'foot_left': foot_left,
-        'foot_right': (
-            f'{semester.get_semester_number_display()} · {semester.curriculum.academic_year}'
-            if semester else ''
-        ),
         'room_rows': room_rows,
+        'hero': hero,
+        'today_classes': today_classes,
+        'today_label': today_label,
+        'week_days': week_days,
+        'week_summary': (
+            f'{len(schedules)} class meeting{"s" if len(schedules) != 1 else ""} · '
+            f'{_fmt_hours(weekly_hours)}h this semester'
+            if schedules else 'No classes scheduled yet.'
+        ),
     })
 
 

@@ -69,9 +69,9 @@
           </td>
           <td>
             <div class="d-flex gap-1">
-              <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#programCoursesModal" data-course-url="{% url 'program:program_courses_ajax' program.id %}" data-program-id="{{ program.id }}" data-program-code="{{ program.program_code }}" data-program-name="{{ program.program_description }}" title="Manage this program's courses">
+              <a class="btn btn-outline-primary btn-sm" href="{% url 'program:program_courses' program.id %}" title="Open this program's courses">
                 <i class="fas fa-book me-1"></i>Courses
-              </button>
+              </a>
               {% if can_manage %}
               <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#programModal" data-mode="edit" data-id="{{ program.id }}" data-program-code="{{ program.program_code }}" data-program-description="{{ program.program_description }}" data-major="{{ program.major }}" data-department="{{ program.department }}" data-active="{{ program.is_active|yesno:'true,false' }}" title="Edit">
                 <i class="fas fa-edit text-primary"></i>
@@ -196,24 +196,6 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
         <button type="button" class="btn btn-danger" id="confirmDeleteProgramBtn">Delete</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal modal-blur fade" id="programCoursesModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div>
-          <h5 class="modal-title" id="programCoursesTitle">Program curriculum</h5>
-          <div class="text-muted small" id="programCoursesSubtitle"></div>
-        </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body" id="programCoursesBody" aria-live="polite"></div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

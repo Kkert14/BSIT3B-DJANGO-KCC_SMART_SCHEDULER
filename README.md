@@ -104,7 +104,7 @@ The main objective of this project will be to design and develop a web-based Sma
 
 Specifically, the project will aim to:
 
-1. Develop a centralized module for maintaining programs, academic-year curricula and semesters, courses with their units and weekly contact hours, class sections, faculty members, buildings, and rooms.
+1. Develop a centralized module for maintaining programs, academic-year curricula and semesters, courses with their units, lecture/lab hours and weekly contact hours, class sections, faculty members, buildings, and rooms.
 2. Provide a term-scoped scheduling workspace in which the active academic year and semester are carried across the interface and in which sections, rooms, and faculty can be filtered by program, year level, semester, or building before a class is placed.
 3. Allow authorized users to plan a course's weekly load as a batch of day and time slots, check that every slot ends after it starts, prevent overlapping slots within the same plan, and enforce the course's weekly contact-hour limit before the plan is saved as a single transaction.
 4. Implement conflict detection that identifies double-booked faculty members, rooms, and sections for the active term, and display the results on the scheduling page and the dashboard.
@@ -139,7 +139,7 @@ The Smart Scheduler will cover the scheduling process of one selected college de
 
 | Component | Description and Coverage |
 |---|---|
-| Core Modules | Dashboard and term overview; Programs for degrees with course management inside each program; Settings for academic-year curricula and semesters; Sections; Faculty; Facilities for buildings and rooms; Info Management for contact records; User Management for accounts and roles; Schedule Management with a weekly plan editor, batch slot planning, and conflict checking; and Reports for the master list, section timetable, and faculty schedule. |
+| Core Modules | Dashboard and term overview; Programs for degrees with a course page per program; Settings for academic-year curricula and semesters; Sections; Faculty; Facilities for buildings and rooms; Info Management for contact records; User Management for accounts and roles; Schedule Management with a weekly plan editor, batch slot planning, and conflict checking; and Reports for the master list, section timetable, and faculty schedule. |
 | Technology Stack | Python 3.11 or 3.12 with Django 5.0 for the server-side application; MariaDB 10.4 or later (MySQL 8.0 compatible) for the relational database; HTML5, CSS3, and JavaScript with Bootstrap 5 and the Tabler administrative interface for the front end; Font Awesome for interface icons; and openpyxl for Excel report export. |
 | Target Users | Department administrators and scheduling coordinators, authorized department staff, instructors who view their own assigned schedules, and students who view published section schedules. |
 | Limitations | The system will be limited to one college department. It will not manage enrollment, grades, attendance, payroll, or learning content. It will check for conflicts but will not generate an optimal timetable automatically, so final placement and approval will remain with department personnel. Reports will be export-only, with no spreadsheet import and no email or SMS delivery. Conflict detection will depend on the completeness and correctness of the records entered. The system will require a hosted server or local network connection, and a mobile application is not included. |

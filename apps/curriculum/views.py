@@ -53,10 +53,10 @@ def curriculum_save_ajax(request):
     is_active = request.POST.get('is_active') == 'true'
 
     if not academic_year:
-        return JsonResponse({'error': 'Academic year is required.'}, status=400)
+        return JsonResponse({'error': 'Curriculum year is required.'}, status=400)
 
     if not re.match(r'^[0-9]{4}-[0-9]{4}$', academic_year):
-        return JsonResponse({'error': 'Academic year must be in YYYY-YYYY format.'}, status=400)
+        return JsonResponse({'error': 'Curriculum year must be in YYYY-YYYY format.'}, status=400)
 
     dup_qs = Curriculum.objects.filter(academic_year=academic_year)
     if curriculum_id:
@@ -237,7 +237,7 @@ def set_active_curriculum(request, curriculum_id):
         semester.save()
         messages.success(
             request,
-            f'Active academic year set to A.Y. {curriculum.academic_year} — '
+            f'Active curriculum year set to A.Y. {curriculum.academic_year} — '
             f'{semester.get_semester_number_display()}.',
         )
     else:

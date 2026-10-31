@@ -5,11 +5,27 @@
     <div>
       <div class="ss-ov">Academic</div>
       <h1 class="ss-page-title">Sections</h1>
-      <p class="ss-sub">Class sections grouped by program and year level.</p>
+      <p class="ss-sub">Class sections for the curriculum year and semester selected in the top bar.</p>
     </div>
   </div>
 
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="sectionToastContainer" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+    <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
+      <div class="d-flex">
+        <div class="toast-body">{{ message }}</div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if active_semester %}
   <div class="ss-toolbar">
+    <span class="ss-term">
+      <i class="fa-solid fa-layer-group"></i>
+      A.Y. {{ active_curriculum.academic_year }} · {{ active_semester.get_semester_number_display }}
+    </span>
     <form method="GET" class="ss-search">
       <div class="input-group">
         <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
@@ -26,17 +42,6 @@
       <i class='fas fa-plus-circle me-2'></i> Add Section
     </button>
     {% endif %}
-  </div>
-
-  <div class="toast-container position-fixed top-0 end-0 p-3" id="sectionToastContainer" aria-live="polite" aria-atomic="true">
-    {% for message in messages %}
-    <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="4000" style="--tblr-toast-color: #000;">
-      <div class="d-flex">
-        <div class="toast-body">{{ message }}</div>
-        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-      </div>
-    </div>
-    {% endfor %}
   </div>
 
   <div id="sectionAlert" class="alert alert-danger d-none" role="alert"></div>
@@ -57,7 +62,6 @@
             <th>#</th>
             <th>Section</th>
             <th>Program</th>
-            <th>Curriculum / Semester</th>
             <th>Year Level</th>
             <th>Capacity</th>
             <th>Status</th>
@@ -72,7 +76,6 @@
             <td class="text-muted">{{ forloop.counter0|add:sections.start_index }}</td>
             <td class="fw-semibold">{{ section.name }}</td>
             <td class="text-muted">{{ section.program.program_code }}</td>
-            <td class="text-muted">A.Y. {{ section.semester.curriculum.academic_year }} — {{ section.semester.get_semester_number_display }}</td>
             <td>{{ section.year_level }}</td>
             <td>{{ section.capacity }}</td>
             <td>
@@ -85,7 +88,7 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-name="{{ section.name }}" data-semester="{{ section.semester.id }}" data-semester-number="{{ section.semester.semester_number }}" data-year-level="{{ section.year_level }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#sectionModal" data-mode="edit" data-id="{{ section.id }}" data-program="{{ section.program.id }}" data-name="{{ section.name }}" data-year-level="{{ section.year_level }}" data-capacity="{{ section.capacity }}" data-active="{{ section.is_active|yesno:'true,false' }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteSectionModal" data-id="{{ section.id }}" data-name="{{ section.name }}" title="Delete">
@@ -97,7 +100,7 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="{% if can_manage %}8{% else %}7{% endif %}">
+            <td colspan="{% if can_manage %}7{% else %}6{% endif %}">
                 <div class="empty py-5">
                     <div class="empty-icon">
                         <i class="fas fa-layer-group fa-2x text-muted"></i>
@@ -143,6 +146,20 @@
     </div>
     {% endif %}
   </div>
+  {% else %}
+  <section class="card">
+    <div class="empty py-5">
+      <div class="empty-icon">
+        <i class="fas fa-layer-group fa-2x text-muted"></i>
+      </div>
+      <p class="empty-title">No active term</p>
+      <p class="empty-subtitle">Pick a curriculum year and semester in the top bar. Sections are always created inside the active term.</p>
+      {% if can_manage %}
+      <a class="btn btn-primary mt-2" href="{% url 'curriculum:curriculum_list' %}">Open Settings</a>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 </div>
 
 <div class="modal modal-blur fade" id="sectionModal" tabindex="-1">
@@ -220,12 +237,14 @@
             </div>
             <div class="col-6">
               <label class="form-label">Curriculum / Semester</label>
-              <select name="semester" id="section_semester" class="form-select" required>
-                <option value="">Select curriculum &amp; semester</option>
-                {% for sem in semesters %}
-                <option value="{{ sem.id }}">A.Y. {{ sem.curriculum.academic_year }} — {{ sem.get_semester_number_display }}</option>
-                {% endfor %}
-              </select>
+              <input
+                type="text"
+                class="form-control"
+                readonly
+                aria-readonly="true"
+                value="{% if active_semester %}A.Y. {{ active_curriculum.academic_year }} — {{ active_semester.get_semester_number_display }}{% endif %}"
+              />
+              <div class="form-hint">Taken from the term selected in the top bar.</div>
             </div>
             <div class="col-6">
               <label class="form-label">Capacity</label>
@@ -313,7 +332,6 @@
       document.getElementById('section_program').value = button.getAttribute('data-program') || '';
       document.getElementById('section_name').value = button.getAttribute('data-name');
       document.getElementById('section_year_level').value = button.getAttribute('data-year-level');
-      document.getElementById('section_semester').value = button.getAttribute('data-semester');
       document.getElementById('section_capacity').value = button.getAttribute('data-capacity');
       document.getElementById('section_is_active').checked = button.getAttribute('data-active') === 'true';
     } else {

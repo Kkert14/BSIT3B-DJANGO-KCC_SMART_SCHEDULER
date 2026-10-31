@@ -2,7 +2,7 @@
   <form method="GET" class="ss-search">
     <div class="input-group">
       <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-      <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by academic year...">
+      <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by curriculum year...">
       {% if query %}
       <a href="{% url 'curriculum:curriculum_list' %}" class="btn btn-outline-secondary">Clear</a>
       {% endif %}
@@ -38,14 +38,14 @@
       <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
       {% endif %}
     </div>
-    <div class="card-subtitle text-muted small">One curriculum per academic year, shared by all programs. Select a semester to make it the active term.</div>
+    <div class="card-subtitle text-muted small">Each curriculum year is shared by all programs. Select a semester to make it the active term.</div>
   </div>
   <div class="card-body">
     {% if not curricula %}
     <div class="text-muted text-center py-4">
       <p>No curricula defined yet.</p>
       {% if can_manage %}
-      <p class="small">Click "Add Curriculum" to create your first academic year.</p>
+      <p class="small">Click "Add Curriculum" to create your first curriculum year.</p>
       {% else %}
       <p class="small">No curricula have been created yet.</p>
       {% endif %}
@@ -56,7 +56,7 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Academic Year</th>
+            <th>Curriculum Year</th>
             <th>Semesters</th>
             <th>Status</th>
             {% if can_manage %}
@@ -197,14 +197,14 @@
           <div id="curriculumFormError" class="alert alert-danger d-none"></div>
           <div class="row g-3">
             <div class="col-12">
-              <label class="form-label">Academic Year</label>
+              <label class="form-label">Curriculum Year</label>
               <select name="academic_year" id="curriculum_academic_year" class="form-select" required>
-                <option value="">Select academic year</option>
+                <option value="">Select curriculum year</option>
                 {% for value, label in academic_year_choices %}
                 <option value="{{ value }}" data-existing="{% if value in existing_academic_years %}true{% else %}false{% endif %}">{{ label }}</option>
                 {% endfor %}
               </select>
-              <small class="form-hint">One curriculum per academic year, covering every program.</small>
+              <small class="form-hint">Each curriculum year covers every program.</small>
             </div>
             <div class="col-12" id="curriculumSemestersGroup">
               <label class="form-label">Semesters</label>
@@ -222,7 +222,7 @@
                   <span class="form-check-label">Summer</span>
                 </label>
               </div>
-              <small class="form-hint">Semesters created with this academic year. You can add more later.</small>
+              <small class="form-hint">Semesters created with this curriculum year. You can add more later.</small>
             </div>
             <div class="col-12">
               <div class="form-check form-switch">

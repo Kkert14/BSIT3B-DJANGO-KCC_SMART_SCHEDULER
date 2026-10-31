@@ -28,6 +28,9 @@ from apps.users.decorators import (
     ROLE_ADMIN,
     ROLE_TEACHER,
 )
+
+GRID_START_MINUTES = 7 * 60
+GRID_END_MINUTES = 21 * 60
 from .models import Schedule
 
 
@@ -168,9 +171,11 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
         # Generate suggestions
         # 1. Alternative times on the same day (different slots)
         all_time_slots = [
-            ('07:00', '08:00'), ('08:00', '09:00'), ('09:00', '10:00'),
-            ('10:00', '11:00'), ('11:00', '12:00'), ('13:00', '14:00'),
-            ('14:00', '15:00'), ('15:00', '16:00'), ('16:00', '17:00'),
+            (
+                f'{minutes // 60:02d}:{minutes % 60:02d}',
+                f'{(minutes + 60) // 60:02d}:{(minutes + 60) % 60:02d}',
+            )
+            for minutes in range(GRID_START_MINUTES, GRID_END_MINUTES, 60)
         ]
         current_start = start_time.strftime('%H:%M')
         current_end = end_time.strftime('%H:%M')
@@ -250,11 +255,7 @@ def _check_schedule_conflicts(semester, teacher, subject, section, room,
     )
     total_hours += _time_duration_hours(start_time, end_time)
 
-    limit = (
-        subject.total_hours
-        if (class_type == 'Laboratory') == subject.is_lab
-        else 0
-    )
+    limit = subject.lab_hours if class_type == 'Laboratory' else subject.lecture_hours
     if total_hours > limit:
         return {
             'conflicts': [{
@@ -464,7 +465,7 @@ def schedule_list_page(request):
 
     time_slots = [
         (f'{minutes // 60:02d}:{minutes % 60:02d}', f'{(minutes + 30) // 60:02d}:{(minutes + 30) % 60:02d}')
-        for minutes in range(7 * 60, 17 * 60, 30)
+        for minutes in range(GRID_START_MINUTES, GRID_END_MINUTES, 30)
     ]
 
     DAYS = [
@@ -480,11 +481,11 @@ def schedule_list_page(request):
     grid_schedules = list(schedules_list)
     slot_cells = [[None for _ in DAYS] for _ in time_slots]
     for sched in grid_schedules:
-        start_index = (sched.start_time.hour * 60 + sched.start_time.minute - 7 * 60) // 30
+        start_index = (sched.start_time.hour * 60 + sched.start_time.minute - GRID_START_MINUTES) // 30
         if start_index < 0 or start_index >= len(time_slots):
             continue
         end_index = math.ceil(
-            (sched.end_time.hour * 60 + sched.end_time.minute - 7 * 60) / 30
+            (sched.end_time.hour * 60 + sched.end_time.minute - GRID_START_MINUTES) / 30
         )
         end_index = min(max(end_index, start_index + 1), len(time_slots))
         column = sched.day_of_week - 1
@@ -606,6 +607,47 @@ def schedule_list_page(request):
         'active_semester': active_semester,
         'has_grid_events': any(value not in (None, 'skip') for row in slot_cells for value in row),
     })
+
+
+@admin_required_api
+@login_required(login_url='login')
+def schedule_faculty_load_ajax(request):
+    """Return weekly load per faculty for a semester, plus one faculty's blocks."""
+    semester_id = request.GET.get('semester', '').strip()
+    teacher_id = request.GET.get('teacher', '').strip()
+    if not semester_id.isdigit():
+        return JsonResponse({'teachers': {}, 'blocks': []})
+
+    schedule_qs = Schedule.objects.filter(semester_id=semester_id)
+    teachers = {}
+    for entry in schedule_qs.values('teacher_id', 'start_time', 'end_time'):
+        item = teachers.setdefault(entry['teacher_id'], {'hours': 0.0, 'count': 0})
+        item['hours'] += _time_duration_hours(entry['start_time'], entry['end_time'])
+        item['count'] += 1
+    for item in teachers.values():
+        item['hours'] = round(item['hours'], 2)
+
+    payload = {'teachers': teachers, 'blocks': []}
+    if teacher_id.isdigit():
+        blocks = (
+            schedule_qs.filter(teacher_id=teacher_id)
+            .select_related('subject', 'section', 'room__building')
+            .order_by('day_of_week', 'start_time')
+        )
+        payload['teacher_id'] = teacher_id
+        payload['blocks'] = [
+            {
+                'day': block.day_of_week,
+                'start': block.start_time.strftime('%H:%M'),
+                'end': block.end_time.strftime('%H:%M'),
+                'subject': block.subject.code,
+                'section': block.section.name,
+                'room': f'{block.room.building.code} {block.room.room_name}',
+                'class_type': block.class_type,
+            }
+            for block in blocks
+        ]
+    return JsonResponse(payload)
 
 
 @login_required(login_url='login')
@@ -817,11 +859,7 @@ def schedule_batch_save_ajax(request):
     )
     planned_hours = sum(_time_duration_hours(slot['start'], slot['end']) for slot in slots)
     total_hours = scheduled_hours + planned_hours
-    limit = (
-        subject.total_hours
-        if (class_type == 'Laboratory') == subject.is_lab
-        else 0
-    )
+    limit = subject.lab_hours if class_type == 'Laboratory' else subject.lecture_hours
     if total_hours > limit:
         return JsonResponse({
             'batch': True,
@@ -886,7 +924,16 @@ def schedule_batch_save_ajax(request):
     except IntegrityError:
         return JsonResponse({'error': 'Could not save the schedule plan due to a conflict.'}, status=400)
 
-    messages.success(request, f'Schedule plan saved ({created + updated} slot(s)).')
+    teacher_hours = sum(
+        _time_duration_hours(entry.start_time, entry.end_time)
+        for entry in Schedule.objects.filter(semester=semester, teacher=teacher)
+    )
+    messages.success(
+        request,
+        f'Schedule plan saved ({created + updated} slot(s)) — '
+        f'{teacher.first_name} {teacher.last_name} now has '
+        f'{teacher_hours:.1f}h this semester.',
+    )
     return JsonResponse({
         'status': 'success',
         'created': created,

@@ -19,6 +19,8 @@ from django.test import RequestFactory, TestCase
 from django.urls import resolve, reverse
 
 from apps.building.models import Building
+from apps.curriculum.models import Curriculum, Semester
+from apps.program.models import Program
 from apps.users.models import UserProfile
 
 User = get_user_model()
@@ -215,10 +217,34 @@ class ReadAccessTests(RoleTestMixin, TestCase):
                 self.assertIn(reverse('login'), response.url)
 
     def test_retired_courses_page_redirects_to_programs(self):
-        """Courses moved into each program's Courses modal."""
+        """Courses live on each program's own course page."""
         response = self.call(self.admin, 'get', 'subject:subject_list')
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('program:program_list'))
+
+    def test_program_courses_page_is_readable(self):
+        curriculum = Curriculum.objects.create(academic_year='2025-2026', is_active=True)
+        Semester.objects.create(curriculum=curriculum, semester_number=1, is_active=True)
+        program = Program.objects.create(
+            program_code='RBAC_IT', program_description='RBAC IT Program',
+        )
+
+        for user in (self.student, self.teacher, self.admin):
+            with self.subTest(role=user.username):
+                response = self.call(
+                    user, 'get', 'program:program_courses', pk=program.id,
+                )
+                self.assertEqual(response.status_code, 200)
+
+        student_response = self.call(
+            self.student, 'get', 'program:program_courses', pk=program.id,
+        )
+        self.assertNotIn(b'data-course-add>', student_response.content)
+
+        admin_response = self.call(
+            self.admin, 'get', 'program:program_courses', pk=program.id,
+        )
+        self.assertIn(b'data-course-add>', admin_response.content)
 
     def test_programs_page_is_readable(self):
         for user in (self.student, self.teacher, self.admin):

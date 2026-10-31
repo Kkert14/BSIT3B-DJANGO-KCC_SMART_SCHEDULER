@@ -6,7 +6,6 @@ from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db import IntegrityError
-from django.template.loader import render_to_string
 
 from .models import MAJOR_CHOICES, Program
 from apps.curriculum.models import Curriculum, Semester
@@ -23,7 +22,7 @@ YEAR_LEVEL_LABELS = {
     6: '6th year',
 }
 
-SEMESTER_NUMBERS = {'1', '2', '3'}
+YEAR_LEVEL_CHOICES = [(level, YEAR_LEVEL_LABELS[level]) for level in range(1, 6)]
 
 
 def program_list_context(request):
@@ -83,21 +82,23 @@ def program_get_ajax(request, pk):
 
 
 @login_required(login_url='login')
-def program_courses_ajax(request, pk):
-    """Curriculum view for one program, filtered by A.Y., semester and year level."""
+def program_courses_page(request, pk):
+    """One program's courses for an academic year, grouped by year level."""
     program = get_object_or_404(Program, pk=pk)
 
     subjects_qs = Subject.objects.filter(program=program).select_related(
         'semester__curriculum', 'prerequisite'
     )
 
-    year_param = request.GET.get('year')
-    if year_param is None:
+    program_year_ids = list(
+        subjects_qs.values_list('semester__curriculum_id', flat=True).distinct()
+    )
+    curriculum_ids = set(Curriculum.objects.values_list('id', flat=True))
+
+    filter_year = request.GET.get('year', '').strip()
+    if not filter_year.isdigit() or int(filter_year) not in curriculum_ids:
         # Prefer the active curriculum, then the newest one holding this
-        # program's courses, so the modal opens on a populated curriculum.
-        program_year_ids = list(
-            subjects_qs.values_list('semester__curriculum_id', flat=True).distinct()
-        )
+        # program's courses, then any curriculum, so the page opens populated.
         active_year_id = (
             Curriculum.objects.filter(is_active=True)
             .values_list('id', flat=True)
@@ -112,73 +113,62 @@ def program_courses_ajax(request, pk):
                 .values_list('id', flat=True)
                 .first()
             )
-            filter_year = str(newest_year_id) if newest_year_id else ''
-    else:
-        filter_year = year_param.strip()
-    if filter_year and not filter_year.isdigit():
-        filter_year = ''
+            if newest_year_id:
+                filter_year = str(newest_year_id)
+            elif active_year_id:
+                filter_year = str(active_year_id)
+            else:
+                newest_year_id = (
+                    Curriculum.objects.order_by('-academic_year')
+                    .values_list('id', flat=True)
+                    .first()
+                )
+                filter_year = str(newest_year_id) if newest_year_id else ''
 
-    filter_semester = request.GET.get('semester', '').strip()
-    if filter_semester not in SEMESTER_NUMBERS:
-        filter_semester = ''
-
-    filter_year_level = request.GET.get('year_level', '').strip()
-    if filter_year_level and not filter_year_level.isdigit():
-        filter_year_level = ''
-
-    scoped_qs = subjects_qs
-    if filter_year:
-        scoped_qs = scoped_qs.filter(semester__curriculum_id=filter_year)
-    if filter_semester:
-        scoped_qs = scoped_qs.filter(semester__semester_number=filter_semester)
-
-    year_level_values = list(
-        scoped_qs.values_list('year_level', flat=True).distinct().order_by('year_level')
+    selected_curriculum = (
+        Curriculum.objects.filter(pk=int(filter_year)).first() if filter_year else None
     )
-    if filter_year_level and filter_year_level not in {str(level) for level in year_level_values}:
-        filter_year_level = ''
-    if filter_year_level:
-        scoped_qs = scoped_qs.filter(year_level=filter_year_level)
-
-    subjects = list(scoped_qs.order_by(
-        'year_level', 'semester__semester_number', 'code'
-    ))
+    subjects = []
+    if selected_curriculum:
+        subjects = list(
+            subjects_qs.filter(semester__curriculum=selected_curriculum).order_by(
+                'year_level', 'semester__semester_number', 'code'
+            )
+        )
 
     groups = []
-    for level in year_level_values:
+    for level in sorted({subject.year_level for subject in subjects}):
         level_subjects = [subject for subject in subjects if subject.year_level == level]
-        if not level_subjects:
-            continue
         groups.append({
             'label': YEAR_LEVEL_LABELS.get(level, f'{level}th year'),
             'subjects': level_subjects,
             'units': sum((subject.units for subject in level_subjects), 0),
+            'lecture_hours': sum(subject.lecture_hours for subject in level_subjects),
+            'lab_hours': sum(subject.lab_hours for subject in level_subjects),
+            'total_hours': sum(subject.total_hours for subject in level_subjects),
         })
 
     context = {
         'program': program,
         'curricula': Curriculum.objects.order_by('-academic_year'),
-        'semester_choices': Semester.SEMESTER_CHOICES,
-        'semesters': Semester.objects.select_related('curriculum').order_by(
-            '-curriculum__academic_year', 'semester_number'
-        ),
-        'prerequisite_choices': Subject.objects.filter(program=program).order_by('code'),
-        'year_level_choices': [
-            (level, YEAR_LEVEL_LABELS.get(level, f'{level}th year'))
-            for level in year_level_values
-        ],
+        'selected_curriculum': selected_curriculum,
         'filter_year': filter_year,
-        'filter_semester': filter_semester,
-        'filter_year_level': filter_year_level,
         'groups': groups,
         'course_count': len(subjects),
         'total_units': sum((subject.units for subject in subjects), 0),
+        'lecture_hours': sum(subject.lecture_hours for subject in subjects),
+        'lab_hours': sum(subject.lab_hours for subject in subjects),
+        'total_hours': sum(subject.total_hours for subject in subjects),
         'has_courses': subjects_qs.exists(),
+        'semesters': (
+            Semester.objects.filter(curriculum=selected_curriculum)
+            .order_by('semester_number')
+            if selected_curriculum else Semester.objects.none()
+        ),
+        'prerequisite_choices': Subject.objects.filter(program=program).order_by('code'),
+        'year_level_choices': YEAR_LEVEL_CHOICES,
     }
-    html = render_to_string(
-        'partials/program_courses_content.html', context, request=request
-    )
-    return JsonResponse({'html': html, 'count': len(subjects)})
+    return render(request, 'program_courses.html', context)
 
 
 @admin_required_api

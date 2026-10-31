@@ -76,12 +76,12 @@ class ReportTests(ReportTestMixin, TestCase):
         )
         cls.subject = Subject.objects.create(
             code='IT101', name='Introduction to Computing', units=3,
-            total_hours=3, program=cls.program, semester=cls.semester,
+            lecture_hours=3, program=cls.program, semester=cls.semester,
             year_level=1,
         )
         cls.subject_two = Subject.objects.create(
             code='IT102', name='Computer Programming', units=3,
-            total_hours=3, program=cls.program, semester=cls.semester,
+            lab_hours=1, program=cls.program, semester=cls.semester,
             year_level=1,
         )
         cls.teacher_user = cls.make_user('report_teacher', 'teacher')

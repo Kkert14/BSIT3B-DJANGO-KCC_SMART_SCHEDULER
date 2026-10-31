@@ -13,40 +13,56 @@ from .models import Section
 from apps.users.decorators import admin_required, admin_required_api
 
 
+def _active_semester():
+    """The term selected in the navbar; sections always belong to it."""
+    return (
+        Semester.objects.select_related('curriculum')
+        .filter(is_active=True, curriculum__is_active=True)
+        .first()
+    )
+
+
 @login_required(login_url='login')
 def section_list_page(request):
     query = request.GET.get('q', '').strip()
-    sections_list = Section.objects.select_related('program', 'semester__curriculum').all()
+    active_semester = _active_semester()
+    sections_list = Section.objects.select_related('program', 'semester__curriculum')
+    if active_semester:
+        sections_list = sections_list.filter(semester=active_semester)
+    else:
+        sections_list = sections_list.none()
     if query:
         sections_list = sections_list.filter(
             Q(name__icontains=query) |
             Q(program__program_code__icontains=query) |
-            Q(program__program_description__icontains=query) |
-            Q(semester__curriculum__academic_year__icontains=query)
+            Q(program__program_description__icontains=query)
         )
     paginator = Paginator(sections_list, 10)
     page_number = request.GET.get('page', 1)
     sections = paginator.get_page(page_number)
     programs = Program.objects.filter(is_active=True).order_by('program_code')
-    semesters = Semester.objects.select_related('curriculum').all().order_by('curriculum__academic_year', 'semester_number')
     return render(request, 'section_list.html', {
         'sections': sections,
         'query': query,
         'programs': programs,
-        'semesters': semesters,
+        'active_semester': active_semester,
     })
 
 
 @login_required(login_url='login')
 def section_list_ajax(request):
     query = request.GET.get('q', '').strip()
-    sections_list = Section.objects.select_related('program', 'semester__curriculum').all()
+    active_semester = _active_semester()
+    sections_list = Section.objects.select_related('program', 'semester__curriculum')
+    if active_semester:
+        sections_list = sections_list.filter(semester=active_semester)
+    else:
+        sections_list = sections_list.none()
     if query:
         sections_list = sections_list.filter(
             Q(name__icontains=query) |
             Q(program__program_code__icontains=query) |
-            Q(program__program_description__icontains=query) |
-            Q(semester__curriculum__academic_year__icontains=query)
+            Q(program__program_description__icontains=query)
         )
     paginator = Paginator(sections_list, 10)
     page_number = request.GET.get('page', 1)
@@ -93,15 +109,20 @@ def section_get_ajax(request, pk):
 @require_POST
 def section_save_ajax(request):
     section_id = request.POST.get('id')
+    active_semester = _active_semester()
     if section_id:
         section = get_object_or_404(Section, pk=section_id)
     else:
-        section = Section()
+        if active_semester is None:
+            return JsonResponse(
+                {'error': 'Select a curriculum year and semester in the top bar first.'},
+                status=400,
+            )
+        section = Section(semester=active_semester)
 
     program_id = request.POST.get('program')
     name = request.POST.get('name', '').strip()
     year_level = request.POST.get('year_level', '').strip()
-    semester_id = request.POST.get('semester', '').strip()
     capacity = request.POST.get('capacity', '').strip()
     is_active = request.POST.get('is_active') == 'true'
 
@@ -120,12 +141,6 @@ def section_save_ajax(request):
         year_level = int(year_level)
     except (ValueError, TypeError):
         return JsonResponse({'error': 'Year level must be a number.'}, status=400)
-    if not semester_id:
-        return JsonResponse({'error': 'Semester is required.'}, status=400)
-    try:
-        semester = Semester.objects.get(pk=int(semester_id))
-    except (Semester.DoesNotExist, ValueError, TypeError):
-        return JsonResponse({'error': 'Invalid semester.'}, status=400)
     if not capacity:
         return JsonResponse({'error': 'Capacity is required.'}, status=400)
     try:
@@ -134,7 +149,7 @@ def section_save_ajax(request):
         return JsonResponse({'error': 'Capacity must be a number.'}, status=400)
 
     dup_qs = Section.objects.filter(
-        semester=semester, program=program, year_level=year_level, name=name
+        semester=section.semester, program=program, year_level=year_level, name=name
     )
     if section_id:
         dup_qs = dup_qs.exclude(pk=section_id)
@@ -144,7 +159,6 @@ def section_save_ajax(request):
     section.program = program
     section.name = name
     section.year_level = year_level
-    section.semester = semester
     section.capacity = capacity
     section.is_active = is_active
 

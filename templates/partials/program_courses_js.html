@@ -1,0 +1,218 @@
+<script>
+(function() {
+  const app = document.querySelector('[data-course-app]');
+  if (!app) return;
+
+  document.querySelectorAll('.toast-container .toast').forEach(function(toastEl) {
+    bootstrap.Toast.getOrCreateInstance(toastEl).show();
+  });
+
+  const yearForm = app.querySelector('[data-year-form]');
+  const yearSelect = app.querySelector('[data-year-select]');
+  if (yearForm && yearSelect) {
+    yearSelect.addEventListener('change', function() {
+      yearForm.submit();
+    });
+  }
+
+  function setView(view) {
+    app.querySelectorAll('[data-course-view]').forEach(function(panel) {
+      panel.classList.toggle('d-none', panel.getAttribute('data-course-view') !== view);
+    });
+  }
+
+  const form = app.querySelector('[data-course-form]');
+  const totalInput = form ? form.querySelector('[data-course-total]') : null;
+  let deleteCourseId = null;
+
+  function refreshTotal() {
+    if (!form || !totalInput) return;
+    const lecture = parseInt(form.elements.lecture_hours.value || '0', 10) || 0;
+    const lab = parseInt(form.elements.lab_hours.value || '0', 10) || 0;
+    totalInput.value = lecture + lab;
+  }
+
+  if (form) {
+    form.addEventListener('input', function(event) {
+      if (event.target.matches('[data-course-lecture], [data-course-lab]')) refreshTotal();
+    });
+  }
+
+  function clearPrerequisiteSelf(courseForm) {
+    const select = courseForm.elements.prerequisite;
+    if (!select) return;
+    Array.prototype.forEach.call(select.options, function(option) {
+      option.disabled = false;
+    });
+  }
+
+  function openCourseForm(button) {
+    if (!form) return;
+    form.reset();
+    clearPrerequisiteSelf(form);
+    form.querySelector('[data-course-error]').classList.add('d-none');
+    form.querySelector('[data-course-error]').textContent = '';
+    const deleteError = app.querySelector('[data-course-delete-error]');
+    if (deleteError) {
+      deleteError.classList.add('d-none');
+      deleteError.textContent = '';
+    }
+
+    const formTitle = app.querySelector('[data-course-form-title]');
+    const submit = form.querySelector('[data-course-submit]');
+
+    if (button) {
+      const id = button.getAttribute('data-id');
+      form.elements.id.value = id;
+      form.elements.code.value = button.getAttribute('data-code');
+      form.elements.name.value = button.getAttribute('data-name');
+      form.elements.units.value = button.getAttribute('data-units');
+      form.elements.lecture_hours.value = button.getAttribute('data-lecture-hours');
+      form.elements.lab_hours.value = button.getAttribute('data-lab-hours');
+      form.elements.semester.value = button.getAttribute('data-semester');
+      form.elements.year_level.value = button.getAttribute('data-year-level');
+      form.elements.prerequisite.value = button.getAttribute('data-prerequisite');
+      const selfOption = form.elements.prerequisite.querySelector('option[value="' + id + '"]');
+      if (selfOption) selfOption.disabled = true;
+      formTitle.textContent = 'Edit Course';
+      submit.textContent = 'Update Course';
+    } else {
+      form.elements.id.value = '';
+      if (!form.elements.semester.value) {
+        const firstSemester = Array.prototype.find.call(form.elements.semester.options, function(option) {
+          return option.value;
+        });
+        if (firstSemester) form.elements.semester.value = firstSemester.value;
+      }
+      formTitle.textContent = 'Add Course';
+      submit.textContent = 'Save Course';
+    }
+
+    refreshTotal();
+    setView('form');
+    form.elements.code.focus();
+  }
+
+  function openCourseDelete(button) {
+    deleteCourseId = button.getAttribute('data-id');
+    app.querySelector('[data-course-delete-name]').textContent = button.getAttribute('data-code');
+    const deleteError = app.querySelector('[data-course-delete-error]');
+    if (deleteError) {
+      deleteError.classList.add('d-none');
+      deleteError.textContent = '';
+    }
+    setView('delete');
+  }
+
+  function saveCourse(courseForm) {
+    const errorBox = courseForm.querySelector('[data-course-error]');
+    const submit = courseForm.querySelector('[data-course-submit]');
+    const defaultLabel = submit.textContent;
+    const formData = new FormData(courseForm);
+
+    errorBox.classList.add('d-none');
+    submit.disabled = true;
+    submit.textContent = 'Saving…';
+
+    fetch('{% url "subject:subject_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': courseForm.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        return {ok: response.ok, data: data};
+      });
+    })
+    .then(function(result) {
+      if (!result.ok || result.data.error) {
+        errorBox.textContent = result.data.error || 'Could not save the course.';
+        errorBox.classList.remove('d-none');
+        submit.disabled = false;
+        submit.textContent = defaultLabel;
+        return;
+      }
+      window.location.reload();
+    })
+    .catch(function() {
+      errorBox.textContent = 'Something went wrong.';
+      errorBox.classList.remove('d-none');
+      submit.disabled = false;
+      submit.textContent = defaultLabel;
+    });
+  }
+
+  function confirmDeleteCourse() {
+    if (!deleteCourseId) return;
+    const deleteError = app.querySelector('[data-course-delete-error]');
+    const confirm = app.querySelector('[data-course-delete-confirm]');
+    const defaultLabel = confirm.textContent;
+    confirm.disabled = true;
+    confirm.textContent = 'Deleting…';
+
+    fetch("{% url 'subject:subject_delete_ajax' 0 %}".replace('/0/', '/' + deleteCourseId + '/'), {
+      method: 'POST',
+      headers: {'X-CSRFToken': app.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        return {ok: response.ok, data: data};
+      });
+    })
+    .then(function(result) {
+      if (!result.ok || result.data.error) {
+        if (deleteError) {
+          deleteError.textContent = result.data.error || 'Could not delete the course.';
+          deleteError.classList.remove('d-none');
+        }
+        confirm.disabled = false;
+        confirm.textContent = defaultLabel;
+        return;
+      }
+      window.location.reload();
+    })
+    .catch(function() {
+      if (deleteError) {
+        deleteError.textContent = 'Something went wrong.';
+        deleteError.classList.remove('d-none');
+      }
+      confirm.disabled = false;
+      confirm.textContent = defaultLabel;
+    });
+  }
+
+  app.addEventListener('click', function(event) {
+    const add = event.target.closest('[data-course-add]');
+    if (add) {
+      openCourseForm(null);
+      return;
+    }
+    const edit = event.target.closest('[data-course-edit]');
+    if (edit) {
+      openCourseForm(edit);
+      return;
+    }
+    const remove = event.target.closest('[data-course-delete]');
+    if (remove) {
+      openCourseDelete(remove);
+      return;
+    }
+    const cancel = event.target.closest('[data-course-cancel]');
+    if (cancel) {
+      deleteCourseId = null;
+      setView('list');
+      return;
+    }
+    if (event.target.closest('[data-course-delete-confirm]')) {
+      confirmDeleteCourse();
+    }
+  });
+
+  app.addEventListener('submit', function(event) {
+    const courseForm = event.target.closest('[data-course-form]');
+    if (!courseForm) return;
+    event.preventDefault();
+    saveCourse(courseForm);
+  });
+})();
+</script>

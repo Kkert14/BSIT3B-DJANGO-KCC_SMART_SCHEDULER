@@ -11,6 +11,7 @@
   <div class="ss-actions">
     <a class="ss-btn" href="{% url 'program:program_list' %}"><i class="fa-solid fa-book"></i> Manage Courses</a>
     <a class="ss-btn primary" href="{% url 'schedule:schedule_list' %}"><i class="fa-solid fa-calendar-days"></i> Manage Schedules</a>
+    <span class="ss-badge{% if badge.ok %} ok{% endif %}">{{ badge.text }}</span>
   </div>
 </div>
 
@@ -19,7 +20,7 @@
     <div class="ss-wk-ico" style="margin:0 auto 12px;"><i class="fa-solid fa-calendar-xmark"></i></div>
     <h2>No active semester</h2>
     <p class="ss-sub" style="max-width:420px; margin:6px auto 14px;">
-      Activate a curriculum and one of its semesters to see the weekly timetable, conflict checks and room utilization here.
+      Activate a curriculum and one of its semesters to see today's classes, conflict checks and room utilization here.
     </p>
     {% if can_manage %}
       <a class="ss-btn primary" href="{% url 'curriculum:curriculum_list' %}">Open Curriculum</a>
@@ -35,35 +36,6 @@
     </p>
   </section>
 {% else %}
-  <form class="ss-toolbar" method="get">
-    <label class="ss-filter">
-      <small>Academic year</small>
-      <select disabled><option>{{ active_curriculum.academic_year }}</option></select>
-    </label>
-    <label class="ss-filter">
-      <small>Semester</small>
-      <select disabled><option>{{ semester.get_semester_number_display }}</option></select>
-    </label>
-    {% if selected_section %}
-    <label class="ss-filter" style="min-width:180px;">
-      <small>Program</small>
-      <select disabled><option>{{ selected_section.program.program_code }} · {{ selected_section.program.program_description }}</option></select>
-    </label>
-    {% endif %}
-    {% if not teacher_mode %}
-      <label class="ss-filter" style="min-width:170px;">
-        <small>Section</small>
-        <select name="section" onchange="this.form.submit()">
-          <option value="">All sections</option>
-          {% for section in sections %}
-            <option value="{{ section.id }}" {% if selected_section and selected_section.id == section.id %}selected{% endif %}>{{ section.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-    {% endif %}
-    <span class="ss-badge{% if badge.ok %} ok{% endif %}">{{ badge.text }}</span>
-  </form>
-
   <div class="ss-stats">
     {% for stat in stats %}
       <div class="ss-card ss-stat">
@@ -74,64 +46,72 @@
     {% endfor %}
   </div>
 
-  <section class="ss-card">
-    <div class="ss-tt-head">
-      <div>
-        <h2>Weekly timetable</h2>
-        <p class="ss-sub">Recurring semester schedule · every class already has a faculty member and a room</p>
-      </div>
-      <div class="ss-actions">
-        <span class="ss-btn" style="cursor:default;"><i class="fa-solid fa-layer-group"></i> {{ scope_label }}</span>
-        <a class="ss-btn" href="{% url 'schedule:schedule_list' %}"><i class="fa-solid fa-arrow-up-right-from-square"></i> View schedules</a>
-      </div>
-    </div>
-
-    <div class="ss-legend">
-      <span><i style="background:var(--ss-lecb)"></i>Lecture</span>
-      <span><i style="background:var(--ss-labb)"></i>Laboratory</span>
-      <span class="ss-ok{% if conflicts %} bad{% endif %}">
-        {% if conflicts %}
-          <i class="fa-solid fa-triangle-exclamation"></i> {{ conflicts|length }} overlap{{ conflicts|length|pluralize }} in this semester
-        {% else %}
-          <i class="fa-solid fa-check"></i> No faculty, room or section overlaps
-        {% endif %}
-      </span>
-    </div>
-
-    <div class="ss-scroll">
-      <div class="ss-tt">
-        <div class="ss-tt-corner">TIME</div>
-        {% for day in day_columns %}<div class="ss-tt-headcell">{{ day.name }}</div>{% endfor %}
-
-        <div class="ss-tt-times" style="height:{{ grid_height }}px;">
-          {% for label in time_labels %}<span class="{% if label.major %}major{% else %}minor{% endif %}" style="top:{{ label.top }}px;">{{ label.text }}</span>{% endfor %}
+  <div class="ss-overview">
+    <section class="ss-card">
+      <div class="ss-tt-head">
+        <div>
+          <h2>Today at a glance</h2>
+          <p class="ss-sub">{{ today_label }}{% if teacher_mode %} · your teaching day{% endif %}</p>
         </div>
+      </div>
 
-        {% for day in day_columns %}
-          <div class="ss-tt-col" style="height:{{ grid_height }}px;">
-            {% for event in day.events %}
-              <div class="ss-ev{% if event.class_type == 'Laboratory' %} lab{% endif %}"
-                   style="top:{{ event.top_px }}px; height:{{ event.height_px }}px;">
-                <b>{{ event.subject.code }}<u>{% if event.class_type == 'Laboratory' %}LAB{% else %}LEC{% endif %}</u></b>
-                <strong>{{ event.subject.name }}</strong>
-                <div>{{ event.section.name }} · {{ event.teacher.first_name }} {{ event.teacher.last_name }}</div>
-                <div>{{ event.room.building.code }} {{ event.room.room_name }} · {{ event.time_label }}</div>
-              </div>
-            {% endfor %}
+      <div class="ss-now{% if hero.state == 'now' %} now{% endif %}">
+        <div class="ss-now-label">
+          <i class="fa-solid {% if hero.state == 'now' %}fa-circle-play{% elif hero.state == 'next' %}fa-forward{% else %}fa-calendar-day{% endif %}"></i>
+          {{ hero.label }}
+        </div>
+        {% if hero.schedule %}
+          <div class="ss-now-code">
+            {{ hero.schedule.subject.code }}
+            <span>{% if hero.schedule.class_type == 'Laboratory' %}Lab{% else %}Lec{% endif %}</span>
+          </div>
+          <div class="ss-now-name">{{ hero.schedule.subject.name }}</div>
+          <div class="ss-now-meta">
+            <span><i class="fa-regular fa-clock"></i>{{ hero.schedule.start_time|time:"H:i" }}–{{ hero.schedule.end_time|time:"H:i" }}</span>
+            <span><i class="fa-solid fa-location-dot"></i>{{ hero.schedule.room.building.code }} {{ hero.schedule.room.room_name }}</span>
+            <span><i class="fa-solid fa-users"></i>{{ hero.schedule.section.name }}</span>
+            {% if not teacher_mode %}
+              <span><i class="fa-solid fa-user"></i>{{ hero.schedule.teacher.first_name }} {{ hero.schedule.teacher.last_name }}</span>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="ss-now-name">{{ hero.title }}</div>
+          <div class="ss-now-meta">{{ hero.message }}</div>
+        {% endif %}
+      </div>
+
+      <div class="ss-daylist">
+        {% for item in today_classes %}
+          <div class="ss-dayrow{% if item.day_status == 'now' %} now{% endif %}">
+            <span class="ss-daytime">{{ item.start_time|time:"H:i" }}<small>{{ item.end_time|time:"H:i" }}</small></span>
+            <span class="ss-dayinfo">
+              <b>{{ item.subject.code }} · {{ item.subject.name }}</b>
+              {{ item.section.name }} · {{ item.room.building.code }} {{ item.room.room_name }}{% if not teacher_mode %} · {{ item.teacher.first_name }} {{ item.teacher.last_name }}{% endif %}
+            </span>
+            {% if item.day_status_label %}<span class="ss-daystate {{ item.day_status }}">{{ item.day_status_label }}</span>{% endif %}
           </div>
         {% endfor %}
       </div>
-    </div>
+    </section>
 
-    {% if not timetable %}
-      <div class="ss-empty" style="border-top:0; padding-top:14px;">No classes on the timetable for this view yet.</div>
-    {% endif %}
-
-    <div class="ss-tt-foot">
-      <span>{{ foot_left }}</span>
-      <span class="{% if conflicts %}am{% else %}gr{% endif %}">{{ foot_right }}</span>
-    </div>
-  </section>
+    <section class="ss-card">
+      <h3>Week at a glance</h3>
+      <p class="ss-sub" style="margin:3px 0 4px;">Scheduled hours by day</p>
+      <div style="margin-top:4px;">
+        {% for day in week_days %}
+          <div class="ss-week-row">
+            <span class="ss-week-day">{{ day.name }}</span>
+            <span class="ss-week-bar"><i style="width:{{ day.bar_width }}%;"></i></span>
+            <span class="ss-week-meta">{{ day.hours_label }}h · {{ day.classes }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="ss-rmf">
+        <span>{{ week_summary }}</span>
+        <a href="{% url 'schedule:schedule_list' %}">Open schedule &rarr;</a>
+      </div>
+    </section>
+  </div>
 
   <div class="ss-low">
     <section class="ss-card">

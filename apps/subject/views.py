@@ -31,8 +31,8 @@ def subject_save_ajax(request):
     code = request.POST.get('code', '').strip()
     name = request.POST.get('name', '').strip()
     units = request.POST.get('units', '').strip()
-    total_hours = request.POST.get('total_hours', '').strip()
-    is_lab = request.POST.get('is_lab') == 'true'
+    lecture_hours = request.POST.get('lecture_hours', '').strip() or '0'
+    lab_hours = request.POST.get('lab_hours', '').strip() or '0'
     semester_id = request.POST.get('semester', '').strip()
     year_level = request.POST.get('year_level', '').strip()
     prerequisite_id = request.POST.get('prerequisite', '').strip()
@@ -54,12 +54,15 @@ def subject_save_ajax(request):
         units = float(units)
     except (ValueError, TypeError):
         return JsonResponse({'error': 'Units must be a number.'}, status=400)
-    if not total_hours:
-        return JsonResponse({'error': 'Total hours is required.'}, status=400)
     try:
-        total_hours = int(total_hours)
+        lecture_hours = int(lecture_hours)
+        lab_hours = int(lab_hours)
     except (ValueError, TypeError):
-        return JsonResponse({'error': 'Total hours must be a number.'}, status=400)
+        return JsonResponse({'error': 'Lecture and lab hours must be numbers.'}, status=400)
+    if lecture_hours < 0 or lab_hours < 0:
+        return JsonResponse({'error': 'Hours cannot be negative.'}, status=400)
+    if lecture_hours + lab_hours == 0:
+        return JsonResponse({'error': 'Enter lecture or lab hours.'}, status=400)
     if not semester_id:
         return JsonResponse({'error': 'Semester is required.'}, status=400)
     try:
@@ -94,8 +97,8 @@ def subject_save_ajax(request):
     subject.code = code
     subject.name = name
     subject.units = units
-    subject.total_hours = total_hours
-    subject.is_lab = is_lab
+    subject.lecture_hours = lecture_hours
+    subject.lab_hours = lab_hours
     subject.semester = semester
     subject.year_level = year_level
     subject.prerequisite = prerequisite
@@ -114,8 +117,9 @@ def subject_save_ajax(request):
         'code': subject.code,
         'name': subject.name,
         'units': str(subject.units),
+        'lecture_hours': subject.lecture_hours,
+        'lab_hours': subject.lab_hours,
         'total_hours': subject.total_hours,
-        'is_lab': subject.is_lab,
         'semester': subject.semester.id,
         'semester_number': subject.semester.semester_number,
         'academic_year': subject.semester.curriculum.academic_year,

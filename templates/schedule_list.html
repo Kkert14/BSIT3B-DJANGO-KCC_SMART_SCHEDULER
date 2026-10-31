@@ -15,6 +15,17 @@
   {% endif %}
 </div>
 
+<div class="toast-container position-fixed top-0 end-0 p-3" id="scheduleToastContainer" aria-live="polite" aria-atomic="true">
+  {% for message in messages %}
+  <div class="toast bg-info-lt" role="status" aria-atomic="true" data-bs-delay="5000" style="--tblr-toast-color: #000;">
+    <div class="d-flex">
+      <div class="toast-body">{{ message }}</div>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
 <form class="ss-toolbar" method="get">
   <label class="ss-filter" style="flex:0 1 135px; min-width:0;">
     <small>Academic year</small>
@@ -147,7 +158,7 @@
               <select class="ss-input" id="f_subject" name="subject">
                 <option value="">Select course…</option>
                 {% for subject in subjects %}
-                  <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-semester="{{ subject.semester_id }}" data-hours="{{ subject.total_hours }}" data-lab="{{ subject.is_lab|yesno:'true,false' }}">{{ subject.code }} — {{ subject.name }}</option>
+                  <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-semester="{{ subject.semester_id }}" data-lecture="{{ subject.lecture_hours }}" data-lab-hours="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -389,9 +400,18 @@
       <select class="ss-input" id="plan_teacher">
         <option value="">Select faculty…</option>
         {% for teacher in teachers %}
-          <option value="{{ teacher.id }}">{{ teacher.last_name }}, {{ teacher.first_name }} ({{ teacher.employee_number }})</option>
+          <option value="{{ teacher.id }}" data-name="{{ teacher.last_name }}, {{ teacher.first_name }}">{{ teacher.last_name }}, {{ teacher.first_name }} ({{ teacher.employee_number }})</option>
         {% endfor %}
       </select>
+    </div>
+
+    <div class="ss-plan-load d-none" id="planFacultyLoad" aria-live="polite">
+      <div class="ss-plan-load-head">
+        <span><i class="fa-solid fa-user-clock"></i> <b id="planLoadName"></b></span>
+        <span id="planLoadStat"></span>
+      </div>
+      <div class="ss-plan-load-list" id="planLoadList"></div>
+      <div class="ss-plan-load-warn d-none" id="planLoadWarn"></div>
     </div>
 
     <div class="ss-plan-add">
@@ -417,6 +437,11 @@
         <button type="button" class="ss-plan-linkbtn d-none" id="cancelSlotEdit">Cancel edit</button>
       </div>
     </div>
+
+    <p class="ss-plan-keep" id="planKeepHint">
+      <i class="fa-solid fa-circle-info"></i>
+      Faculty and times stay filled in — after each block, just pick the next day.
+    </p>
 
     <div class="ss-alert danger d-none" id="planError"></div>
 
@@ -489,6 +514,10 @@
 
   var HOURS_MAP = JSON.parse(document.getElementById("hours-map").textContent);
 
+  document.querySelectorAll("#scheduleToastContainer .toast").forEach(function (element) {
+    new bootstrap.Toast(element).show();
+  });
+
   // ------------------------------------------------ grid / tabular switch
   var toggle = document.getElementById("viewToggle");
   var gridView = document.getElementById("viewGrid");
@@ -554,6 +583,10 @@
   if (timeFormat) {
     timeFormat.addEventListener("change", function () {
       applyTimeFormat();
+      if (planLoadPanel && !planLoadPanel.classList.contains("d-none")) {
+        renderFacultyLoad();
+        updatePlanLoadWarnings();
+      }
       document.cookie = "time_format=" + timeFormat.value + "; path=/; max-age=31536000";
     });
     applyTimeFormat();
@@ -595,6 +628,11 @@
   var openPlanBtn = document.getElementById("openPlan");
   var planModal = document.getElementById("planModal");
   var planTeacher = document.getElementById("plan_teacher");
+  var planLoadPanel = document.getElementById("planFacultyLoad");
+  var planLoadName = document.getElementById("planLoadName");
+  var planLoadStat = document.getElementById("planLoadStat");
+  var planLoadList = document.getElementById("planLoadList");
+  var planLoadWarn = document.getElementById("planLoadWarn");
   var planTarget = document.getElementById("planTarget");
   var slotDay = document.getElementById("slot_day");
   var slotStart = document.getElementById("slot_start");
@@ -620,6 +658,7 @@
 
   var appliedPlan = [];
   var draftPlan = [];
+  var facultyBlocks = [];
   var editingSlot = null;
   var editingId = null;
   var originalHours = 0;
@@ -630,6 +669,129 @@
       if (select.options[i].value === String(value)) return select.options[i];
     }
     return null;
+  }
+
+  function rememberTeacherLabels() {
+    Array.prototype.forEach.call(planTeacher.options, function (option) {
+      if (!option.value || option.dataset.baseLabel) return;
+      option.dataset.baseLabel = option.textContent.trim();
+    });
+  }
+
+  function applyTeacherLoadBadges(map) {
+    rememberTeacherLabels();
+    Array.prototype.forEach.call(planTeacher.options, function (option) {
+      if (!option.value) return;
+      var load = map[option.value];
+      option.textContent = load
+        ? option.dataset.baseLabel + " · " + load.hours.toFixed(1) + "h"
+        : option.dataset.baseLabel;
+    });
+  }
+
+  function loadFacultySummary() {
+    if (!semester.value) {
+      applyTeacherLoadBadges({});
+      return;
+    }
+    fetch("{% url 'schedule:schedule_faculty_load_ajax' %}?semester=" +
+      encodeURIComponent(semester.value))
+      .then(function (response) { return response.json(); })
+      .then(function (data) { applyTeacherLoadBadges(data.teachers || {}); })
+      .catch(function () {});
+  }
+
+  function loadFacultyBlocks() {
+    var teacherId = planTeacher.value;
+    if (!teacherId || !semester.value) {
+      facultyBlocks = [];
+      planLoadPanel.classList.add("d-none");
+      planLoadWarn.classList.add("d-none");
+      planLoadWarn.textContent = "";
+      renderPlanRows();
+      return;
+    }
+    fetch("{% url 'schedule:schedule_faculty_load_ajax' %}?semester=" +
+      encodeURIComponent(semester.value) + "&teacher=" + encodeURIComponent(teacherId))
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        if (String(data.teacher_id) !== String(planTeacher.value)) return;
+        facultyBlocks = data.blocks || [];
+        renderFacultyLoad();
+        renderPlanRows();
+      })
+      .catch(function () {});
+  }
+
+  function renderFacultyLoad() {
+    planLoadPanel.classList.remove("d-none");
+    var option = planTeacher.options[planTeacher.selectedIndex];
+    planLoadName.textContent = option && (option.dataset.name || option.dataset.baseLabel)
+      ? option.dataset.name || option.dataset.baseLabel
+      : "Faculty";
+    var mode = timeFormat ? timeFormat.value : "military";
+    var minutes = 0;
+    facultyBlocks.forEach(function (block) {
+      minutes += (parseInt(block.end.slice(0, 2), 10) * 60 + parseInt(block.end.slice(3), 10)) -
+        (parseInt(block.start.slice(0, 2), 10) * 60 + parseInt(block.start.slice(3), 10));
+    });
+    var hours = minutes / 60;
+    planLoadStat.textContent = facultyBlocks.length
+      ? facultyBlocks.length + " block" + (facultyBlocks.length === 1 ? "" : "s") +
+        " · " + hours.toFixed(1) + "h this semester"
+      : "Free this semester";
+
+    planLoadList.textContent = "";
+    if (!facultyBlocks.length) {
+      var empty = document.createElement("span");
+      empty.className = "ss-plan-load-empty";
+      empty.textContent = "No classes assigned in this semester yet.";
+      planLoadList.appendChild(empty);
+      return;
+    }
+    facultyBlocks.forEach(function (block) {
+      var chip = document.createElement("span");
+      chip.className = "ss-load-chip" + (block.class_type === "Laboratory" ? " lab" : "");
+      chip.textContent = (DAY_LABELS[block.day] || "").slice(0, 3) + " " +
+        formatTime(block.start, mode) + "–" + formatTime(block.end, mode) +
+        " · " + block.subject + " · " + block.section;
+      chip.title = block.room;
+      planLoadList.appendChild(chip);
+    });
+  }
+
+  function facultyClashForSlot(slot) {
+    for (var i = 0; i < facultyBlocks.length; i += 1) {
+      var block = facultyBlocks[i];
+      if (String(block.day) === String(slot.day) &&
+          slot.start < block.end && block.start < slot.end) {
+        return block;
+      }
+    }
+    return null;
+  }
+
+  function updatePlanLoadWarnings() {
+    var clashes = [];
+    draftPlan.forEach(function (slot) {
+      var block = facultyClashForSlot(slot);
+      if (block) clashes.push(block);
+    });
+    if (!clashes.length) {
+      planLoadWarn.classList.add("d-none");
+      planLoadWarn.textContent = "";
+      return;
+    }
+    var first = clashes[0];
+    var mode = timeFormat ? timeFormat.value : "military";
+    var text = (DAY_LABELS[first.day] || "") + " " +
+      formatTime(first.start, mode) + "–" + formatTime(first.end, mode) +
+      " overlaps " + first.subject + " (" + first.section + ")";
+    if (clashes.length > 1) {
+      text += " and " + (clashes.length - 1) + " more";
+    }
+    planLoadWarn.textContent = "Heads up: " + text + ".";
+    planLoadWarn.classList.remove("d-none");
   }
 
   function openModal(modal) {
@@ -754,7 +916,7 @@
   subject.addEventListener("change", function () {
     var option = findOption(subject, subject.value);
     if (option) {
-      classType.value = option.dataset.lab === "true" ? "Laboratory" : "Lecture";
+      classType.value = parseInt(option.dataset.lecture || "0", 10) > 0 ? "Lecture" : "Laboratory";
     }
     updateHours();
   });
@@ -769,10 +931,7 @@
       return;
     }
     var scheduled = HOURS_MAP[key] || 0;
-    var required = parseInt(option.dataset.hours || "0", 10);
-    var isLabSubject = option.dataset.lab === "true";
-    var isLabClass = classType.value === "Laboratory";
-    var allowed = isLabSubject === isLabClass ? required : 0;
+    var allowed = allowedHours();
     hoursEl.textContent = classType.value + ": " + scheduled + "h scheduled of " +
       allowed + "h allowed this week.";
     renderPlan();
@@ -798,10 +957,11 @@
     if (!subject.value) return null;
     var option = findOption(subject, subject.value);
     if (!option) return null;
-    var isLabClass = classType.value === "Laboratory";
-    return (option.dataset.lab === "true") === isLabClass
-      ? parseFloat(option.dataset.hours || "0")
-      : 0;
+    return parseFloat(
+      classType.value === "Laboratory"
+        ? option.dataset.labHours || "0"
+        : option.dataset.lecture || "0"
+    );
   }
 
   function scheduledOtherHours() {
@@ -934,9 +1094,17 @@
       draftPlan.forEach(function (slot, index) {
         var row = document.createElement("tr");
         if (editingSlot === index) row.classList.add("editing");
+        var clash = facultyClashForSlot(slot);
+        if (clash) row.classList.add("clash");
 
         var dayCell = document.createElement("td");
         dayCell.textContent = DAY_LABELS[slot.day] || slot.day;
+        if (clash) {
+          var clashNote = document.createElement("div");
+          clashNote.className = "ss-plan-clash";
+          clashNote.textContent = "Overlaps " + clash.subject;
+          dayCell.appendChild(clashNote);
+        }
         row.appendChild(dayCell);
 
         var timeCell = document.createElement("td");
@@ -978,6 +1146,7 @@
     }
     applyTimeFormat();
     renderPlanSummary();
+    updatePlanLoadWarnings();
   }
 
   function renderPlanSummary() {
@@ -1023,10 +1192,7 @@
       return { day: String(slot.day), start: slot.start, end: slot.end };
     });
     editingSlot = null;
-    slotStart.value = "";
-    slotEnd.value = "";
     syncSlotEditor();
-    planTeacher.value = teacherField.value;
     clearPlanError();
 
     var option = findOption(subject, subject.value);
@@ -1037,10 +1203,18 @@
     planTarget.textContent = label.length ? label.join(" · ") : "this class";
 
     renderPlanRows();
+    loadFacultyBlocks();
     openModal(planModal);
   }
 
   openPlanBtn.addEventListener("click", openPlanModal);
+
+  planTeacher.addEventListener("change", loadFacultyBlocks);
+
+  semester.addEventListener("change", function () {
+    loadFacultySummary();
+    if (planTeacher.value) loadFacultyBlocks();
+  });
 
   addSlotBtn.addEventListener("click", function () {
     clearPlanError();
@@ -1072,10 +1246,11 @@
     }
     draftPlan.sort(byDayTime);
     editingSlot = null;
-    slotStart.value = "";
-    slotEnd.value = "";
+    // Keep faculty and times for the next block — only the day changes.
+    slotDay.value = "";
     syncSlotEditor();
     renderPlanRows();
+    slotDay.focus();
   });
 
   planRows.addEventListener("click", function (event) {
@@ -1091,8 +1266,6 @@
     if (editingSlot !== null) {
       if (editingSlot === index) {
         editingSlot = null;
-        slotStart.value = "";
-        slotEnd.value = "";
         syncSlotEditor();
       } else if (editingSlot > index) {
         editingSlot -= 1;
@@ -1104,8 +1277,6 @@
   cancelSlotEdit.addEventListener("click", function () {
     clearPlanError();
     editingSlot = null;
-    slotStart.value = "";
-    slotEnd.value = "";
     syncSlotEditor();
     renderPlanRows();
   });
@@ -1130,8 +1301,6 @@
     });
     teacherField.value = planTeacher.value;
     editingSlot = null;
-    slotStart.value = "";
-    slotEnd.value = "";
     syncSlotEditor();
     closeModal(planModal);
     renderPlan();
@@ -1251,6 +1420,10 @@
     lockStep2();
     hoursEl.textContent = "Weekly hours: —";
     planTeacher.value = "";
+    facultyBlocks = [];
+    planLoadPanel.classList.add("d-none");
+    planLoadWarn.classList.add("d-none");
+    planLoadWarn.textContent = "";
     clearAlerts();
     clearPlanError();
 
@@ -1306,6 +1479,7 @@
     }
     classType.value = data.classType;
     teacherField.value = data.teacher;
+    planTeacher.value = data.teacher;
 
     refreshStepLock();
     updateHours();
@@ -1416,6 +1590,8 @@
   }
 
   resetForm();
+  rememberTeacherLabels();
+  loadFacultySummary();
 
   function askDelete(id, label) {
     deleteTarget = { id: id, label: label };
