@@ -25,6 +25,13 @@
   <link href="{% static 'css/app-theme.css' %}" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="{% static 'css/shell.css' %}" rel="stylesheet">
+  <script>
+    try {
+      if (localStorage.getItem('ss-side-collapsed') === '1') {
+        document.documentElement.classList.add('ss-side-collapsed');
+      }
+    } catch (e) {}
+  </script>
   {% block extra_css %}{% endblock %}
 </head>
 <body class="ss-body">
@@ -50,23 +57,43 @@
       var side = document.getElementById('ss-side');
       var backdrop = document.getElementById('ss-side-backdrop');
       var burger = document.getElementById('ss-burger');
+      var desktop = window.matchMedia('(min-width: 901px)');
+
+      function syncBurger() {
+        if (!burger || !side) return;
+        var expanded = desktop.matches
+          ? !document.documentElement.classList.contains('ss-side-collapsed')
+          : side.classList.contains('open');
+        burger.setAttribute('aria-expanded', String(expanded));
+      }
 
       function closeSidebar() {
         if (!side) return;
         side.classList.remove('open');
         if (backdrop) backdrop.classList.remove('open');
+        syncBurger();
       }
 
       if (burger && side) {
         burger.addEventListener('click', function () {
-          side.classList.toggle('open');
-          if (backdrop) backdrop.classList.toggle('open');
+          if (desktop.matches) {
+            var collapsed = document.documentElement.classList.toggle('ss-side-collapsed');
+            try {
+              localStorage.setItem('ss-side-collapsed', collapsed ? '1' : '0');
+            } catch (e) {}
+          } else {
+            side.classList.toggle('open');
+            if (backdrop) backdrop.classList.toggle('open');
+          }
+          syncBurger();
         });
       }
       if (backdrop) backdrop.addEventListener('click', closeSidebar);
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') closeSidebar();
       });
+      desktop.addEventListener('change', closeSidebar);
+      syncBurger();
 
       // Context pickers (academic year / semester)
       var ctxGroups = document.querySelectorAll('[data-ss-ctx]');

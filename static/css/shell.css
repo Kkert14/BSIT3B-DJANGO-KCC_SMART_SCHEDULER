@@ -8,12 +8,14 @@
   --ss-nav: #1b2538;
   --ss-nav2: #243049;
   --ss-nav-text: #c9d1e0;
+  --ss-shell-line: rgba(255, 255, 255, 0.09);
   --ss-bg: #eef1f9;
   --ss-card: #ffffff;
   --ss-line: #e4e8f2;
   --ss-text: #1d2740;
   --ss-muted: #7b86a0;
   --ss-blue: #2b8be6;
+  --ss-blue-text: var(--ss-blue);
   --ss-blue-dark: color-mix(in srgb, var(--ss-blue) 78%, #000);
   --ss-green: #1f9d63;
   --ss-amber: #b7791f;
@@ -70,6 +72,7 @@ body.ss-body *::after {
   padding: 0 18px;
   background: var(--ss-nav);
   color: #aab4ca;
+  border-bottom: 1px solid var(--ss-shell-line);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -145,7 +148,8 @@ body.ss-body *::after {
 }
 
 .ss-burger {
-  display: none;
+  display: inline-grid;
+  place-items: center;
   width: 34px;
   height: 34px;
   border: 1px solid #3a4763;
@@ -153,6 +157,26 @@ body.ss-body *::after {
   background: var(--ss-nav2);
   color: #d7deeb;
   cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ss-burger:hover {
+  border-color: #52648a;
+  color: #fff;
+}
+
+@media (min-width: 901px) {
+  html.ss-side-collapsed body.ss-body {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+
+  html.ss-side-collapsed .ss-side {
+    display: none;
+  }
+
+  html.ss-side-collapsed .ss-main {
+    border-top-left-radius: 0;
+  }
 }
 
 /* active curriculum / semester picker */
@@ -394,6 +418,7 @@ body.ss-body *::after {
   padding: 14px 12px;
   background: var(--ss-nav);
   color: var(--ss-nav-text);
+  border-right: 1px solid var(--ss-shell-line);
   overflow-y: auto;
   min-height: 0;
 }
@@ -491,7 +516,7 @@ body.ss-body *::after {
   flex-shrink: 0;
   border-radius: 6px;
   background: #f5a623;
-  color: #fff;
+  color: #17223b;
   display: grid;
   place-items: center;
   font-size: 10px;
@@ -549,7 +574,7 @@ body.ss-body *::after {
 .ss-ov {
   font-size: 9px;
   font-weight: 700;
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   letter-spacing: 0.6px;
   text-transform: uppercase;
 }
@@ -735,7 +760,7 @@ body.ss-body *::after {
 }
 
 .ss-term i {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   font-size: 10px;
 }
 
@@ -761,7 +786,7 @@ body.ss-body *::after {
 }
 
 .ss-editor-term i {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   font-size: 10px;
 }
 
@@ -793,7 +818,7 @@ body.ss-body *::after {
 }
 
 .ss-yearpick > i {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   font-size: 11px;
 }
 
@@ -1042,12 +1067,13 @@ body.ss-body *::after {
 
 .ss-main .btn-outline-primary {
   border-color: rgba(var(--tblr-primary-rgb), 0.45);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .ss-main .btn-outline-primary:hover {
   background: var(--ss-blue);
   border-color: var(--ss-blue);
+  color: #fff;
 }
 
 .ss-main .form-control,
@@ -1177,7 +1203,7 @@ body.ss-body *::after {
 
 .ss-tab.on .ss-tab-count {
   background: rgba(var(--tblr-primary-rgb), 0.14);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 /* ------------------------------------------------------------------ stats */
@@ -1288,7 +1314,7 @@ body.ss-body *::after {
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .ss-now.now .ss-now-label {
@@ -1407,7 +1433,7 @@ body.ss-body *::after {
 
 .ss-daystate.next {
   background: rgba(var(--tblr-primary-rgb), 0.14);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .ss-daystate.done {
@@ -1534,7 +1560,7 @@ body.ss-body *::after {
 }
 
 .ss-att-tx a {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   display: block;
   margin-top: 2px;
   text-decoration: none;
@@ -1616,7 +1642,7 @@ body.ss-body *::after {
 }
 
 .ss-rmf a {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -1659,7 +1685,7 @@ body.ss-body *::after {
   height: 32px;
   border-radius: 9px;
   background: rgba(var(--tblr-primary-rgb), 0.13);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   display: grid;
   place-items: center;
   font-size: 13px;
@@ -1688,7 +1714,7 @@ body.ss-body *::after {
 }
 
 .ss-add-slot span {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   font-size: 18px;
   line-height: 1;
   font-weight: 400;
@@ -1776,7 +1802,7 @@ body.ss-body *::after {
 
 .ss-slot:hover {
   background: rgba(var(--tblr-primary-rgb), 0.12);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .ss-ev-sm {
@@ -1910,7 +1936,7 @@ body.ss-body *::after {
 }
 
 .ss-icon-btn:hover {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   border-color: #c9d3e6;
 }
 
@@ -2121,7 +2147,7 @@ select.ss-input {
 
 .ss-note b {
   display: block;
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   margin-bottom: 2px;
 }
 
@@ -2309,7 +2335,7 @@ select.ss-input {
   height: 36px;
   border-radius: 9px;
   background: rgba(var(--tblr-primary-rgb), 0.13);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -2432,7 +2458,7 @@ select.ss-input {
 }
 
 .ss-plan-faculty i {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .ss-plan-add {
@@ -2478,7 +2504,7 @@ select.ss-input {
 }
 
 .ss-plan-keep i {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .ss-plan-load {
@@ -2504,7 +2530,7 @@ select.ss-input {
 }
 
 .ss-plan-load-head i {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .ss-plan-load-list {
@@ -2662,7 +2688,7 @@ select.ss-input {
 
 .ss-seg-btn.on {
   background: #fff;
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   box-shadow: 0 1px 2px rgba(20, 30, 60, 0.15);
 }
 
@@ -3051,7 +3077,7 @@ select.ss-input {
 
 .ss-tab.on {
   border-bottom-color: var(--ss-blue);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .report-layout {
@@ -3233,7 +3259,7 @@ select.ss-input {
 }
 
 .report-link {
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   font-weight: 600;
   text-decoration: none;
 }
@@ -3542,7 +3568,7 @@ select.ss-input {
 
 .ss-icon-opt input:checked + .ss-icon-card {
   border-color: var(--ss-blue);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   box-shadow: 0 0 0 2px rgba(var(--tblr-primary-rgb), 0.14);
 }
 
@@ -3567,7 +3593,7 @@ select.ss-input {
   border: 1px solid var(--ss-line);
   border-radius: 8px;
   background: var(--ss-card);
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
   font-size: 12px;
   overflow: hidden;
 }
@@ -3615,7 +3641,7 @@ select.ss-input {
   font-size: 20px;
   font-weight: 700;
   line-height: 1;
-  color: var(--ss-blue);
+  color: var(--ss-blue-text);
 }
 
 .ss-font-preview-text {
@@ -3726,9 +3752,10 @@ select.ss-input {
   --ss-nav: #0a0f1e;
   --ss-nav2: #151b2f;
   --ss-nav-text: #b9c3da;
+  --ss-shell-line: rgba(255, 255, 255, 0.075);
   --ss-bg: #0e1020;
   --ss-card: #161a30;
-  --ss-line: #2a314d;
+  --ss-line: #343e5e;
   --ss-text: #e6e8f4;
   --ss-muted: #98a2bc;
   --ss-green: #4ecb8d;
@@ -3739,6 +3766,7 @@ select.ss-input {
   --ss-lab: #2a2344;
   --ss-labb: #b7a0f2;
   --ss-blue-dark: color-mix(in srgb, var(--ss-blue) 82%, #fff);
+  --ss-blue-text: color-mix(in srgb, var(--ss-blue) 60%, #fff);
 }
 
 [data-bs-theme="dark"] .ss-btn:not(.primary):not(.danger),
@@ -3782,6 +3810,31 @@ select.ss-input {
 [data-bs-theme="dark"] .ss-wk-table td.t,
 [data-bs-theme="dark"] .report-grid td.t {
   background: #171c30;
+}
+
+[data-bs-theme="dark"] .ss-wk-table td .ss-slot {
+  background: #1b2038;
+  border-color: var(--ss-line);
+  color: #b9c3da;
+}
+
+/* The timetable is read cell by cell, so its ruling needs more contrast than
+   ordinary card borders in dark mode. */
+[data-bs-theme="dark"] .ss-wk,
+[data-bs-theme="dark"] .ss-wk-table th,
+[data-bs-theme="dark"] .ss-wk-table td,
+[data-bs-theme="dark"] .ss-editor .ss-wk-head {
+  border-color: #414c72;
+}
+
+[data-bs-theme="dark"] .ss-wk-table td .ss-slot:hover {
+  background: rgba(var(--tblr-primary-rgb), 0.18);
+  border-color: rgba(var(--tblr-primary-rgb), 0.55);
+  color: var(--ss-blue-text);
+}
+
+[data-bs-theme="dark"] .ss-main .btn-outline-primary {
+  border-color: rgba(var(--tblr-primary-rgb), 0.65);
 }
 
 [data-bs-theme="dark"] .ss-main .table > :not(caption) > * > *,
