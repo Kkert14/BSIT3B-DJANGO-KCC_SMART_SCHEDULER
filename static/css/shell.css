@@ -3252,6 +3252,7 @@ select.ss-input {
 /* ------------------------------------------------------------- appearance */
 
 .ss-appearance {
+  margin-top: 24px;
   margin-bottom: 16px;
 }
 

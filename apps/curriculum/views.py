@@ -289,7 +289,6 @@ def appearance_save_ajax(request):
     if old_logo_name and old_logo_name != (appearance.logo.name if appearance.logo else ''):
         appearance.logo.storage.delete(old_logo_name)
 
-    messages.success(request, 'Appearance settings have been saved.')
     return JsonResponse({
         'status': 'success',
         'theme': appearance.theme,

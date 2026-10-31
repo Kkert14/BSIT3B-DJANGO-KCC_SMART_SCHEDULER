@@ -1,0 +1,209 @@
+{% load static %}
+<!doctype html>
+<html lang="en"
+      data-bs-theme="{{ appearance.theme }}"
+      style="--tblr-primary: {{ appearance.accent }}; --tblr-primary-rgb: {{ appearance.accent_rgb }}; --tblr-font-sans-serif: {{ appearance.font_stack }}; --tblr-body-font-family: var(--tblr-font-sans-serif);">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>{% block title %}{{ appearance.brand_name }}{% endblock %}</title>
+
+  <link href="{% static 'css/tabler.css' %}" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  {% if appearance.font == 'inter' or appearance.font == 'poppins' %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family={% if appearance.font == 'inter' %}Inter{% else %}Poppins{% endif %}:wght@400;500;600;700&display=swap" rel="stylesheet">
+  {% endif %}
+
+  <style>
+    :root {
+      --ss-bg: #f4f6fb;
+      --ss-card: #ffffff;
+      --ss-line: #e3e8f1;
+      --ss-text: #152238;
+      --ss-muted: #78849c;
+      --ss-accent: var(--tblr-primary);
+    }
+
+    [data-bs-theme="dark"] {
+      --ss-bg: #0e1020;
+      --ss-card: #161a30;
+      --ss-line: #2a314d;
+      --ss-text: #e6e8f4;
+      --ss-muted: #98a2bc;
+      --ss-accent: color-mix(in srgb, var(--tblr-primary) 60%, #fff);
+    }
+
+    body.ss-auth {
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      padding: 24px 16px;
+      display: grid;
+      place-items: center;
+      background: var(--ss-bg);
+      color: var(--ss-text);
+    }
+
+    .ss-auth-shell {
+      width: 100%;
+      max-width: 390px;
+    }
+
+    .ss-auth-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .ss-auth-mark {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: 11px;
+      background: var(--tblr-primary);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      overflow: hidden;
+    }
+
+    .ss-auth-mark img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: var(--ss-card);
+    }
+
+    .ss-auth-brandtext {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+
+    .ss-auth-wordmark {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ss-text);
+    }
+
+    .ss-auth-wordmark b {
+      color: var(--ss-accent);
+    }
+
+    .ss-auth-tagline {
+      margin-top: 3px;
+      font-size: 7.5px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--ss-muted);
+    }
+
+    .ss-auth-card {
+      border: 1px solid var(--ss-line);
+      border-radius: 14px;
+      background: var(--ss-card);
+      box-shadow: 0 18px 40px rgba(19, 31, 58, 0.08);
+    }
+
+    [data-bs-theme="dark"] .ss-auth-card {
+      box-shadow: 0 18px 40px rgba(2, 6, 18, 0.35);
+    }
+
+    .ss-auth-card .card-body {
+      padding: 26px;
+    }
+
+    .ss-auth-card .h3 {
+      color: var(--ss-text);
+    }
+
+    .ss-auth-sub {
+      color: var(--ss-muted);
+      font-size: 12.5px;
+    }
+
+    .ss-auth-card .form-label {
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ss-text);
+    }
+
+    .ss-auth-card .form-control {
+      height: 40px;
+      border-radius: 8px;
+    }
+
+    .ss-auth-card .form-control:focus {
+      border-color: var(--tblr-primary);
+      box-shadow: 0 0 0 3px rgba(var(--tblr-primary-rgb), 0.15);
+    }
+
+    .ss-auth-card .btn-primary {
+      height: 40px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+
+    .ss-auth-card .alert {
+      border-radius: 8px;
+      font-size: 12.5px;
+    }
+
+    .ss-auth-foot {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 12.5px;
+      color: var(--ss-muted);
+    }
+
+    .ss-auth-foot a {
+      font-weight: 600;
+      color: var(--ss-accent);
+      text-decoration: none;
+    }
+
+    .ss-auth-foot a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body class="ss-auth">
+  <main class="ss-auth-shell">
+    <div class="ss-auth-brand">
+      <span class="ss-auth-mark">
+        {% if appearance.logo %}
+        <img src="{{ appearance.logo_url }}" alt="">
+        {% else %}
+        <i class="fa-solid {{ appearance.brand_icon_class }}" aria-hidden="true"></i>
+        {% endif %}
+      </span>
+      <span class="ss-auth-brandtext">
+        <span class="ss-auth-wordmark"><b>{{ appearance.brand_first }}</b>{% if appearance.brand_rest %} {{ appearance.brand_rest }}{% endif %}</span>
+        {% if appearance.brand_tagline %}
+        <span class="ss-auth-tagline">{{ appearance.brand_tagline }}</span>
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="card ss-auth-card">
+      <div class="card-body">
+        {% block card %}{% endblock %}
+      </div>
+    </div>
+
+    {% block below %}{% endblock %}
+  </main>
+
+  <script src="{% static 'js/tabler.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

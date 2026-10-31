@@ -206,6 +206,36 @@ class AppearanceSettingsTests(TestCase):
         self.assertContains(response, 'data-bs-theme="light"')
         self.assertNotContains(response, 'fonts.googleapis.com')
 
+    def test_auth_pages_follow_saved_appearance(self):
+        self.client.logout()
+        AppearanceSettings.objects.create(
+            theme='dark',
+            accent='#e11d48',
+            font='poppins',
+            brand_name='Campus Flow',
+            brand_tagline='Scheduling Suite',
+            brand_icon='fa-calendar-check',
+        )
+
+        for name, heading in (
+            ('login', 'Sign in'),
+            ('register', 'Create your account'),
+        ):
+            with self.subTest(page=name):
+                response = self.client.get(reverse(name))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'data-bs-theme="dark"')
+                self.assertContains(response, '--tblr-primary: #e11d48')
+                self.assertContains(response, 'family=Poppins')
+                self.assertContains(response, heading)
+                self.assertContains(response, 'Scheduling Suite')
+                self.assertContains(response, 'fa-calendar-check')
+                self.assertNotContains(response, 'offcanvasSettings')
+                self.assertNotContains(response, 'Theme Settings')
+                self.assertNotContains(response, 'tabler-theme.js')
+                self.assertNotContains(response, 'js/demo.js')
+
 
 class AppearanceLogoTests(TestCase):
     def setUp(self):
