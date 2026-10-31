@@ -97,12 +97,34 @@ body.ss-body *::after {
   display: grid;
   place-items: center;
   font-size: 13px;
+  overflow: hidden;
+}
+
+.ss-brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 7px;
+}
+
+.ss-brand-mark [hidden] {
+  display: none !important;
 }
 
 .ss-brand-name {
+  display: block;
+  max-width: 190px;
   font-weight: 700;
   font-size: 13px;
   line-height: 1.05;
+}
+
+.ss-brand-word {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ss-brand-name b {
@@ -112,6 +134,10 @@ body.ss-body *::after {
 
 .ss-brand-sub {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
   font-size: 6.5px;
   letter-spacing: 1.2px;
   color: #8f9ab3;
@@ -3229,6 +3255,10 @@ select.ss-input {
   margin-bottom: 16px;
 }
 
+.ss-appearance [hidden] {
+  display: none !important;
+}
+
 .ss-appearance-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3240,7 +3270,7 @@ select.ss-input {
   min-width: 0;
 }
 
-.ss-appearance-block:nth-child(4) {
+.ss-appearance-span {
   grid-column: 1 / -1;
 }
 
@@ -3432,6 +3462,136 @@ select.ss-input {
   color: var(--ss-muted);
 }
 
+.ss-brand-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px 20px;
+  align-items: start;
+}
+
+.ss-brand-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 10px;
+}
+
+.ss-brand-field {
+  display: block;
+  margin: 0;
+  min-width: 0;
+}
+
+.ss-brand-field span,
+.ss-brand-sub-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--ss-muted);
+}
+
+.ss-brand-field .form-control {
+  height: 32px;
+  font-size: 11.5px;
+}
+
+.ss-icon-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ss-icon-opt {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+
+.ss-icon-opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ss-icon-card {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--ss-line);
+  border-radius: 7px;
+  background: var(--ss-card);
+  color: var(--ss-muted);
+  font-size: 11px;
+  transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ss-icon-opt:hover .ss-icon-card {
+  border-color: rgba(var(--tblr-primary-rgb), 0.5);
+  color: var(--ss-text);
+}
+
+.ss-icon-opt input:checked + .ss-icon-card {
+  border-color: var(--ss-blue);
+  color: var(--ss-blue);
+  box-shadow: 0 0 0 2px rgba(var(--tblr-primary-rgb), 0.14);
+}
+
+.ss-icon-opt input:focus-visible + .ss-icon-card {
+  outline: 2px solid var(--ss-blue);
+  outline-offset: 2px;
+}
+
+.ss-logo-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ss-logo-thumb {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1px solid var(--ss-line);
+  border-radius: 8px;
+  background: var(--ss-card);
+  color: var(--ss-blue);
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.ss-logo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ss-logo-thumb [hidden] {
+  display: none !important;
+}
+
+.ss-logo-pick {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+
+.ss-logo-pick input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.ss-logo-pick:focus-within {
+  outline: 2px solid var(--ss-blue);
+  outline-offset: 2px;
+}
+
 .ss-font-preview {
   display: flex;
   align-items: center;
@@ -3520,6 +3680,14 @@ select.ss-input {
   .ss-appearance-block:nth-child(3) {
     grid-column: 1 / -1;
   }
+
+  .ss-brand-edit {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .ss-brand-fields {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 560px) {
@@ -3529,6 +3697,15 @@ select.ss-input {
 
   .ss-appearance-block {
     grid-column: auto !important;
+  }
+
+  .ss-brand-edit {
+    grid-template-columns: 1fr;
+  }
+
+  .ss-brand-fields {
+    grid-column: auto;
+    grid-template-columns: 1fr;
   }
 }
 

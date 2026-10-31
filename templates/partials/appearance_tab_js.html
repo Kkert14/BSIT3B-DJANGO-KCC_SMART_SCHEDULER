@@ -13,12 +13,32 @@
     var revertBtn = document.getElementById('appearanceRevert');
     var saveBtn = document.getElementById('appearanceSave');
     var swatches = Array.prototype.slice.call(document.querySelectorAll('.ss-swatch'));
+
+    var brandName = document.getElementById('brandName');
+    var brandTagline = document.getElementById('brandTagline');
+    var brandIconRadios = Array.prototype.slice.call(form.querySelectorAll('input[name="brand_icon"]'));
+    var brandFirst = document.getElementById('ssBrandFirst');
+    var brandRest = document.getElementById('ssBrandRest');
+    var brandTaglineNav = document.getElementById('ssBrandTagline');
+    var brandIconNav = document.getElementById('ssBrandIcon');
+    var brandLogoNav = document.getElementById('ssBrandLogo');
+    var brandLogoThumbImg = document.getElementById('brandLogoThumbImg');
+    var brandLogoThumbIcon = document.getElementById('brandLogoThumbIcon');
+    var brandLogoInput = document.getElementById('brandLogoInput');
+    var brandLogoRemove = document.getElementById('brandLogoRemove');
+    var brandLogoRemoveFlag = document.getElementById('brandLogoRemoveFlag');
+
     var loadedFonts = {};
+    var logoPreviewUrl = '';
 
     var saved = {
       theme: form.getAttribute('data-theme'),
       accent: form.getAttribute('data-accent'),
-      font: form.getAttribute('data-font')
+      font: form.getAttribute('data-font'),
+      brandName: form.getAttribute('data-brand-name') || '',
+      brandTagline: form.getAttribute('data-brand-tagline') || '',
+      brandIcon: form.getAttribute('data-brand-icon') || 'fa-gear',
+      logoUrl: form.getAttribute('data-logo-url') || ''
     };
 
     function hexToRgb(hex) {
@@ -40,6 +60,11 @@
       return checked ? checked.value : 'light';
     }
 
+    function currentIcon() {
+      var checked = form.querySelector('input[name="brand_icon"]:checked');
+      return checked ? checked.value : 'fa-gear';
+    }
+
     function ensureFont(font) {
       if (font !== 'inter' && font !== 'poppins') return;
       if (loadedFonts[font]) return;
@@ -51,7 +76,7 @@
       loadedFonts[font] = true;
     }
 
-    function apply(theme, accent, font) {
+    function applyTheme(theme, accent, font) {
       root.setAttribute('data-bs-theme', theme);
       root.style.setProperty('--ss-blue', accent);
       root.style.setProperty('--tblr-primary', accent);
@@ -59,10 +84,62 @@
       root.style.setProperty('--ss-font', stackFor(font));
     }
 
+    function splitName(name) {
+      var parts = (name || '').trim().split(' ');
+      return [parts[0] || '', parts.slice(1).join(' ')];
+    }
+
+    function previewLogo() {
+      if (logoPreviewUrl) return logoPreviewUrl;
+      if (brandLogoRemoveFlag.value === '1') return '';
+      return saved.logoUrl;
+    }
+
+    function applyBrand() {
+      var name = splitName(brandName.value);
+      var icon = currentIcon();
+      var logo = previewLogo();
+
+      brandFirst.textContent = name[0];
+      brandRest.textContent = name[1] ? ' ' + name[1] : '';
+      brandTaglineNav.textContent = brandTagline.value.trim();
+
+      if (logo) {
+        brandIconNav.hidden = true;
+        brandLogoNav.hidden = false;
+        brandLogoNav.src = logo;
+        brandLogoThumbImg.hidden = false;
+        brandLogoThumbImg.src = logo;
+        brandLogoThumbIcon.hidden = true;
+      } else {
+        brandIconNav.className = 'fa-solid ' + icon;
+        brandIconNav.hidden = false;
+        brandLogoNav.hidden = true;
+        brandLogoThumbImg.hidden = true;
+        brandLogoThumbIcon.className = 'fa-solid ' + icon;
+        brandLogoThumbIcon.hidden = false;
+      }
+
+      var hasPending = brandLogoInput.files.length > 0;
+      brandLogoRemove.hidden = !(hasPending || (brandLogoRemoveFlag.value !== '1' && !!saved.logoUrl));
+    }
+
+    function clearPendingLogo() {
+      if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+      logoPreviewUrl = '';
+      brandLogoInput.value = '';
+      brandLogoRemoveFlag.value = '0';
+    }
+
     function isDirty() {
+      var logoChanged = brandLogoInput.files.length > 0 || brandLogoRemoveFlag.value === '1';
       return currentTheme() !== saved.theme ||
         accentInput.value !== saved.accent ||
-        fontSelect.value !== saved.font;
+        fontSelect.value !== saved.font ||
+        brandName.value.trim() !== saved.brandName ||
+        brandTagline.value.trim() !== saved.brandTagline ||
+        currentIcon() !== saved.brandIcon ||
+        logoChanged;
     }
 
     function markDirty() {
@@ -83,7 +160,7 @@
       swatches.forEach(function (swatch) {
         swatch.classList.toggle('on', swatch.getAttribute('data-accent') === accent);
       });
-      apply(currentTheme(), accent, fontSelect.value);
+      applyTheme(currentTheme(), accent, fontSelect.value);
       markDirty();
     }
 
@@ -99,14 +176,55 @@
 
     Array.prototype.forEach.call(form.querySelectorAll('input[name="theme"]'), function (radio) {
       radio.addEventListener('change', function () {
-        apply(currentTheme(), accentInput.value, fontSelect.value);
+        applyTheme(currentTheme(), accentInput.value, fontSelect.value);
         markDirty();
       });
     });
 
     fontSelect.addEventListener('change', function () {
       ensureFont(fontSelect.value);
-      apply(currentTheme(), accentInput.value, fontSelect.value);
+      applyTheme(currentTheme(), accentInput.value, fontSelect.value);
+      markDirty();
+    });
+
+    brandName.addEventListener('input', function () {
+      applyBrand();
+      markDirty();
+    });
+
+    brandTagline.addEventListener('input', function () {
+      applyBrand();
+      markDirty();
+    });
+
+    brandIconRadios.forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        applyBrand();
+        markDirty();
+      });
+    });
+
+    brandLogoInput.addEventListener('change', function () {
+      if (logoPreviewUrl) {
+        URL.revokeObjectURL(logoPreviewUrl);
+        logoPreviewUrl = '';
+      }
+      var file = brandLogoInput.files[0];
+      if (file) {
+        logoPreviewUrl = URL.createObjectURL(file);
+      }
+      brandLogoRemoveFlag.value = '0';
+      applyBrand();
+      markDirty();
+    });
+
+    brandLogoRemove.addEventListener('click', function () {
+      if (brandLogoInput.files.length > 0) {
+        clearPendingLogo();
+      } else if (saved.logoUrl) {
+        brandLogoRemoveFlag.value = '1';
+      }
+      applyBrand();
       markDirty();
     });
 
@@ -116,6 +234,14 @@
       });
       fontSelect.value = saved.font;
       setAccent(saved.accent);
+
+      brandName.value = saved.brandName;
+      brandTagline.value = saved.brandTagline;
+      brandIconRadios.forEach(function (radio) {
+        radio.checked = radio.value === saved.brandIcon;
+      });
+      clearPendingLogo();
+      applyBrand();
       markDirty();
       setStatus('Reverted to the saved appearance.', '', 'fa-circle-info');
     });
@@ -131,24 +257,36 @@
           'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value,
           'X-Requested-With': 'XMLHttpRequest'
         },
-        body: new URLSearchParams({
-          theme: currentTheme(),
-          accent: accentInput.value,
-          font: fontSelect.value
-        })
+        body: new FormData(form)
       }).then(function (response) {
         return response.json().then(function (data) {
           if (!response.ok) throw new Error(data.error || 'Could not save the appearance settings.');
           return data;
         });
       }).then(function (data) {
-        saved = { theme: data.theme, accent: data.accent, font: data.font };
+        saved = {
+          theme: data.theme,
+          accent: data.accent,
+          font: data.font,
+          brandName: data.brand_name,
+          brandTagline: data.brand_tagline,
+          brandIcon: data.brand_icon,
+          logoUrl: data.logo_url
+        };
         form.setAttribute('data-theme', data.theme);
         form.setAttribute('data-accent', data.accent);
         form.setAttribute('data-font', data.font);
+        form.setAttribute('data-brand-name', data.brand_name);
+        form.setAttribute('data-brand-tagline', data.brand_tagline);
+        form.setAttribute('data-brand-icon', data.brand_icon);
+        form.setAttribute('data-logo-url', data.logo_url);
+        brandName.value = data.brand_name;
+        brandTagline.value = data.brand_tagline;
         setAccent(data.accent);
+        clearPendingLogo();
+        applyBrand();
         markDirty();
-        setStatus('Saved — this appearance now applies to everyone.', 'ok', 'fa-circle-check');
+        setStatus('Saved — this appearance and brand now apply to everyone.', 'ok', 'fa-circle-check');
       }).catch(function (error) {
         setStatus(error.message, 'error', 'fa-triangle-exclamation');
       }).finally(function () {

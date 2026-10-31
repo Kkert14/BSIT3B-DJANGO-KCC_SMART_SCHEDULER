@@ -1,13 +1,18 @@
 <div class="card ss-appearance" id="appearanceCard">
   <div class="card-header">
     <div class="card-title">Appearance</div>
-    <div class="card-subtitle text-muted small">Choose the theme, accent colour and typeface for the whole system. Saved changes apply to every user.</div>
+    <div class="card-subtitle text-muted small">Choose the theme, accent colour, typeface and brand for the whole system. Saved changes apply to every user.</div>
   </div>
   <div class="card-body">
     <form id="appearanceForm"
+          enctype="multipart/form-data"
           data-theme="{{ appearance.theme }}"
           data-accent="{{ appearance.accent }}"
-          data-font="{{ appearance.font }}">
+          data-font="{{ appearance.font }}"
+          data-brand-name="{{ appearance.brand_name }}"
+          data-brand-tagline="{{ appearance.brand_tagline }}"
+          data-brand-icon="{{ appearance.brand_icon_class }}"
+          data-logo-url="{{ appearance.logo_url }}">
       {% csrf_token %}
       <div class="ss-appearance-grid">
         <section class="ss-appearance-block">
@@ -68,7 +73,53 @@
           <p class="ss-appearance-hint">Inter and Poppins load from Google Fonts when selected.</p>
         </section>
 
-        <section class="ss-appearance-block">
+        <section class="ss-appearance-block ss-appearance-span">
+          <div class="ss-appearance-label">Brand</div>
+          <div class="ss-brand-edit">
+            <div class="ss-brand-fields">
+              <label class="ss-brand-field">
+                <span>System name</span>
+                <input class="form-control" type="text" name="brand_name" id="brandName" value="{{ appearance.brand_name }}" maxlength="40" required>
+              </label>
+              <label class="ss-brand-field">
+                <span>Tagline</span>
+                <input class="form-control" type="text" name="brand_tagline" id="brandTagline" value="{{ appearance.brand_tagline }}" maxlength="40">
+              </label>
+            </div>
+
+            <div>
+              <div class="ss-brand-sub-label">Icon</div>
+              <div class="ss-icon-options" role="radiogroup" aria-label="Brand icon">
+                {% for value, label in brand_icons %}
+                <label class="ss-icon-opt" title="{{ label }}">
+                  <input type="radio" name="brand_icon" value="{{ value }}" {% if appearance.brand_icon_class == value %}checked{% endif %}>
+                  <span class="ss-icon-card"><i class="fa-solid {{ value }}" aria-hidden="true"></i></span>
+                  <span class="visually-hidden">{{ label }}</span>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div>
+              <div class="ss-brand-sub-label">Logo</div>
+              <div class="ss-logo-row">
+                <span class="ss-logo-thumb" id="brandLogoThumb">
+                  <img id="brandLogoThumbImg" src="{{ appearance.logo_url|default:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }}" alt=""{% if not appearance.logo %} hidden{% endif %}>
+                  <i class="fa-solid {{ appearance.brand_icon_class }}" id="brandLogoThumbIcon"{% if appearance.logo %} hidden{% endif %}></i>
+                </span>
+                <label class="btn btn-ghost-secondary btn-sm ss-logo-pick">
+                  <i class="fa-solid fa-arrow-up-from-bracket me-1" aria-hidden="true"></i>Choose image
+                  <input type="file" id="brandLogoInput" name="logo" accept="image/png,image/jpeg,image/webp">
+                </label>
+                <button type="button" class="btn btn-ghost-danger btn-sm" id="brandLogoRemove"{% if not appearance.logo %} hidden{% endif %}>Remove</button>
+                <input type="hidden" name="remove_logo" id="brandLogoRemoveFlag" value="0">
+              </div>
+              <p class="ss-appearance-hint" id="brandLogoNote">PNG, JPEG or WebP, up to 2 MB. Replaces the icon.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="ss-appearance-block ss-appearance-span">
           <div class="ss-appearance-label">Preview</div>
           <div class="ss-font-preview">
             <span class="ss-font-preview-aa" aria-hidden="true">Aa</span>

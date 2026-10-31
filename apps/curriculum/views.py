@@ -1,4 +1,5 @@
 import re
+import uuid
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -8,7 +9,14 @@ from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.db import IntegrityError
 
-from apps.core.models import ACCENT_PRESETS, FONT_STACKS, AppearanceSettings
+from apps.core.models import (
+    ACCENT_PRESETS,
+    BRAND_ICONS,
+    FONT_STACKS,
+    MAX_LOGO_BYTES,
+    AppearanceSettings,
+    logo_suffix_for,
+)
 from apps.users.decorators import admin_required, admin_required_api
 
 from .models import ACADEMIC_YEAR_CHOICES, Curriculum, Semester
@@ -35,6 +43,7 @@ def curriculum_list_context(request):
             {'value': value, 'label': label, 'stack': FONT_STACKS[value]}
             for value, label in AppearanceSettings.FONT_CHOICES
         ],
+        'brand_icons': BRAND_ICONS,
     }
 
 
@@ -233,6 +242,11 @@ def appearance_save_ajax(request):
     theme = request.POST.get('theme', '').strip()
     accent = request.POST.get('accent', '').strip().lower()
     font = request.POST.get('font', '').strip()
+    brand_name = request.POST.get('brand_name', '').strip()
+    brand_tagline = request.POST.get('brand_tagline', '').strip()
+    brand_icon = request.POST.get('brand_icon', '').strip()
+    remove_logo = request.POST.get('remove_logo') == '1'
+    logo = request.FILES.get('logo')
 
     if theme not in dict(AppearanceSettings.THEME_CHOICES):
         return JsonResponse({'error': 'Choose a valid theme.'}, status=400)
@@ -240,14 +254,40 @@ def appearance_save_ajax(request):
         return JsonResponse({'error': 'Choose a valid font.'}, status=400)
     if not re.match(r'^#[0-9a-f]{6}$', accent):
         return JsonResponse({'error': 'Choose an accent colour in #rrggbb format.'}, status=400)
+    if not brand_name or len(brand_name) > 40:
+        return JsonResponse({'error': 'Give the system a name (40 characters max).'}, status=400)
+    if len(brand_tagline) > 40:
+        return JsonResponse({'error': 'Keep the tagline under 40 characters.'}, status=400)
+    if brand_icon not in dict(BRAND_ICONS):
+        return JsonResponse({'error': 'Choose a valid brand icon.'}, status=400)
+    if logo:
+        if logo.size > MAX_LOGO_BYTES:
+            return JsonResponse({'error': 'Logo images must be 2 MB or smaller.'}, status=400)
+        suffix = logo_suffix_for(logo.read(16))
+        logo.seek(0)
+        if not suffix:
+            return JsonResponse({'error': 'Upload a PNG, JPEG or WebP logo.'}, status=400)
+        logo.name = f'logo-{uuid.uuid4().hex}{suffix}'
 
     appearance = AppearanceSettings.objects.first()
     if appearance is None:
         appearance = AppearanceSettings(pk=1)
+    old_logo_name = appearance.logo.name if appearance.logo else ''
+
     appearance.theme = theme
     appearance.accent = accent
     appearance.font = font
+    appearance.brand_name = brand_name
+    appearance.brand_tagline = brand_tagline
+    appearance.brand_icon = brand_icon
+    if logo:
+        appearance.logo = logo
+    elif remove_logo:
+        appearance.logo = ''
     appearance.save()
+
+    if old_logo_name and old_logo_name != (appearance.logo.name if appearance.logo else ''):
+        appearance.logo.storage.delete(old_logo_name)
 
     messages.success(request, 'Appearance settings have been saved.')
     return JsonResponse({
@@ -257,6 +297,10 @@ def appearance_save_ajax(request):
         'accent_rgb': appearance.accent_rgb,
         'font': appearance.font,
         'font_stack': appearance.font_stack,
+        'brand_name': appearance.brand_name,
+        'brand_tagline': appearance.brand_tagline,
+        'brand_icon': appearance.brand_icon_class,
+        'logo_url': appearance.logo_url,
     })
 
 

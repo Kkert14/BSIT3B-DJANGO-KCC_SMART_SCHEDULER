@@ -5,10 +5,13 @@
   </button>
 
   <a class="ss-brand" href="{% url 'dashboard' %}">
-    <span class="ss-brand-mark"><i class="fa-solid fa-gear"></i></span>
-    <span class="ss-brand-name">
-      <b>Smart</b> Scheduler
-      <span class="ss-brand-sub">MANAGEMENT SYSTEM</span>
+    <span class="ss-brand-mark" id="ssBrandMark">
+      <i class="fa-solid {{ appearance.brand_icon_class }}" id="ssBrandIcon"{% if appearance.logo %} hidden{% endif %}></i>
+      <img id="ssBrandLogo" src="{{ appearance.logo_url|default:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }}" alt=""{% if not appearance.logo %} hidden{% endif %}>
+    </span>
+    <span class="ss-brand-name" id="ssBrandName">
+      <span class="ss-brand-word"><b id="ssBrandFirst">{{ appearance.brand_first }}</b><span id="ssBrandRest">{% if appearance.brand_rest %} {{ appearance.brand_rest }}{% endif %}</span></span>
+      <span class="ss-brand-sub" id="ssBrandTagline">{{ appearance.brand_tagline }}</span>
     </span>
   </a>
 
