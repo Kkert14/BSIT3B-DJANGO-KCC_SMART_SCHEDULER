@@ -1,11 +1,10 @@
 <div class="ss-toolbar">
   <form method="GET" class="ss-search">
-    <input type="hidden" name="tab" value="curriculum">
     <div class="input-group">
       <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
       <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by academic year...">
       {% if query %}
-      <a href="?tab=curriculum" class="btn btn-outline-secondary">Clear</a>
+      <a href="{% url 'curriculum:curriculum_list' %}" class="btn btn-outline-secondary">Clear</a>
       {% endif %}
       <button type="submit" class="btn btn-primary">Search</button>
     </div>
@@ -34,12 +33,12 @@
 <div class="card">
   <div class="card-header">
     <div class="card-title">
-      All Curricula
+      Curriculum
       {% if query %}
       <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
       {% endif %}
     </div>
-    <div class="card-subtitle text-muted small">One curriculum per academic year, shared by all programs. Select a semester to make it active.</div>
+    <div class="card-subtitle text-muted small">One curriculum per academic year, shared by all programs. Select a semester to make it the active term.</div>
   </div>
   <div class="card-body">
     {% if not curricula %}
@@ -161,19 +160,19 @@
     <ul class="pagination m-0 ms-auto">
       {% if curricula.has_previous %}
       <li class="page-item">
-        <a class="page-link" href="?tab=curriculum&amp;page={{ curricula.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+        <a class="page-link" href="?page={{ curricula.previous_page_number }}{% if query %}&amp;q={{ query }}{% endif %}">
           <i class="fa-solid fa-chevron-left"></i> prev
         </a>
       </li>
       {% endif %}
       {% for num in curricula.paginator.page_range %}
       <li class="page-item {% if curricula.number == num %}active{% endif %}">
-        <a class="page-link" href="?tab=curriculum&amp;page={{ num }}{% if query %}&q={{ query }}{% endif %}">{{ num }}</a>
+        <a class="page-link" href="?page={{ num }}{% if query %}&amp;q={{ query }}{% endif %}">{{ num }}</a>
       </li>
       {% endfor %}
       {% if curricula.has_next %}
       <li class="page-item">
-        <a class="page-link" href="?tab=curriculum&amp;page={{ curricula.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+        <a class="page-link" href="?page={{ curricula.next_page_number }}{% if query %}&amp;q={{ query }}{% endif %}">
           next <i class="fa-solid fa-chevron-right"></i>
         </a>
       </li>

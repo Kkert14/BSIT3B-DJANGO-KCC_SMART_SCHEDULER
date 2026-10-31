@@ -192,7 +192,7 @@
   // Delete curriculum
   deleteCurriculumBtn.addEventListener('click', function() {
     if (!currentCurriculumId) return;
-    fetch('/curriculum/ajax/delete/' + currentCurriculumId + '/', {
+    fetch("{% url 'curriculum:curriculum_delete_ajax' 0 %}".replace('/0/', '/' + currentCurriculumId + '/'), {
       method: 'POST',
       headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
     })
@@ -212,7 +212,7 @@
   // Delete semester
   deleteSemesterBtn.addEventListener('click', function() {
     if (!currentSemesterId) return;
-    fetch('/curriculum/semester/ajax/delete/' + currentSemesterId + '/', {
+    fetch("{% url 'curriculum:semester_delete_ajax' 0 %}".replace('/0/', '/' + currentSemesterId + '/'), {
       method: 'POST',
       headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
     })

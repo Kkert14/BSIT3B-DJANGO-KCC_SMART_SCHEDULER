@@ -18,11 +18,18 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('apps.core.urls')),
-    path('curriculum/', include('apps.curriculum.urls')),
+    path('settings/', include('apps.curriculum.urls')),
+    path(
+        'curriculum/',
+        RedirectView.as_view(
+            pattern_name='curriculum:curriculum_list', permanent=False
+        ),
+    ),
     path('users/', include('apps.users.urls')),
     path('info/', include('apps.info.urls')),
     path('buildings/', include('apps.building.urls')),

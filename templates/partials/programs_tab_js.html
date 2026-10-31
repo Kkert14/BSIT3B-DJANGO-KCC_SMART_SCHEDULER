@@ -121,15 +121,38 @@
     });
   });
 
-  // Program curriculum modal
+  // Program courses modal
   const coursesModalEl = document.getElementById('programCoursesModal');
   const coursesBody = document.getElementById('programCoursesBody');
   const coursesTitle = document.getElementById('programCoursesTitle');
   const coursesSubtitle = document.getElementById('programCoursesSubtitle');
   let coursesUrl = null;
   let coursesRequest = 0;
+  let deleteCourseId = null;
 
-  function loadProgramCourses() {
+  function setCourseView(view) {
+    coursesBody.querySelectorAll('[data-course-view]').forEach(function(panel) {
+      panel.classList.toggle('d-none', panel.getAttribute('data-course-view') !== view);
+    });
+  }
+
+  function showCoursesFlash(message) {
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success d-flex align-items-center mb-3';
+    alert.setAttribute('role', 'status');
+    const icon = document.createElement('i');
+    icon.className = 'fas fa-circle-check me-2';
+    const text = document.createElement('div');
+    text.textContent = message;
+    alert.appendChild(icon);
+    alert.appendChild(text);
+    coursesBody.prepend(alert);
+    window.setTimeout(function() {
+      alert.remove();
+    }, 4000);
+  }
+
+  function loadProgramCourses(after) {
     if (!coursesUrl) return;
     const params = new URLSearchParams();
     ['year', 'semester', 'year_level'].forEach(function(name) {
@@ -145,6 +168,7 @@
         if (requestId !== coursesRequest) return;
         coursesBody.innerHTML = data.html;
         coursesBody.removeAttribute('aria-busy');
+        if (after) after();
       })
       .catch(function() {
         if (requestId !== coursesRequest) return;
@@ -165,6 +189,179 @@
 
   coursesBody.addEventListener('change', function(event) {
     if (event.target.matches('select[data-course-filter]')) loadProgramCourses();
+  });
+
+  function resetPrerequisiteOptions(courseForm) {
+    const select = courseForm.elements.prerequisite;
+    if (!select) return;
+    Array.prototype.forEach.call(select.options, function(option) {
+      option.disabled = false;
+    });
+  }
+
+  function prefillFromFilters(courseForm) {
+    const yearSelect = coursesBody.querySelector('select[name="year"]');
+    const semesterSelect = coursesBody.querySelector('select[name="semester"]');
+    const yearLevelSelect = coursesBody.querySelector('select[name="year_level"]');
+
+    if (yearLevelSelect && yearLevelSelect.value) {
+      courseForm.elements.year_level.value = yearLevelSelect.value;
+    }
+
+    const options = courseForm.elements.semester.options;
+    let match = null;
+    if (yearSelect && yearSelect.value) {
+      match = Array.prototype.find.call(options, function(option) {
+        return option.getAttribute('data-curriculum') === yearSelect.value
+          && (!semesterSelect || !semesterSelect.value
+            || option.getAttribute('data-semester-number') === semesterSelect.value);
+      });
+    } else if (semesterSelect && semesterSelect.value) {
+      match = Array.prototype.find.call(options, function(option) {
+        return option.getAttribute('data-semester-number') === semesterSelect.value;
+      });
+    }
+    if (match) courseForm.elements.semester.value = match.value;
+  }
+
+  function openCourseForm(button) {
+    const courseForm = coursesBody.querySelector('[data-course-form]');
+    if (!courseForm) return;
+    courseForm.reset();
+    resetPrerequisiteOptions(courseForm);
+    courseForm.querySelector('[data-course-error]').classList.add('d-none');
+    courseForm.querySelector('[data-course-error]').textContent = '';
+
+    const formTitle = coursesBody.querySelector('[data-course-form-title]');
+    const submit = coursesBody.querySelector('[data-course-submit]');
+    const idInput = courseForm.querySelector('[data-course-id]');
+
+    if (button) {
+      const id = button.getAttribute('data-id');
+      idInput.value = id;
+      courseForm.elements.code.value = button.getAttribute('data-code');
+      courseForm.elements.name.value = button.getAttribute('data-name');
+      courseForm.elements.units.value = button.getAttribute('data-units');
+      courseForm.elements.total_hours.value = button.getAttribute('data-total-hours');
+      courseForm.elements.is_lab.checked = button.getAttribute('data-is-lab') === 'true';
+      courseForm.elements.semester.value = button.getAttribute('data-semester');
+      courseForm.elements.year_level.value = button.getAttribute('data-year-level');
+      courseForm.elements.prerequisite.value = button.getAttribute('data-prerequisite');
+      const selfOption = courseForm.elements.prerequisite.querySelector('option[value="' + id + '"]');
+      if (selfOption) selfOption.disabled = true;
+      formTitle.textContent = 'Edit Course';
+      submit.textContent = 'Update Course';
+    } else {
+      idInput.value = '';
+      prefillFromFilters(courseForm);
+      formTitle.textContent = 'Add Course';
+      submit.textContent = 'Save Course';
+    }
+
+    setCourseView('form');
+    courseForm.elements.code.focus();
+  }
+
+  function openCourseDelete(button) {
+    deleteCourseId = button.getAttribute('data-id');
+    coursesBody.querySelector('[data-course-delete-name]').textContent = button.getAttribute('data-code');
+    setCourseView('delete');
+  }
+
+  function saveCourse(courseForm) {
+    const errorBox = courseForm.querySelector('[data-course-error]');
+    const submit = courseForm.querySelector('[data-course-submit]');
+    const formData = new FormData(courseForm);
+    const defaultLabel = submit.textContent;
+
+    errorBox.classList.add('d-none');
+    submit.disabled = true;
+    submit.textContent = 'Saving…';
+
+    fetch('{% url "subject:subject_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': courseForm.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: formData
+    })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        return {ok: response.ok, data: data};
+      });
+    })
+    .then(function(result) {
+      if (!result.ok || result.data.error) {
+        errorBox.textContent = result.data.error || 'Could not save the course.';
+        errorBox.classList.remove('d-none');
+        return;
+      }
+      loadProgramCourses(function() {
+        showCoursesFlash('Course "' + result.data.code + '" saved.');
+      });
+    })
+    .catch(function() {
+      errorBox.textContent = 'Something went wrong.';
+      errorBox.classList.remove('d-none');
+    })
+    .finally(function() {
+      submit.disabled = false;
+      submit.textContent = defaultLabel;
+    });
+  }
+
+  function confirmDeleteCourse() {
+    if (!deleteCourseId) return;
+    fetch('/subjects/ajax/delete/' + deleteCourseId + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': coursesBody.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        return {ok: response.ok, data: data};
+      });
+    })
+    .then(function(result) {
+      if (!result.ok || result.data.error) {
+        showCoursesFlash(result.data.error || 'Could not delete the course.');
+        return;
+      }
+      deleteCourseId = null;
+      loadProgramCourses(function() {
+        showCoursesFlash('Course deleted.');
+      });
+    });
+  }
+
+  coursesBody.addEventListener('click', function(event) {
+    const add = event.target.closest('[data-course-add]');
+    if (add) {
+      openCourseForm(null);
+      return;
+    }
+    const edit = event.target.closest('[data-course-edit]');
+    if (edit) {
+      openCourseForm(edit);
+      return;
+    }
+    const remove = event.target.closest('[data-course-delete]');
+    if (remove) {
+      openCourseDelete(remove);
+      return;
+    }
+    const cancel = event.target.closest('[data-course-cancel]');
+    if (cancel) {
+      setCourseView('list');
+      return;
+    }
+    if (event.target.closest('[data-course-delete-confirm]')) {
+      confirmDeleteCourse();
+    }
+  });
+
+  coursesBody.addEventListener('submit', function(event) {
+    const courseForm = event.target.closest('[data-course-form]');
+    if (!courseForm) return;
+    event.preventDefault();
+    saveCourse(courseForm);
   });
 })();
 </script>

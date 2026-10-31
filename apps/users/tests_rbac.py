@@ -214,41 +214,27 @@ class ReadAccessTests(RoleTestMixin, TestCase):
                 self.assertEqual(response.status_code, 302)
                 self.assertIn(reverse('login'), response.url)
 
-    def test_retired_pages_redirect_to_programs_tabs(self):
-        """Curriculum and Courses now live as tabs on the Programs page."""
-        cases = [
-            ('curriculum:curriculum_list', '?tab=curriculum'),
-            ('subject:subject_list', '?tab=courses'),
-        ]
-        for url_name, suffix in cases:
-            with self.subTest(endpoint=url_name):
-                response = self.call(self.admin, 'get', url_name)
-                self.assertEqual(response.status_code, 302)
-                self.assertIn(
-                    reverse('program:program_list') + suffix, response.url
-                )
-
-    def test_programs_hub_tabs_are_readable(self):
-        for tab in ('programs', 'courses'):
-            with self.subTest(tab=tab):
-                response = self.call(
-                    self.student, 'get', 'program:program_list',
-                    data={'tab': tab},
-                )
-                self.assertEqual(response.status_code, 200)
-        response = self.call(
-            self.admin, 'get', 'program:program_list',
-            data={'tab': 'curriculum'},
-        )
-        self.assertEqual(response.status_code, 200)
-
-    def test_curriculum_tab_stays_admin_only(self):
-        response = self.call(
-            self.student, 'get', 'program:program_list',
-            data={'tab': 'curriculum'},
-        )
+    def test_retired_courses_page_redirects_to_programs(self):
+        """Courses moved into each program's Courses modal."""
+        response = self.call(self.admin, 'get', 'subject:subject_list')
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('dashboard'))
+        self.assertEqual(response.url, reverse('program:program_list'))
+
+    def test_programs_page_is_readable(self):
+        for user in (self.student, self.teacher, self.admin):
+            with self.subTest(role=user.username):
+                response = self.call(user, 'get', 'program:program_list')
+                self.assertEqual(response.status_code, 200)
+
+    def test_settings_page_is_admin_only(self):
+        for user in (self.student, self.teacher):
+            with self.subTest(role=user.username):
+                response = self.call(user, 'get', 'curriculum:curriculum_list')
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response.url, reverse('dashboard'))
+
+        response = self.call(self.admin, 'get', 'curriculum:curriculum_list')
+        self.assertEqual(response.status_code, 200)
 
     def test_admin_only_pages_are_closed_to_students(self):
         response = self.call(self.student, 'get', 'users:user_list')

@@ -9,7 +9,7 @@
     <p class="ss-sub">Plan a balanced week. Resolve conflicts before the term starts.</p>
   </div>
   <div class="ss-actions">
-    <a class="ss-btn" href="{% url 'program:program_list' %}?tab=courses"><i class="fa-solid fa-book"></i> Manage Courses</a>
+    <a class="ss-btn" href="{% url 'program:program_list' %}"><i class="fa-solid fa-book"></i> Manage Courses</a>
     <a class="ss-btn primary" href="{% url 'schedule:schedule_list' %}"><i class="fa-solid fa-calendar-days"></i> Manage Schedules</a>
   </div>
 </div>
@@ -22,7 +22,7 @@
       Activate a curriculum and one of its semesters to see the weekly timetable, conflict checks and room utilization here.
     </p>
     {% if can_manage %}
-      <a class="ss-btn primary" href="{% url 'program:program_list' %}?tab=curriculum">Open Curriculum</a>
+      <a class="ss-btn primary" href="{% url 'curriculum:curriculum_list' %}">Open Curriculum</a>
     {% endif %}
   </section>
 {% elif teacher_without_profile %}

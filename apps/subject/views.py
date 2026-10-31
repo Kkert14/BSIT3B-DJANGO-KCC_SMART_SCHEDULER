@@ -1,115 +1,20 @@
 from django.shortcuts import redirect, get_object_or_404
-from django.urls import reverse
 from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from django.core.paginator import Paginator
-from django.db.models import Q
 from django.db import IntegrityError
 
 from apps.curriculum.models import Semester
 from apps.program.models import Program
 from .models import Subject
-from apps.users.decorators import admin_required, admin_required_api
-
-
-def subject_list_context(request):
-    """Context for the Courses tab of the Programs hub."""
-    query = request.GET.get('q', '').strip()
-    subjects_list = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all()
-    if query:
-        subjects_list = subjects_list.filter(
-            Q(code__icontains=query) |
-            Q(name__icontains=query) |
-            Q(program__program_code__icontains=query) |
-            Q(semester__curriculum__academic_year__icontains=query)
-        )
-    paginator = Paginator(subjects_list, 10)
-    page_number = request.GET.get('page', 1)
-    subjects = paginator.get_page(page_number)
-    programs = Program.objects.filter(is_active=True).order_by('program_code')
-    semesters = Semester.objects.select_related('curriculum').all().order_by('curriculum__academic_year', 'semester_number')
-    all_subjects = Subject.objects.all().order_by('code')
-    return {
-        'subjects': subjects,
-        'query': query,
-        'programs': programs,
-        'semesters': semesters,
-        'all_subjects': all_subjects,
-    }
+from apps.users.decorators import admin_required_api
 
 
 @login_required(login_url='login')
 def subject_list_page(request):
-    url = f"{reverse('program:program_list')}?tab=courses"
-    extra = request.GET.urlencode()
-    if extra:
-        url = f'{url}&{extra}'
-    return redirect(url)
-
-
-@login_required(login_url='login')
-def subject_list_ajax(request):
-    query = request.GET.get('q', '').strip()
-    subjects_list = Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum').all()
-    if query:
-        subjects_list = subjects_list.filter(
-            Q(code__icontains=query) |
-            Q(name__icontains=query) |
-            Q(program__program_code__icontains=query) |
-            Q(semester__curriculum__academic_year__icontains=query)
-        )
-    paginator = Paginator(subjects_list, 10)
-    page_number = request.GET.get('page', 1)
-    subjects = paginator.get_page(page_number)
-    data = list(subjects.object_list.values(
-        'id', 'code', 'name', 'units', 'total_hours', 'is_lab',
-        'program_id', 'semester_id', 'year_level',
-        'prerequisite_id',
-    ))
-    for item in data:
-        program = Program.objects.filter(pk=item.pop('program_id')).first()
-        item['program'] = str(program) if program else ''
-        semester = Semester.objects.filter(pk=item.pop('semester_id')).first()
-        item['semester'] = str(semester) if semester else ''
-        item['semester_number'] = semester.semester_number if semester else None
-        item['academic_year'] = semester.curriculum.academic_year if semester else ''
-        prereq_id = item.pop('prerequisite_id')
-        if prereq_id:
-            prereq = Subject.objects.filter(pk=prereq_id).first()
-            item['prerequisite'] = str(prereq) if prereq else None
-        else:
-            item['prerequisite'] = None
-    return JsonResponse({
-        'data': data,
-        'has_next': subjects.has_next(),
-        'has_prev': subjects.has_previous(),
-        'page': subjects.number,
-        'pages': subjects.paginator.num_pages,
-        'total': subjects.paginator.count,
-    })
-
-
-@login_required(login_url='login')
-def subject_get_ajax(request, pk):
-    subject = get_object_or_404(Subject.objects.select_related('program', 'prerequisite', 'semester__curriculum'), pk=pk)
-    return JsonResponse({
-        'id': subject.id,
-        'program': subject.program.id,
-        'program_name': str(subject.program),
-        'code': subject.code,
-        'name': subject.name,
-        'units': str(subject.units),
-        'total_hours': subject.total_hours,
-        'is_lab': subject.is_lab,
-        'semester': subject.semester.id,
-        'semester_number': subject.semester.semester_number,
-        'academic_year': subject.semester.curriculum.academic_year,
-        'year_level': subject.year_level,
-        'prerequisite': subject.prerequisite.id if subject.prerequisite else None,
-        'prerequisite_name': str(subject.prerequisite) if subject.prerequisite else None,
-    })
+    """Courses are managed per program on the Programs page."""
+    return redirect('program:program_list')
 
 
 @admin_required_api

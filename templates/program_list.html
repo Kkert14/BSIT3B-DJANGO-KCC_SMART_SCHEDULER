@@ -1,47 +1,18 @@
 {% extends "theme/base.html" %}
+{% block title %}Programs · Smart Scheduler{% endblock %}
+
 {% block content %}
 <div class="ss-page-head">
   <div>
     <div class="ss-ov">Academic Catalog</div>
     <h1 class="ss-page-title">Programs</h1>
-    <p class="ss-sub">Degrees, academic-year curricula and course offerings in one place.</p>
+    <p class="ss-sub">Degrees and the courses offered under each program.</p>
   </div>
 </div>
 
-<nav class="ss-tabs" aria-label="Catalog sections">
-  <a class="ss-tab{% if active_tab == 'programs' %} on{% endif %}" href="?tab=programs">
-    <i class="fa-solid fa-graduation-cap"></i> Programs
-    <span class="ss-tab-count">{{ tab_counts.programs }}</span>
-  </a>
-  {% if can_manage %}
-  <a class="ss-tab{% if active_tab == 'curriculum' %} on{% endif %}" href="?tab=curriculum">
-    <i class="fa-solid fa-layer-group"></i> Curriculum
-    <span class="ss-tab-count">{{ tab_counts.curriculum }}</span>
-  </a>
-  {% endif %}
-  <a class="ss-tab{% if active_tab == 'courses' %} on{% endif %}" href="?tab=courses">
-    <i class="fa-solid fa-book"></i> Courses
-    <span class="ss-tab-count">{{ tab_counts.courses }}</span>
-  </a>
-</nav>
-
-<div class="ss-tab-panel">
-{% if active_tab == 'curriculum' %}
-  {% include 'partials/curriculum_tab.html' %}
-{% elif active_tab == 'courses' %}
-  {% include 'partials/courses_tab.html' %}
-{% else %}
-  {% include 'partials/programs_tab.html' %}
-{% endif %}
-</div>
+{% include 'partials/programs_tab.html' %}
 {% endblock %}
 
 {% block extra_js %}
-{% if active_tab == 'curriculum' %}
-  {% include 'partials/curriculum_tab_js.html' %}
-{% elif active_tab == 'courses' %}
-  {% include 'partials/courses_tab_js.html' %}
-{% else %}
-  {% include 'partials/programs_tab_js.html' %}
-{% endif %}
+{% include 'partials/programs_tab_js.html' %}
 {% endblock %}

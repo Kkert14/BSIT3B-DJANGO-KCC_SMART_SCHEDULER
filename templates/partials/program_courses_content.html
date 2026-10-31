@@ -1,100 +1,230 @@
-<div class="row g-2 mb-3">
-  <div class="col-12 col-md-4">
-    <label class="form-label">Academic year</label>
-    <select class="form-select form-select-sm" name="year" data-course-filter>
-      <option value="">All academic years</option>
-      {% for cur in curricula %}
-      <option value="{{ cur.id }}" {% if filter_year == cur.id|stringformat:'s' %}selected{% endif %}>A.Y. {{ cur.academic_year }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-6 col-md-4">
-    <label class="form-label">Semester</label>
-    <select class="form-select form-select-sm" name="semester" data-course-filter>
-      <option value="">All semesters</option>
-      {% for value, label in semester_choices %}
-      <option value="{{ value }}" {% if filter_semester == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-6 col-md-4">
-    <label class="form-label">Year level</label>
-    <select class="form-select form-select-sm" name="year_level" data-course-filter>
-      <option value="">All year levels</option>
-      {% for value, label in year_level_choices %}
-      <option value="{{ value }}" {% if filter_year_level == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </div>
-</div>
+<div data-course-app data-program-id="{{ program.id }}">
+  <div data-course-view="list">
+    <div class="row g-2 mb-3">
+      <div class="col-12 col-md-4">
+        <label class="form-label">Academic year</label>
+        <select class="form-select form-select-sm" name="year" data-course-filter>
+          <option value="">All academic years</option>
+          {% for cur in curricula %}
+          <option value="{{ cur.id }}" {% if filter_year == cur.id|stringformat:'s' %}selected{% endif %}>A.Y. {{ cur.academic_year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-4">
+        <label class="form-label">Semester</label>
+        <select class="form-select form-select-sm" name="semester" data-course-filter>
+          <option value="">All semesters</option>
+          {% for value, label in semester_choices %}
+          <option value="{{ value }}" {% if filter_semester == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-4">
+        <label class="form-label">Year level</label>
+        <select class="form-select form-select-sm" name="year_level" data-course-filter>
+          <option value="">All year levels</option>
+          {% for value, label in year_level_choices %}
+          <option value="{{ value }}" {% if filter_year_level == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
 
-<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-  <span class="text-muted small">
-    {{ course_count }} course{{ course_count|pluralize }} · {{ total_units|floatformat:"-1" }} units
-  </span>
-  {% if filter_year or filter_semester or filter_year_level %}
-  <span class="badge bg-info-lt text-info">Filtered view</span>
-  {% endif %}
-</div>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <span class="text-muted small">
+        {{ course_count }} course{{ course_count|pluralize }} · {{ total_units|floatformat:"-1" }} units
+      </span>
+      {% if filter_year or filter_semester or filter_year_level %}
+      <span class="badge bg-info-lt text-info">Filtered view</span>
+      {% endif %}
+      {% if can_manage %}
+      <button type="button" class="btn btn-primary btn-sm ms-auto" data-course-add>
+        <i class="fas fa-plus-circle me-2"></i>Add Course
+      </button>
+      {% endif %}
+    </div>
 
-{% for group in groups %}
-<div class="mb-3">
-  <div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
-    <h4 class="mb-0" style="font-size: 12.5px;">{{ group.label }}</h4>
-    <span class="text-muted small">
-      {{ group.subjects|length }} course{{ group.subjects|length|pluralize }} · {{ group.units|floatformat:"-1" }} units
-    </span>
+    {% for group in groups %}
+    <div class="mb-3">
+      <div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
+        <h4 class="mb-0" style="font-size: 12.5px;">{{ group.label }}</h4>
+        <span class="text-muted small">
+          {{ group.subjects|length }} course{{ group.subjects|length|pluralize }} · {{ group.units|floatformat:"-1" }} units
+        </span>
+      </div>
+      <div class="table-responsive border rounded">
+        <table class="table table-sm table-vcenter mb-0 text-nowrap">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Course</th>
+              {% if not filter_year %}<th>A.Y.</th>{% endif %}
+              <th>Sem</th>
+              <th>Units</th>
+              <th>Type</th>
+              <th>Hrs</th>
+              <th>Prereq</th>
+              {% if can_manage %}<th class="w-1">Actions</th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for subject in group.subjects %}
+            <tr>
+              <td class="fw-semibold">{{ subject.code }}</td>
+              <td class="text-muted">{{ subject.name }}</td>
+              {% if not filter_year %}<td class="text-muted">{{ subject.semester.curriculum.academic_year }}</td>{% endif %}
+              <td>{{ subject.semester.short_label }}</td>
+              <td>{{ subject.units }}</td>
+              <td>
+                {% if subject.is_lab %}
+                <span class="badge bg-warning-lt text-warning">Lab</span>
+                {% else %}
+                <span class="badge bg-info-lt text-info">Lecture</span>
+                {% endif %}
+              </td>
+              <td class="text-muted">{{ subject.total_hours }}h</td>
+              <td class="text-muted">
+                {% if subject.prerequisite %}{{ subject.prerequisite.code }}{% else %}—{% endif %}
+              </td>
+              {% if can_manage %}
+              <td>
+                <div class="d-flex gap-1">
+                  <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-course-edit
+                          data-id="{{ subject.id }}"
+                          data-code="{{ subject.code }}"
+                          data-name="{{ subject.name }}"
+                          data-units="{{ subject.units }}"
+                          data-total-hours="{{ subject.total_hours }}"
+                          data-is-lab="{{ subject.is_lab|yesno:'true,false' }}"
+                          data-semester="{{ subject.semester.id }}"
+                          data-year-level="{{ subject.year_level }}"
+                          data-prerequisite="{{ subject.prerequisite_id_display }}"
+                          title="Edit {{ subject.code }}">
+                    <i class="fas fa-edit text-primary"></i>
+                  </button>
+                  <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-course-delete
+                          data-id="{{ subject.id }}" data-code="{{ subject.code }}"
+                          title="Delete {{ subject.code }}">
+                    <i class="fas fa-trash-alt text-danger"></i>
+                  </button>
+                </div>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% empty %}
+    <div class="empty py-4">
+      <div class="empty-icon">
+        <i class="fas fa-book-open fa-2x text-muted"></i>
+      </div>
+      {% if has_courses %}
+      <p class="empty-title">No courses match these filters</p>
+      <p class="empty-subtitle">Try another academic year, semester or year level.</p>
+      {% else %}
+      <p class="empty-title">No courses for this program yet</p>
+      <p class="empty-subtitle">
+        {% if can_manage %}Add the first course to start building this curriculum.{% else %}No courses have been added yet.{% endif %}
+      </p>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
-  <div class="table-responsive border rounded">
-    <table class="table table-sm table-vcenter mb-0 text-nowrap">
-      <thead>
-        <tr>
-          <th>Code</th>
-          <th>Course</th>
-          {% if not filter_year %}<th>A.Y.</th>{% endif %}
-          <th>Sem</th>
-          <th>Units</th>
-          <th>Type</th>
-          <th>Hrs</th>
-          <th>Prereq</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for subject in group.subjects %}
-        <tr>
-          <td class="fw-semibold">{{ subject.code }}</td>
-          <td class="text-muted">{{ subject.name }}</td>
-          {% if not filter_year %}<td class="text-muted">{{ subject.semester.curriculum.academic_year }}</td>{% endif %}
-          <td>{{ subject.semester.short_label }}</td>
-          <td>{{ subject.units }}</td>
-          <td>
-            {% if subject.is_lab %}
-            <span class="badge bg-warning-lt text-warning">Lab</span>
-            {% else %}
-            <span class="badge bg-info-lt text-info">Lecture</span>
-            {% endif %}
-          </td>
-          <td class="text-muted">{{ subject.total_hours }}h</td>
-          <td class="text-muted">
-            {% if subject.prerequisite %}{{ subject.prerequisite.code }}{% else %}—{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+
+  <div data-course-view="form" class="d-none">
+    <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+      <div>
+        <h4 class="mb-0" style="font-size: 14px;" data-course-form-title>Add Course</h4>
+        <div class="text-muted small">{{ program.program_code }} — {{ program.program_description }}</div>
+      </div>
+      <button type="button" class="btn btn-ghost-secondary btn-sm" data-course-cancel>Cancel</button>
+    </div>
+
+    <form data-course-form>
+      {% csrf_token %}
+      <input type="hidden" name="id" data-course-id>
+      <input type="hidden" name="program" value="{{ program.id }}">
+      <div class="alert alert-danger d-none" data-course-error role="alert"></div>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Program</label>
+          <input type="text" class="form-control" value="{{ program.program_code }} — {{ program.program_description }}" readonly>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Code</label>
+          <input type="text" name="code" class="form-control" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Name</label>
+          <input type="text" name="name" class="form-control" required>
+        </div>
+        <div class="col-4">
+          <label class="form-label">Units</label>
+          <input type="number" name="units" class="form-control" step="0.1" min="0" required>
+        </div>
+        <div class="col-4">
+          <label class="form-label">Total Hours</label>
+          <input type="number" name="total_hours" class="form-control" min="0" required>
+        </div>
+        <div class="col-4">
+          <label class="form-label d-block">Course Type</label>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="is_lab" value="true" data-course-lab>
+            <label class="form-check-label">Laboratory course</label>
+          </div>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Curriculum / Semester</label>
+          <select name="semester" class="form-select" required>
+            <option value="">Select curriculum &amp; semester</option>
+            {% for sem in semesters %}
+            <option value="{{ sem.id }}" data-curriculum="{{ sem.curriculum_id }}" data-semester-number="{{ sem.semester_number }}" {% if active_semester and active_semester.id == sem.id %}selected{% endif %}>A.Y. {{ sem.curriculum.academic_year }} — {{ sem.get_semester_number_display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Year Level</label>
+          <select name="year_level" class="form-select" required>
+            <option value="">Select year level</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Prerequisite <span class="text-muted">(optional)</span></label>
+          <select name="prerequisite" class="form-select">
+            <option value="">None</option>
+            {% for s in prerequisite_choices %}
+            <option value="{{ s.id }}" data-subject-id="{{ s.id }}">{{ s.code }} — {{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-ghost-secondary" data-course-cancel>Cancel</button>
+        <button type="submit" class="btn btn-primary" data-course-submit>Save Course</button>
+      </div>
+    </form>
+  </div>
+
+  <div data-course-view="delete" class="d-none">
+    <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+      <div>
+        <h4 class="mb-0 text-danger" style="font-size: 14px;">Delete Course</h4>
+        <div class="text-muted small">{{ program.program_code }} — {{ program.program_description }}</div>
+      </div>
+      <button type="button" class="btn btn-ghost-secondary btn-sm" data-course-cancel>Cancel</button>
+    </div>
+    <p class="text-muted">Delete <strong data-course-delete-name></strong>? This cannot be undone.</p>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-ghost-secondary" data-course-cancel>Cancel</button>
+      <button type="button" class="btn btn-danger" data-course-delete-confirm>Delete Course</button>
+    </div>
   </div>
 </div>
-{% empty %}
-<div class="empty py-4">
-  <div class="empty-icon">
-    <i class="fas fa-book-open fa-2x text-muted"></i>
-  </div>
-  {% if has_courses %}
-  <p class="empty-title">No courses match these filters</p>
-  <p class="empty-subtitle">Try another academic year, semester or year level.</p>
-  {% else %}
-  <p class="empty-title">No courses for this program yet</p>
-  <p class="empty-subtitle">Add courses from the Courses tab to build this curriculum.</p>
-  {% endif %}
-</div>
-{% endfor %}

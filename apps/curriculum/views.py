@@ -3,8 +3,7 @@ import re
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.db import IntegrityError
@@ -15,7 +14,7 @@ from .models import ACADEMIC_YEAR_CHOICES, Curriculum, Semester
 
 
 def curriculum_list_context(request):
-    """Context for the Curriculum tab of the Programs hub."""
+    """Context for the curriculum section of the Settings page."""
     query = request.GET.get('q', '').strip()
     curricula = Curriculum.objects.prefetch_related('semesters').all()
     if query:
@@ -36,11 +35,8 @@ def curriculum_list_context(request):
 @login_required(login_url='login')
 @admin_required
 def curriculum_list(request):
-    url = f"{reverse('program:program_list')}?tab=curriculum"
-    extra = request.GET.urlencode()
-    if extra:
-        url = f'{url}&{extra}'
-    return redirect(url)
+    """Settings page holding the curriculum and semester management."""
+    return render(request, 'settings.html', curriculum_list_context(request))
 
 
 @login_required(login_url='login')

@@ -1,0 +1,18 @@
+{% extends "theme/base.html" %}
+{% block title %}Settings · Smart Scheduler{% endblock %}
+
+{% block content %}
+<div class="ss-page-head">
+  <div>
+    <div class="ss-ov">Configuration</div>
+    <h1 class="ss-page-title">Settings</h1>
+    <p class="ss-sub">Academic years, semesters and the default term used across scheduling.</p>
+  </div>
+</div>
+
+{% include 'partials/curriculum_tab.html' %}
+{% endblock %}
+
+{% block extra_js %}
+{% include 'partials/curriculum_tab_js.html' %}
+{% endblock %}

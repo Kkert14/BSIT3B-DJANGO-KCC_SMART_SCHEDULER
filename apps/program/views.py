@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -10,13 +10,9 @@ from django.template.loader import render_to_string
 
 from .models import MAJOR_CHOICES, Program
 from apps.curriculum.models import Curriculum, Semester
-from apps.curriculum.views import curriculum_list_context
 from apps.subject.models import Subject
-from apps.subject.views import subject_list_context
-from apps.users.decorators import admin_required, admin_required_api, is_admin
+from apps.users.decorators import admin_required_api
 
-
-PROGRAM_TABS = ('programs', 'curriculum', 'courses')
 
 YEAR_LEVEL_LABELS = {
     1: '1st year',
@@ -31,7 +27,7 @@ SEMESTER_NUMBERS = {'1', '2', '3'}
 
 
 def program_list_context(request):
-    """Context for the Programs tab of the Programs hub."""
+    """Context for the Programs page."""
     query = request.GET.get('q', '').strip()
     programs_list = Program.objects.all()
     if query:
@@ -53,32 +49,8 @@ def program_list_context(request):
 
 @login_required(login_url='login')
 def program_list_page(request):
-    """Programs hub: Programs, Curriculum and Courses in one page."""
-    tab = request.GET.get('tab', 'programs')
-    if tab not in PROGRAM_TABS:
-        tab = 'programs'
-
-    if tab == 'curriculum' and not is_admin(request.user):
-        messages.error(
-            request,
-            'You do not have permission to perform this action. Required role: admin.',
-        )
-        return redirect('dashboard')
-
-    if tab == 'curriculum':
-        context = curriculum_list_context(request)
-    elif tab == 'courses':
-        context = subject_list_context(request)
-    else:
-        context = program_list_context(request)
-
-    context['active_tab'] = tab
-    context['tab_counts'] = {
-        'programs': Program.objects.count(),
-        'curriculum': Curriculum.objects.count(),
-        'courses': Subject.objects.count(),
-    }
-    return render(request, 'program_list.html', context)
+    """Programs page: degrees with their course offerings behind each row."""
+    return render(request, 'program_list.html', program_list_context(request))
 
 
 @login_required(login_url='login')
@@ -187,6 +159,10 @@ def program_courses_ajax(request, pk):
         'program': program,
         'curricula': Curriculum.objects.order_by('-academic_year'),
         'semester_choices': Semester.SEMESTER_CHOICES,
+        'semesters': Semester.objects.select_related('curriculum').order_by(
+            '-curriculum__academic_year', 'semester_number'
+        ),
+        'prerequisite_choices': Subject.objects.filter(program=program).order_by('code'),
         'year_level_choices': [
             (level, YEAR_LEVEL_LABELS.get(level, f'{level}th year'))
             for level in year_level_values
