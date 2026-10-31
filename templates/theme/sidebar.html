@@ -36,16 +36,16 @@
   </a>
 
   <div class="ss-side-user">
-    <b>{{ user.username|slice:":2"|upper }}</b>
     <a class="ss-side-link" href="{% if can_manage %}{% url 'users:user_list' %}{% else %}{% url 'dashboard' %}{% endif %}">
+      <b>{{ user.username|slice:":2"|upper }}</b>
       <span>{{ user.username }}
         <small>
           {% if user_role == 'admin' %}Administrator{% elif user_role == 'teacher' %}Instructor{% elif user_role == 'student' %}Student{% else %}Guest{% endif %}
         </small>
       </span>
     </a>
-    <a class="ss-side-logout" href="{% url 'logout' %}" title="Logout" aria-label="Logout">
-      <i class="fa-solid fa-arrow-right-from-bracket"></i>
+    <a class="ss-side-logout" href="{% url 'logout' %}">
+      <i class="fa-solid fa-arrow-right-from-bracket"></i>Log out
     </a>
   </div>
 </aside>

@@ -444,36 +444,44 @@ body.ss-body *::after {
   margin-top: auto;
   background: var(--ss-nav2);
   border-radius: 8px;
-  padding: 9px;
+  padding: 8px;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   font-size: 11px;
-  color: #fff;
-  text-decoration: none;
-}
-
-.ss-side-user:hover {
-  background: #2b3852;
   color: #fff;
 }
 
 .ss-side-user .ss-side-link {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
+  padding: 2px;
+  border-radius: 6px;
   color: #fff;
   text-decoration: none;
 }
 
+.ss-side-user .ss-side-link:hover {
+  color: #fff;
+}
+
 .ss-side-user .ss-side-logout {
-  margin-left: auto;
-  color: #8f9ab3;
-  padding: 4px;
-  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #c3cbdb;
+  font-size: 10px;
+  text-decoration: none;
 }
 
 .ss-side-user .ss-side-logout:hover {
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
