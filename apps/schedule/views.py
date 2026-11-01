@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+import re
 from urllib.parse import urlencode
 
 import math
@@ -318,7 +319,9 @@ def _parse_schedule_target(request):
     except (Room.DoesNotExist, ValueError, TypeError):
         return None, 'Invalid room.'
 
-    if class_type not in ('Lecture', 'Laboratory'):
+    # Batch plans carry the class type per row; the legacy single-slot
+    # endpoint still posts one class type for the whole request.
+    if class_type and class_type not in ('Lecture', 'Laboratory'):
         return None, 'Class type must be Lecture or Laboratory.'
 
     return {
@@ -327,15 +330,15 @@ def _parse_schedule_target(request):
         'subject': subject,
         'section': section,
         'room': room,
-        'class_type': class_type,
+        'class_type': class_type or None,
     }, None
 
 
-def _parse_schedule_slots(rows):
+def _parse_schedule_slots(rows, default_class_type=None):
     """Validate raw plan rows and merge them into ``(slots, error)``.
 
-    Each slot is ``{'row', 'day', 'start', 'end'}`` where ``row`` is the
-    1-based position shown to the client.
+    Each slot is ``{'row', 'day', 'start', 'end', 'class_type'}`` where
+    ``row`` is the 1-based position shown to the client.
     """
     if not isinstance(rows, list) or not rows:
         return None, 'Add at least one time slot to the plan.'
@@ -351,6 +354,11 @@ def _parse_schedule_slots(rows):
             return None, f'Row {index}: day of week is required.'
         if day_of_week not in DAY_NAMES:
             return None, f'Row {index}: day of week must be between 1 and 7.'
+        class_type = str(
+            row.get('class_type') or row.get('classType') or default_class_type or ''
+        ).strip()
+        if class_type not in ('Lecture', 'Laboratory'):
+            return None, f'Row {index}: class type must be Lecture or Laboratory.'
         start = _parse_time(str(row.get('start', '')).strip())
         end = _parse_time(str(row.get('end', '')).strip())
         if not start:
@@ -371,6 +379,7 @@ def _parse_schedule_slots(rows):
             'day': day_of_week,
             'start': start,
             'end': end,
+            'class_type': class_type,
         })
     return slots, None
 
@@ -388,6 +397,23 @@ def schedule_list_page(request):
         filter_year_level = ''
     filter_section = request.GET.get('section', '').strip()
     query = request.GET.get('q', '').strip()
+
+    filter_teacher = request.GET.get('teacher', '').strip()
+    if not filter_teacher:
+        filter_teacher = request.COOKIES.get('sched_teacher', '').strip()
+    if filter_teacher and not filter_teacher.isdigit():
+        filter_teacher = ''
+
+    filter_time_start = request.GET.get('time_start', '').strip()
+    if not filter_time_start:
+        filter_time_start = request.COOKIES.get('sched_time_start', '').strip()
+    filter_time_end = request.GET.get('time_end', '').strip()
+    if not filter_time_end:
+        filter_time_end = request.COOKIES.get('sched_time_end', '').strip()
+    if filter_time_start and not re.match(r'^\d{2}:\d{2}$', filter_time_start):
+        filter_time_start = ''
+    if filter_time_end and not re.match(r'^\d{2}:\d{2}$', filter_time_end):
+        filter_time_end = ''
 
     term_sections = Section.objects.filter(is_active=True)
     if active_semester:
@@ -429,6 +455,12 @@ def schedule_list_page(request):
         schedules_list = schedules_list.filter(section__year_level=filter_year_level)
     if filter_section:
         schedules_list = schedules_list.filter(section=filter_section)
+    if filter_teacher:
+        schedules_list = schedules_list.filter(teacher_id=filter_teacher)
+    if filter_time_start:
+        schedules_list = schedules_list.filter(start_time__gte=filter_time_start)
+    if filter_time_end:
+        schedules_list = schedules_list.filter(end_time__lte=filter_time_end)
     if query:
         schedules_list = schedules_list.filter(
             Q(subject__code__icontains=query) |
@@ -569,6 +601,22 @@ def schedule_list_page(request):
         },
     ]
 
+    # Remember which faculty last taught each course so the plan modal can
+    # preselect them when that course is picked again. Section-specific
+    # assignments win over course-wide ones.
+    course_teacher_map = {}
+    if active_semester:
+        recent_assignments = (
+            Schedule.objects.filter(semester=active_semester)
+            .order_by('-updated_at')
+            .values_list('subject_id', 'section_id', 'teacher_id')
+        )
+        for subject_id, section_id, teacher_id in recent_assignments:
+            course_teacher_map.setdefault(str(subject_id), str(teacher_id))
+            course_teacher_map.setdefault(
+                f'{subject_id}|{section_id}', str(teacher_id)
+            )
+
     return render(request, 'schedule_list.html', {
         'timetable_rows': timetable_rows,
         'DAYS': DAYS,
@@ -583,12 +631,17 @@ def schedule_list_page(request):
         'programs': programs,
         'stats': stats,
         'hours_map': hours_map,
+        'course_teacher_map': course_teacher_map,
         'filter_program': filter_program,
         'filter_year_level': filter_year_level,
         'filter_section': filter_section,
+        'filter_teacher': filter_teacher,
+        'filter_time_start': filter_time_start,
+        'filter_time_end': filter_time_end,
         'year_level_choices': year_level_choices,
         'active_semester': active_semester,
         'has_grid_events': any(value not in (None, 'skip') for row in slot_cells for value in row),
+        'time_slots': time_slots,
     })
 
 
@@ -734,6 +787,8 @@ def schedule_save_ajax(request):
     section = target['section']
     room = target['room']
     class_type = target['class_type']
+    if not class_type:
+        return JsonResponse({'error': 'Class type must be Lecture or Laboratory.'}, status=400)
 
     day_of_week = request.POST.get('day_of_week', '').strip()
     start_time = _parse_time(request.POST.get('start_time', ''))
@@ -819,7 +874,7 @@ def schedule_batch_save_ajax(request):
     except (TypeError, ValueError):
         return JsonResponse({'error': 'Schedule plan is not valid.'}, status=400)
 
-    slots, error = _parse_schedule_slots(rows)
+    slots, error = _parse_schedule_slots(rows, target['class_type'])
     if error:
         return JsonResponse({'error': error}, status=400)
 
@@ -828,39 +883,45 @@ def schedule_batch_save_ajax(request):
     subject = target['subject']
     section = target['section']
     room = target['room']
-    class_type = target['class_type']
 
-    # Aggregate hours cover the whole plan at once, so the per-row conflict
-    # check below never has to guess about rows that are not saved yet.
-    existing_same = Schedule.objects.filter(
-        semester=semester,
-        subject=subject,
-        section=section,
-        class_type=class_type,
-    )
-    if schedule is not None:
-        existing_same = existing_same.exclude(pk=schedule.pk)
-    scheduled_hours = sum(
-        _time_duration_hours(entry.start_time, entry.end_time)
-        for entry in existing_same
-    )
-    planned_hours = sum(_time_duration_hours(slot['start'], slot['end']) for slot in slots)
-    total_hours = scheduled_hours + planned_hours
-    limit = subject.lab_hours if class_type == 'Laboratory' else subject.lecture_hours
-    if total_hours > limit:
-        return JsonResponse({
-            'batch': True,
-            'conflicts': [{
-                'type': 'time_limit',
-                'message': (
-                    f'This plan adds {planned_hours:.1f}h on top of the '
-                    f'{scheduled_hours:.1f}h already scheduled ({total_hours:.1f}h total). '
-                    f'The allowed {class_type.lower()} time for course "{subject}" '
-                    f'in section "{section}" is {limit}h.'
-                ),
-            }],
-            'suggestions': {},
-        }, status=400)
+    # Each planned row can be lecture or laboratory, so check the weekly cap
+    # per type instead of assuming the whole batch shares one class type.
+    planned_by_type = {'Lecture': 0.0, 'Laboratory': 0.0}
+    for slot in slots:
+        planned_by_type[slot['class_type']] += _time_duration_hours(
+            slot['start'], slot['end']
+        )
+    for class_type, planned_hours in planned_by_type.items():
+        if planned_hours <= 0:
+            continue
+        existing_same = Schedule.objects.filter(
+            semester=semester,
+            subject=subject,
+            section=section,
+            class_type=class_type,
+        )
+        if schedule is not None:
+            existing_same = existing_same.exclude(pk=schedule.pk)
+        scheduled_hours = sum(
+            _time_duration_hours(entry.start_time, entry.end_time)
+            for entry in existing_same
+        )
+        total_hours = scheduled_hours + planned_hours
+        limit = subject.lab_hours if class_type == 'Laboratory' else subject.lecture_hours
+        if total_hours > limit:
+            return JsonResponse({
+                'batch': True,
+                'conflicts': [{
+                    'type': 'time_limit',
+                    'message': (
+                        f'This plan adds {planned_hours:.1f}h of {class_type.lower()} time '
+                        f'on top of the {scheduled_hours:.1f}h already scheduled '
+                        f'({total_hours:.1f}h total). The allowed {class_type.lower()} time '
+                        f'for course "{subject}" in section "{section}" is {limit}h.'
+                    ),
+                }],
+                'suggestions': {},
+            }, status=400)
 
     conflicts = []
     suggestions = {}
@@ -868,7 +929,7 @@ def schedule_batch_save_ajax(request):
     for slot in slots:
         conflict = _check_schedule_conflicts(
             semester, teacher, subject, section, room,
-            class_type, slot['day'], slot['start'], slot['end'],
+            slot['class_type'], slot['day'], slot['start'], slot['end'],
             exclude_id=exclude_id,
         )
         if not conflict:
@@ -903,7 +964,7 @@ def schedule_batch_save_ajax(request):
                 entry.subject = subject
                 entry.section = section
                 entry.room = room
-                entry.class_type = class_type
+                entry.class_type = slot['class_type']
                 entry.day_of_week = slot['day']
                 entry.start_time = slot['start']
                 entry.end_time = slot['end']
@@ -917,9 +978,9 @@ def schedule_batch_save_ajax(request):
     )
     messages.success(
         request,
-        f'Schedule plan saved ({created + updated} slot(s)) — '
-        f'{teacher.first_name} {teacher.last_name} now has '
-        f'{teacher_hours:.1f}h this semester.',
+        f'{subject.code} is now assigned to {teacher.first_name} '
+        f'{teacher.last_name} — {created + updated} slot(s) saved. '
+        f'Their load is {teacher_hours:.1f}h this semester.',
     )
     return JsonResponse({
         'status': 'success',

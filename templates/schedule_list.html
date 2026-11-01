@@ -42,7 +42,7 @@
       <div class="ss-wk-ico"><i class="fa-solid fa-pen-to-square"></i></div>
       <div>
         <h3 id="editorTitle">New schedule</h3>
-        <p class="ss-sub" id="editorSub">Pick the section, choose the course and room, then build the weekly blocks.</p>
+        <p class="ss-sub" id="editorSub">Pick the section and course, then plan the venue and weekly time slots.</p>
       </div>
     </div>
   </div>
@@ -54,7 +54,7 @@
     <div class="ss-editor-body">
       <div class="ss-form-grid">
         <section class="ss-form-sec">
-          <div class="ss-form-k"><span>1</span><h2>Section</h2><small>Program and section in the active term</small></div>
+          <div class="ss-form-k"><span>1</span><h2>Section &amp; course</h2><small>Program, year level, section and course in the active term</small></div>
 
           <div class="ss-editor-term">
             <i class="fa-regular fa-calendar"></i>
@@ -62,7 +62,7 @@
             <span>Active term</span>
           </div>
 
-          <div class="ss-row">
+          <div class="ss-editor-scope">
             <div class="ss-field">
               <label for="f_program">Program</label>
               <select class="ss-input" id="f_program">
@@ -73,76 +73,48 @@
               </select>
             </div>
             <div class="ss-field">
+              <label for="f_year_level">Year level</label>
+              <select class="ss-input" id="f_year_level" disabled>
+                <option value="">Select a program first</option>
+              </select>
+            </div>
+            <div class="ss-field">
               <label for="f_section">Section</label>
               <select class="ss-input" id="f_section" name="section" disabled>
                 <option value="">Select a program first</option>
                 {% for sec in sections %}
-                  <option value="{{ sec.id }}" data-program="{{ sec.program_id }}">{{ sec.name }}</option>
+                  <option value="{{ sec.id }}" data-program="{{ sec.program_id }}" data-year="{{ sec.year_level }}">{{ sec.name }}</option>
                 {% endfor %}
               </select>
             </div>
           </div>
+
+          <div class="ss-field">
+            <label for="f_subject">Course</label>
+            <select class="ss-input" id="f_subject" name="subject" disabled>
+              <option value="">Select a program first</option>
+              {% for subject in subjects %}
+                <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-year="{{ subject.year_level }}" data-lecture="{{ subject.lecture_hours }}" data-lab-hours="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="ss-hours" id="f_hours">Weekly hours: pick a course to see lecture and lab caps</div>
         </section>
 
-        <section class="ss-form-sec locked" id="step2" inert>
-          <div class="ss-form-k"><span>2</span><h2>Course &amp; venue</h2><small>Course, class type and room</small></div>
-
-          <div class="ss-row">
-            <div class="ss-field">
-              <label for="f_subject">Course</label>
-              <select class="ss-input" id="f_subject" name="subject">
-                <option value="">Select course…</option>
-                {% for subject in subjects %}
-                  <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-lecture="{{ subject.lecture_hours }}" data-lab-hours="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="ss-field">
-              <label for="f_class_type">Class type</label>
-              <select class="ss-input" id="f_class_type" name="class_type">
-                <option value="Lecture">Lecture</option>
-                <option value="Laboratory">Laboratory</option>
-              </select>
-            </div>
+        <section class="ss-plan">
+          <div class="ss-plan-head">
+            <div class="ss-form-k"><span>2</span><h2>Weekly plan</h2><small>Venue, time blocks, class type and assigned faculty</small></div>
+            <button type="button" class="ss-btn primary" id="openPlan"><i class="fa-solid fa-calendar-plus"></i> Set times</button>
           </div>
-
-          <div class="ss-row">
-            <div class="ss-field">
-              <label for="f_building">Building</label>
-              <select class="ss-input" id="f_building">
-                <option value="">Select building…</option>
-                {% for building in buildings %}
-                  <option value="{{ building.id }}">{{ building.code }} — {{ building.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="ss-field">
-              <label for="f_room">Room / Lab</label>
-              <select class="ss-input" id="f_room" name="room" disabled>
-                <option value="">Select a building first</option>
-                {% for room in rooms %}
-                  <option value="{{ room.id }}" data-building="{{ room.building_id }}">{{ room.room_name }} ({{ room.capacity }})</option>
-                {% endfor %}
-              </select>
-            </div>
+          <div class="ss-plan-slots" id="planChips"></div>
+          <div class="ss-plan-meta">
+            <div class="ss-plan-stat"><span>Blocks</span><b id="planCount">0 blocks</b></div>
+            <div class="ss-plan-stat"><span>Planned hours</span><b class="ss-plan-hours" id="planHours">0h</b></div>
+            <div class="ss-plan-stat"><span>Faculty</span><b class="ss-plan-faculty" id="planFaculty"><i class="fa-solid fa-user-slash"></i> Not assigned</b></div>
           </div>
-
-          <div class="ss-hours" id="f_hours">Weekly hours: —</div>
         </section>
       </div>
-
-      <section class="ss-plan">
-        <div class="ss-plan-head">
-          <div class="ss-form-k"><span>3</span><h2>Weekly plan</h2><small>Time blocks and assigned faculty</small></div>
-          <button type="button" class="ss-btn primary" id="openPlan"><i class="fa-solid fa-calendar-plus"></i> Set schedule times</button>
-        </div>
-        <div class="ss-plan-slots" id="planChips"></div>
-        <div class="ss-plan-meta">
-          <div class="ss-plan-stat"><span>Blocks</span><b id="planCount">0 blocks</b></div>
-          <div class="ss-plan-stat"><span>Planned hours</span><b class="ss-plan-hours" id="planHours">0h</b></div>
-          <div class="ss-plan-stat"><span>Faculty</span><b class="ss-plan-faculty" id="planFaculty"><i class="fa-solid fa-user-slash"></i> Not assigned</b></div>
-        </div>
-      </section>
 
       <div class="ss-conflict">
         <b>Conflict rules</b>
@@ -222,6 +194,33 @@
         <option value="">All sections</option>
         {% for sec in section_choices %}
           <option value="{{ sec.id }}" {% if filter_section == sec.id|stringformat:'s' %}selected{% endif %}>{{ sec.name }} · {{ sec.program.program_code }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="ss-filter" style="flex:0 1 150px; min-width:0;">
+      <small>Faculty</small>
+      <select name="teacher" onchange="this.form.submit()">
+        <option value="">All faculty</option>
+        {% for t in teachers %}
+          <option value="{{ t.id }}" {% if filter_teacher == t.id|stringformat:'s' %}selected{% endif %}>{{ t.last_name }}, {{ t.first_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="ss-filter" style="flex:0 0 110px; min-width:0;">
+      <small>From</small>
+      <select name="time_start" onchange="this.form.submit()">
+        <option value="">Any</option>
+        {% for start, end in time_slots %}
+          <option value="{{ start }}" {% if filter_time_start == start %}selected{% endif %}>{{ start }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="ss-filter" style="flex:0 0 110px; min-width:0;">
+      <small>To</small>
+      <select name="time_end" onchange="this.form.submit()">
+        <option value="">Any</option>
+        {% for start, end in time_slots %}
+          <option value="{{ end }}" {% if filter_time_end == end %}selected{% endif %}>{{ end }}</option>
         {% endfor %}
       </select>
     </label>
@@ -367,14 +366,34 @@
     <h2 style="font-size:15px; margin:2px 0 8px;">Schedule plan</h2>
     <p class="ss-sub" style="margin-bottom:14px;">Build the weekly blocks for <b id="planTarget">this class</b>, then apply them as one batch.</p>
 
-    <div class="ss-field" style="margin-bottom:12px;">
-      <label for="plan_teacher">Assign faculty</label>
-      <select class="ss-input" id="plan_teacher">
-        <option value="">Select faculty…</option>
-        {% for teacher in teachers %}
-          <option value="{{ teacher.id }}" data-name="{{ teacher.last_name }}, {{ teacher.first_name }}">{{ teacher.last_name }}, {{ teacher.first_name }} ({{ teacher.employee_number }})</option>
-        {% endfor %}
-      </select>
+    <div class="ss-plan-fields">
+      <div class="ss-field">
+        <label for="plan_teacher">Assign faculty</label>
+        <select class="ss-input" id="plan_teacher">
+          <option value="">Select faculty…</option>
+          {% for teacher in teachers %}
+            <option value="{{ teacher.id }}" data-name="{{ teacher.last_name }}, {{ teacher.first_name }}">{{ teacher.last_name }}, {{ teacher.first_name }} ({{ teacher.employee_number }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="ss-field">
+        <label for="f_building">Building</label>
+        <select class="ss-input" id="f_building">
+          <option value="">Select a building…</option>
+          {% for building in buildings %}
+            <option value="{{ building.id }}">{{ building.code }} — {{ building.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="ss-field">
+        <label for="f_room">Room / Lab</label>
+        <select class="ss-input" id="f_room" disabled>
+          <option value="">Select a building first</option>
+          {% for room in rooms %}
+            <option value="{{ room.id }}" data-building="{{ room.building_id }}">{{ room.room_name }} ({{ room.capacity }})</option>
+          {% endfor %}
+        </select>
+      </div>
     </div>
 
     <div class="ss-plan-load d-none" id="planFacultyLoad" aria-live="polite">
@@ -387,6 +406,13 @@
     </div>
 
     <div class="ss-plan-add">
+      <div class="ss-field">
+        <label for="slot_class_type">Class type</label>
+        <select class="ss-input" id="slot_class_type">
+          <option value="Lecture">Lecture</option>
+          <option value="Laboratory">Laboratory</option>
+        </select>
+      </div>
       <div class="ss-field">
         <label for="slot_day">Day</label>
         <select class="ss-input" id="slot_day">
@@ -412,7 +438,7 @@
 
     <p class="ss-plan-keep" id="planKeepHint">
       <i class="fa-solid fa-circle-info"></i>
-      Faculty and times stay filled in — after each block, just pick the next day.
+      Faculty, venue and times stay filled in — after each block, just pick the next day.
     </p>
 
     <div class="ss-alert danger d-none" id="planError"></div>
@@ -422,6 +448,7 @@
         <thead>
           <tr>
             <th>Day</th>
+            <th>Type</th>
             <th>Time</th>
             <th>Duration</th>
             <th style="text-align:right;">Actions</th>
@@ -477,6 +504,7 @@
 {% endif %}
 
 {{ hours_map|json_script:"hours-map" }}
+{{ course_teacher_map|json_script:"course-teacher-map" }}
 {% endblock %}
 
 {% block extra_js %}
@@ -564,6 +592,31 @@
     applyTimeFormat();
   }
 
+  // -------------------------------------------------- persist filters (faculty, time)
+  function setCookie(name, value) {
+    document.cookie = name + "=" + value + "; path=/; max-age=31536000";
+  }
+
+  var teacherSelect = document.querySelector('select[name="teacher"]');
+  var timeStartSelect = document.querySelector('select[name="time_start"]');
+  var timeEndSelect = document.querySelector('select[name="time_end"]');
+
+  if (teacherSelect) {
+    teacherSelect.addEventListener("change", function () {
+      setCookie("sched_teacher", teacherSelect.value);
+    });
+  }
+  if (timeStartSelect) {
+    timeStartSelect.addEventListener("change", function () {
+      setCookie("sched_time_start", timeStartSelect.value);
+    });
+  }
+  if (timeEndSelect) {
+    timeEndSelect.addEventListener("change", function () {
+      setCookie("sched_time_end", timeEndSelect.value);
+    });
+  }
+
   // --------------------------------------------------------------- editor
   var form = document.getElementById("scheduleForm");
   if (!form) return;
@@ -574,15 +627,15 @@
   var deleteModal = document.getElementById("deleteModal");
 
   var DAY_LABELS = { {% for day_num, day_name in DAYS %}{{ day_num }}: "{{ day_name }}"{% if not forloop.last %}, {% endif %}{% endfor %} };
+  var YEAR_LABELS = { 1: "1st year", 2: "2nd year", 3: "3rd year", 4: "4th year", 5: "5th year", 6: "6th year" };
 
   var program = document.getElementById("f_program");
+  var yearLevel = document.getElementById("f_year_level");
   var section = document.getElementById("f_section");
-  var step2 = document.getElementById("step2");
 
   var subject = document.getElementById("f_subject");
   var building = document.getElementById("f_building");
   var room = document.getElementById("f_room");
-  var classType = document.getElementById("f_class_type");
   var teacherField = document.getElementById("f_teacher");
 
   var hoursEl = document.getElementById("f_hours");
@@ -604,6 +657,7 @@
   var planLoadList = document.getElementById("planLoadList");
   var planLoadWarn = document.getElementById("planLoadWarn");
   var planTarget = document.getElementById("planTarget");
+  var slotClassType = document.getElementById("slot_class_type");
   var slotDay = document.getElementById("slot_day");
   var slotStart = document.getElementById("slot_start");
   var slotEnd = document.getElementById("slot_end");
@@ -623,8 +677,16 @@
   var deleteTarget = null;
 
   var csrfToken = form.querySelector("[name=csrfmiddlewaretoken]").value;
-  var editorHint = "Pick where the class meets, then plan its weekly time slots.";
+  var editorHint = "Pick the program, year level, section and course, then plan the venue and weekly time slots.";
   var TERM_ID = "{{ active_semester.id|escapejs }}";
+  var COURSE_TEACHER_KEY = "ss-course-teacher";
+  var courseTeacherMap = JSON.parse(document.getElementById("course-teacher-map").textContent);
+  var cachedAssignments = {};
+  try {
+    cachedAssignments = JSON.parse(window.localStorage.getItem(COURSE_TEACHER_KEY) || "{}");
+  } catch (err) {
+    cachedAssignments = {};
+  }
 
   var appliedPlan = [];
   var draftPlan = [];
@@ -639,6 +701,38 @@
       if (select.options[i].value === String(value)) return select.options[i];
     }
     return null;
+  }
+
+  function cachedTeacherForCourse() {
+    if (!subject.value) return "";
+    var base = TERM_ID + "|" + subject.value;
+    var specific = section.value ? base + "|" + section.value : "";
+    var mapBase = subject.value;
+    var mapSpecific = section.value ? mapBase + "|" + section.value : "";
+    return cachedAssignments[specific] || cachedAssignments[base]
+      || courseTeacherMap[mapSpecific] || courseTeacherMap[mapBase] || "";
+  }
+
+  function rememberCourseTeacher(teacherId) {
+    if (!TERM_ID || !subject.value || !teacherId) return;
+    var base = TERM_ID + "|" + subject.value;
+    cachedAssignments[base] = String(teacherId);
+    if (section.value) {
+      cachedAssignments[base + "|" + section.value] = String(teacherId);
+    }
+    try {
+      window.localStorage.setItem(COURSE_TEACHER_KEY, JSON.stringify(cachedAssignments));
+    } catch (err) { /* storage disabled */ }
+  }
+
+  function prefillCourseTeacher() {
+    if (!subject.value) return;
+    var teacherId = cachedTeacherForCourse();
+    if (!teacherId || !findOption(planTeacher, teacherId)) return;
+    planTeacher.value = teacherId;
+    teacherField.value = teacherId;
+    renderPlan();
+    if (planModal.classList.contains("open")) loadFacultyBlocks();
   }
 
   function rememberTeacherLabels() {
@@ -806,25 +900,51 @@
     if (lost) select.value = "";
   }
 
-  function lockStep2() {
-    step2.classList.add("locked");
-    step2.inert = true;
-  }
+  function refreshYearLevel() {
+    var current = yearLevel.value;
+    var levels = [];
+    var seen = {};
+    yearLevel.textContent = "";
 
-  function unlockStep2() {
-    step2.classList.remove("locked");
-    step2.inert = false;
-  }
+    if (program.value) {
+      Array.prototype.forEach.call(section.options, function (option) {
+        if (!option.value || option.dataset.program !== program.value) return;
+        var year = option.dataset.year;
+        if (!year || seen[year]) return;
+        seen[year] = true;
+        levels.push(year);
+      });
+      levels.sort(function (a, b) {
+        return parseInt(a, 10) - parseInt(b, 10);
+      });
+    }
 
-  function refreshStepLock() {
-    if (program.value && section.value) {
-      unlockStep2();
+    var placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = program.value
+      ? "Select a year level…"
+      : "Select a program first";
+    yearLevel.appendChild(placeholder);
+    levels.forEach(function (level) {
+      var option = document.createElement("option");
+      option.value = level;
+      option.textContent = YEAR_LABELS[level] || level + " year";
+      yearLevel.appendChild(option);
+    });
+
+    yearLevel.disabled = !program.value;
+    if (levels.indexOf(current) !== -1) {
+      yearLevel.value = current;
+    } else if (program.value && levels.length === 1) {
+      yearLevel.value = levels[0];
     } else {
-      lockStep2();
+      yearLevel.value = "";
     }
   }
 
   function refreshSections() {
+    refreshYearLevel();
+
     var ready = !!program.value;
     section.disabled = !ready;
     if (section.options.length) {
@@ -834,20 +954,33 @@
     }
     filterOptions(section, function (option) {
       if (!ready) return false;
-      return option.dataset.program === program.value;
+      if (option.dataset.program !== program.value) return false;
+      if (yearLevel.value && option.dataset.year !== yearLevel.value) return false;
+      return true;
     });
     refreshSubjects();
-    refreshStepLock();
   }
 
   function refreshSubjects() {
+    var ready = !!program.value;
+    var scopeProgram = program.value;
+    var scopeYear = yearLevel.value;
+    var sectionOption = section.value ? findOption(section, section.value) : null;
+    if (sectionOption) {
+      scopeProgram = sectionOption.dataset.program || scopeProgram;
+      scopeYear = sectionOption.dataset.year || scopeYear;
+    }
+
+    subject.disabled = !ready;
+    if (subject.options.length) {
+      subject.options[0].textContent = ready
+        ? "Select a course…"
+        : "Select a program first";
+    }
     filterOptions(subject, function (option) {
-      if (section.value) {
-        var sectionOption = findOption(section, section.value);
-        if (sectionOption && option.dataset.program !== sectionOption.dataset.program) return false;
-      } else if (program.value && option.dataset.program !== program.value) {
-        return false;
-      }
+      if (!ready) return false;
+      if (scopeProgram && option.dataset.program !== scopeProgram) return false;
+      if (scopeYear && option.dataset.year !== scopeYear) return false;
       return true;
     });
     updateHours();
@@ -863,33 +996,38 @@
     });
   }
 
-  program.addEventListener("change", refreshSections);
+  program.addEventListener("change", function () {
+    yearLevel.value = "";
+    refreshSections();
+  });
+  yearLevel.addEventListener("change", refreshSections);
   section.addEventListener("change", function () {
-    refreshSubjects();
-    refreshStepLock();
+    var option = findOption(section, section.value);
+    if (option && option.dataset.year) yearLevel.value = option.dataset.year;
+    refreshSections();
+    prefillCourseTeacher();
   });
   building.addEventListener("change", refreshRooms);
   subject.addEventListener("change", function () {
-    var option = findOption(subject, subject.value);
-    if (option) {
-      classType.value = parseInt(option.dataset.lecture || "0", 10) > 0 ? "Lecture" : "Laboratory";
-    }
     updateHours();
+    prefillCourseTeacher();
   });
-  classType.addEventListener("change", updateHours);
 
   function updateHours() {
-    var key = TERM_ID + "|" + subject.value + "|" + section.value + "|" + classType.value;
     var option = findOption(subject, subject.value);
     if (!TERM_ID || !section.value || !option) {
       hoursEl.textContent = "Weekly hours: pick the section and course.";
       renderPlan();
       return;
     }
-    var scheduled = HOURS_MAP[key] || 0;
-    var allowed = allowedHours();
-    hoursEl.textContent = classType.value + ": " + scheduled + "h scheduled of " +
-      allowed + "h allowed this week.";
+    var lectureKey = TERM_ID + "|" + subject.value + "|" + section.value + "|Lecture";
+    var labKey = TERM_ID + "|" + subject.value + "|" + section.value + "|Laboratory";
+    var lectureScheduled = HOURS_MAP[lectureKey] || 0;
+    var labScheduled = HOURS_MAP[labKey] || 0;
+    var lectureAllowed = parseFloat(option.dataset.lecture || "0");
+    var labAllowed = parseFloat(option.dataset.labHours || "0");
+    hoursEl.textContent = "Lecture: " + lectureScheduled.toFixed(1) + "h of " + lectureAllowed.toFixed(1) + "h · " +
+      "Lab: " + labScheduled.toFixed(1) + "h of " + labAllowed.toFixed(1) + "h";
     renderPlan();
   }
 
@@ -909,22 +1047,39 @@
     }, 0);
   }
 
-  function allowedHours() {
-    if (!subject.value) return null;
+  function capFor(type) {
     var option = findOption(subject, subject.value);
-    if (!option) return null;
+    if (!option) return 0;
     return parseFloat(
-      classType.value === "Laboratory"
-        ? option.dataset.labHours || "0"
-        : option.dataset.lecture || "0"
-    );
+      type === "Laboratory" ? option.dataset.labHours : option.dataset.lecture
+    ) || 0;
   }
 
-  function scheduledOtherHours() {
-    var key = TERM_ID + "|" + subject.value + "|" + section.value + "|" + classType.value;
+  function scheduledOtherHoursFor(type) {
+    var key = TERM_ID + "|" + subject.value + "|" + section.value + "|" + type;
     var scheduled = HOURS_MAP[key] || 0;
     if (key === originalKey) scheduled -= originalHours;
     return Math.max(0, scheduled);
+  }
+
+  function plannedHoursFor(slots, type) {
+    return slots.reduce(function (sum, slot) {
+      if ((slot.classType || "Lecture") !== type) return sum;
+      return sum + hoursBetween(slot.start, slot.end);
+    }, 0);
+  }
+
+  function usageFor(type, slots) {
+    var cap = capFor(type);
+    var scheduled = scheduledOtherHoursFor(type);
+    var planned = plannedHoursFor(slots, type);
+    return {
+      cap: cap,
+      scheduled: scheduled,
+      planned: planned,
+      total: scheduled + planned,
+      over: scheduled + planned > cap + 0.001
+    };
   }
 
   function byDayTime(a, b) {
@@ -960,7 +1115,8 @@
     time.dataset.end = slot.end;
     var duration = document.createElement("span");
     duration.className = "ss-slot-dur";
-    duration.textContent = hoursBetween(slot.start, slot.end).toFixed(1) + "h block";
+    duration.textContent = hoursBetween(slot.start, slot.end).toFixed(1) + "h · " +
+      (slot.classType || "Lecture");
     main.appendChild(time);
     main.appendChild(duration);
 
@@ -1004,12 +1160,12 @@
     }
 
     var total = planTotal(appliedPlan);
-    var cap = allowedHours();
+    var lecture = usageFor("Lecture", appliedPlan);
+    var lab = usageFor("Laboratory", appliedPlan);
     planCount.textContent = appliedPlan.length + (appliedPlan.length === 1 ? " block" : " blocks");
-    planHours.textContent = cap === null
-      ? total.toFixed(1) + "h"
-      : total.toFixed(1) + "h of " + cap + "h";
-    planHours.classList.toggle("over", cap !== null && scheduledOtherHours() + total > cap);
+    planHours.textContent = total.toFixed(1) + "h";
+    planHours.classList.toggle("over",
+      (lecture.planned > 0 && lecture.over) || (lab.planned > 0 && lab.over));
 
     var teacherOption = teacherField.value ? findOption(planTeacher, teacherField.value) : null;
     planFaculty.textContent = "";
@@ -1017,7 +1173,9 @@
     icon.className = "fa-solid " + (teacherOption ? "fa-user-check" : "fa-user-slash");
     planFaculty.appendChild(icon);
     planFaculty.appendChild(document.createTextNode(
-      teacherOption ? " " + teacherOption.textContent : " Not assigned"
+      teacherOption
+        ? " " + (teacherOption.dataset.name || teacherOption.textContent)
+        : " Not assigned"
     ));
 
     refreshSaveLabel();
@@ -1034,12 +1192,44 @@
     planError.textContent = "";
   }
 
+  function showPlanToast(message) {
+    var container = document.getElementById("scheduleToastContainer");
+    if (!container) return;
+    var toast = document.createElement("div");
+    toast.className = "toast bg-info-lt";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-atomic", "true");
+    toast.style.setProperty("--tblr-toast-color", "#000");
+    toast.setAttribute("data-bs-delay", "4000");
+
+    var flex = document.createElement("div");
+    flex.className = "d-flex";
+    var body = document.createElement("div");
+    body.className = "toast-body";
+    body.textContent = message;
+    var close = document.createElement("button");
+    close.type = "button";
+    close.className = "btn-close me-2 m-auto";
+    close.setAttribute("data-bs-dismiss", "toast");
+    close.setAttribute("aria-label", "Close");
+    flex.appendChild(body);
+    flex.appendChild(close);
+    toast.appendChild(flex);
+
+    container.appendChild(toast);
+    var bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    toast.addEventListener("hidden.bs.toast", function () {
+      toast.remove();
+    });
+  }
+
   function renderPlanRows() {
     planRows.textContent = "";
     if (!draftPlan.length) {
       var emptyRow = document.createElement("tr");
       var emptyCell = document.createElement("td");
-      emptyCell.colSpan = 4;
+      emptyCell.colSpan = 5;
       emptyCell.style.textAlign = "center";
       emptyCell.style.color = "var(--ss-muted)";
       emptyCell.style.padding = "16px";
@@ -1062,6 +1252,13 @@
           dayCell.appendChild(clashNote);
         }
         row.appendChild(dayCell);
+
+        var typeCell = document.createElement("td");
+        var typeBadge = document.createElement("span");
+        typeBadge.className = "ss-type" + (slot.classType === "Laboratory" ? " lab" : "");
+        typeBadge.textContent = slot.classType || "Lecture";
+        typeCell.appendChild(typeBadge);
+        row.appendChild(typeCell);
 
         var timeCell = document.createElement("td");
         timeCell.className = "time-display";
@@ -1107,19 +1304,33 @@
 
   function renderPlanSummary() {
     var total = planTotal(draftPlan);
-    var cap = allowedHours();
     var countLabel = draftPlan.length + " slot" + (draftPlan.length === 1 ? "" : "s");
-    if (cap === null) {
+    var option = findOption(subject, subject.value);
+    if (!option || !subject.value) {
       planSummary.textContent = countLabel + " · " + total.toFixed(1) +
         "h planned. Pick a course to see the weekly cap.";
       planSummary.classList.remove("over");
       return;
     }
-    var combined = scheduledOtherHours() + total;
-    planSummary.textContent = countLabel + " · " + total.toFixed(1) + "h planned · " +
-      combined.toFixed(1) + "h of " + cap + "h for this " +
-      classType.value.toLowerCase() + " this week.";
-    planSummary.classList.toggle("over", combined > cap);
+
+    var lecture = usageFor("Lecture", draftPlan);
+    var lab = usageFor("Laboratory", draftPlan);
+
+    function typeLine(label, usage) {
+      var html = "<span class=\"ss-plan-cap\"><b>" + label + ":</b> " +
+        usage.total.toFixed(1) + "h of " + usage.cap.toFixed(1) + "h";
+      if (usage.over) {
+        html += " <span style=\"color:var(--ss-red); font-weight:600;\">(over by " +
+          (usage.total - usage.cap).toFixed(1) + "h)</span>";
+      } else if (usage.planned > 0) {
+        html += " <span style=\"color:var(--ss-green); font-weight:600;\">(within limit)</span>";
+      }
+      html += "</span>";
+      return html;
+    }
+
+    planSummary.innerHTML = typeLine("Lecture", lecture) + " · " + typeLine("Lab", lab);
+    planSummary.classList.toggle("over", lecture.over || lab.over);
   }
 
   function syncSlotEditor() {
@@ -1135,6 +1346,7 @@
     if (!slot) return;
     clearPlanError();
     editingSlot = index;
+    slotClassType.value = slot.classType || "Lecture";
     slotDay.value = slot.day;
     slotStart.value = slot.start;
     slotEnd.value = slot.end;
@@ -1145,11 +1357,25 @@
 
   function openPlanModal() {
     draftPlan = appliedPlan.map(function (slot) {
-      return { day: String(slot.day), start: slot.start, end: slot.end };
+      return {
+        day: String(slot.day),
+        start: slot.start,
+        end: slot.end,
+        classType: slot.classType || "Lecture"
+      };
     });
     editingSlot = null;
     syncSlotEditor();
     clearPlanError();
+
+    if (draftPlan.length) {
+      slotClassType.value = draftPlan[0].classType;
+    } else {
+      var courseOption = findOption(subject, subject.value);
+      var lectureHours = courseOption ? parseFloat(courseOption.dataset.lecture || "0") : 1;
+      var labHours = courseOption ? parseFloat(courseOption.dataset.labHours || "0") : 0;
+      slotClassType.value = lectureHours > 0 || labHours <= 0 ? "Lecture" : "Laboratory";
+    }
 
     var option = findOption(subject, subject.value);
     var sectionOption = findOption(section, section.value);
@@ -1157,6 +1383,8 @@
     if (option) label.push(option.textContent.split(" — ")[0]);
     if (sectionOption) label.push(sectionOption.textContent.split(" · ")[0]);
     planTarget.textContent = label.length ? label.join(" · ") : "this class";
+
+    if (!planTeacher.value) prefillCourseTeacher();
 
     renderPlanRows();
     loadFacultyBlocks();
@@ -1189,7 +1417,12 @@
         return;
       }
     }
-    var slot = { day: day, start: start, end: end };
+    var slot = {
+      day: day,
+      start: start,
+      end: end,
+      classType: slotClassType.value || "Lecture"
+    };
     if (editingSlot !== null) {
       draftPlan[editingSlot] = slot;
     } else {
@@ -1242,19 +1475,50 @@
       showPlanError("Assign a faculty member before applying the plan.");
       return;
     }
-    var cap = allowedHours();
-    if (cap !== null && scheduledOtherHours() + planTotal(draftPlan) > cap) {
-      showPlanError("These slots exceed the " + cap + "h weekly cap for this subject.");
+    if (!building.value) {
+      showPlanError("Pick a building for this class.");
+      return;
+    }
+    if (!room.value) {
+      showPlanError("Pick a room or laboratory for this class.");
+      return;
+    }
+    var overType = null;
+    ["Lecture", "Laboratory"].forEach(function (type) {
+      var usage = usageFor(type, draftPlan);
+      if (usage.planned > 0 && usage.over) {
+        overType = type + " time would reach " + usage.total.toFixed(1) +
+          "h of the " + usage.cap.toFixed(1) + "h weekly cap";
+      }
+    });
+    if (overType) {
+      showPlanError(overType + ".");
       return;
     }
     appliedPlan = draftPlan.map(function (slot) {
-      return { day: slot.day, start: slot.start, end: slot.end };
+      return {
+        day: slot.day,
+        start: slot.start,
+        end: slot.end,
+        classType: slot.classType || "Lecture"
+      };
     });
     teacherField.value = planTeacher.value;
+    rememberCourseTeacher(planTeacher.value);
     editingSlot = null;
     syncSlotEditor();
     closeModal(planModal);
     renderPlan();
+
+    var subjectOption = findOption(subject, subject.value);
+    var teacherOption = findOption(planTeacher, planTeacher.value);
+    var courseLabel = subjectOption ? subjectOption.textContent.split(" — ")[0] : "This course";
+    var facultyLabel = teacherOption
+      ? (teacherOption.dataset.name || teacherOption.dataset.baseLabel || teacherOption.textContent)
+      : "the selected faculty";
+    showPlanToast(courseLabel + " assigned to " + facultyLabel + " — " +
+      appliedPlan.length + " block" + (appliedPlan.length === 1 ? "" : "s") +
+      " planned. Review and create the schedule.");
   });
 
   function renderBatchReview() {
@@ -1275,8 +1539,18 @@
     // teacherField holds the faculty committed by Apply; planTeacher may hold
     // an unapplied change if the plan modal was closed without applying.
     parts.push(planTotal(appliedPlan).toFixed(1) + "h planned");
+    var lectureHours = plannedHoursFor(appliedPlan, "Lecture");
+    var labHours = plannedHoursFor(appliedPlan, "Laboratory");
+    if (lectureHours > 0) parts.push("Lecture " + lectureHours.toFixed(1) + "h");
+    if (labHours > 0) parts.push("Lab " + labHours.toFixed(1) + "h");
     if (subjectOption) parts.push(subjectOption.textContent.split(" — ")[0]);
     if (sectionOption) parts.push(sectionOption.textContent.split(" · ")[0]);
+    var buildingOption = findOption(building, building.value);
+    var roomOption = findOption(room, room.value);
+    if (roomOption) {
+      var roomLabel = roomOption.textContent.replace(/\s*\(.+\)\s*$/, "");
+      parts.push((buildingOption ? buildingOption.textContent.split(" — ")[0] + " " : "") + roomLabel);
+    }
 
     var summary = document.createElement("div");
     summary.className = "ss-plan-summary";
@@ -1288,9 +1562,12 @@
     faculty.style.marginTop = "4px";
     var icon = document.createElement("i");
     icon.className = "fa-solid " + (teacherOption ? "fa-user-check" : "fa-user-slash");
+    var teacherLabel = teacherOption
+      ? (teacherOption.dataset.name || teacherOption.dataset.baseLabel || teacherOption.textContent)
+      : "";
     faculty.appendChild(icon);
     faculty.appendChild(document.createTextNode(
-      teacherOption ? " " + teacherOption.textContent : " No faculty assigned"
+      teacherLabel ? " Assigned to " + teacherLabel : " No faculty assigned"
     ));
     batchReview.appendChild(faculty);
 
@@ -1368,8 +1645,8 @@
     saveBtn.textContent = "Create schedule";
     editorTitle.textContent = "New schedule";
     editorSub.textContent = editorHint;
-    lockStep2();
-    hoursEl.textContent = "Weekly hours: —";
+    hoursEl.textContent = "Weekly hours: pick a course to see lecture and lab caps";
+    slotClassType.value = "Lecture";
     planTeacher.value = "";
     facultyBlocks = [];
     planLoadPanel.classList.add("d-none");
@@ -1378,7 +1655,7 @@
     clearAlerts();
     clearPlanError();
 
-    [program, section, subject, building, room].forEach(function (select) {
+    [program, yearLevel, section, subject, building, room].forEach(function (select) {
       Array.prototype.forEach.call(select.options, function (option) {
         option.hidden = false;
         option.disabled = false;
@@ -1387,7 +1664,6 @@
     });
     refreshSections();
     refreshRooms();
-    refreshStepLock();
     renderPlan();
   }
 
@@ -1397,14 +1673,18 @@
     editingId = data.id;
     originalHours = hoursBetween(data.start, data.end);
     originalKey = TERM_ID + "|" + data.subject + "|" + data.section + "|" + data.classType;
-    appliedPlan = [{ day: String(data.day), start: data.start, end: data.end }];
+    appliedPlan = [{ day: String(data.day), start: data.start, end: data.end, classType: data.classType }];
     document.getElementById("f_id").value = data.id;
     saveBtn.textContent = "Save changes";
     deleteBtn.classList.remove("d-none");
     deleteTarget = { id: data.id, label: data.label };
 
     var sectionOption = findOption(section, data.section);
-    if (sectionOption) program.value = sectionOption.dataset.program;
+    if (sectionOption) {
+      program.value = sectionOption.dataset.program;
+      refreshSections();
+      yearLevel.value = sectionOption.dataset.year || "";
+    }
     section.value = data.section;
     refreshSections();
 
@@ -1415,11 +1695,10 @@
       refreshRooms();
       room.value = roomOption.value;
     }
-    classType.value = data.classType;
+    slotClassType.value = data.classType || "Lecture";
     teacherField.value = data.teacher;
     planTeacher.value = data.teacher;
 
-    refreshStepLock();
     updateHours();
     renderPlan();
 
@@ -1471,8 +1750,12 @@
       showAlert("Pick a program before saving.");
       return;
     }
-    if (!section.value || !subject.value || !room.value) {
-      showAlert("Pick the section, course and room before saving.");
+    if (!section.value || !subject.value) {
+      showAlert("Pick the section and course before saving.");
+      return;
+    }
+    if (!room.value) {
+      showAlert("Choose the building and room in the schedule plan before saving.");
       return;
     }
     if (!appliedPlan.length) {
@@ -1495,8 +1778,14 @@
 
   function saveBatch() {
     var formData = new FormData(form);
+    formData.set("room", room.value);
     formData.append("rows", JSON.stringify(appliedPlan.map(function (slot) {
-      return { day: slot.day, start: slot.start, end: slot.end };
+      return {
+        day: slot.day,
+        start: slot.start,
+        end: slot.end,
+        classType: slot.classType || "Lecture"
+      };
     })));
 
     saveBtn.disabled = true;

@@ -756,11 +756,13 @@ html.ss-side-collapsed .ss-side .ss-side-logout:hover i {
 }
 
 .ss-filter {
-  display: block;
-  background: #fff;
-  border: 1px solid var(--ss-line);
-  border-radius: 8px;
-  padding: 5px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
   min-width: 110px;
   margin: 0;
 }
@@ -768,40 +770,51 @@ html.ss-side-collapsed .ss-side .ss-side-logout:hover i {
 .ss-filter small {
   display: block;
   font-size: 8.5px;
+  font-weight: 600;
   color: var(--ss-muted);
   line-height: 1.4;
+  padding-left: 2px;
 }
 
 .ss-filter select,
 .ss-filter input {
-  border: 0;
-  background: none;
-  font: 600 11px/1.3 inherit;
-  color: var(--ss-text);
   width: 100%;
+  height: 32px;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+  background-color: #fff;
+  padding: 0 10px;
+  font: 600 11px/1.2 var(--ss-font);
+  color: var(--ss-text);
   outline: none;
-  padding: 0;
 }
 
 .ss-filter select {
   -webkit-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237b86a0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-position: right 0 center;
+  background-image: linear-gradient(45deg, transparent 50%, #6b7490 50%),
+    linear-gradient(135deg, #6b7490 50%, transparent 50%);
+  background-position: calc(100% - 14px) 14px, calc(100% - 10px) 14px;
+  background-size: 4px 4px;
   background-repeat: no-repeat;
-  background-size: 10px 6px;
+  background-color: #fff;
   overflow: hidden;
-  padding-right: 14px;
+  padding-right: 26px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.ss-filter select:focus,
+.ss-filter input:focus {
+  outline: 2px solid rgba(var(--tblr-primary-rgb), 0.45);
+}
+
 .ss-filter select:disabled {
   background-image: none;
-  color: var(--ss-text);
+  background-color: #f7f9fd;
+  color: #9aa4ba;
   opacity: 1;
-  padding-right: 0;
-  -webkit-text-fill-color: var(--ss-text);
+  padding-right: 10px;
 }
 
 .ss-filter input::placeholder {
@@ -2116,6 +2129,16 @@ html.ss-side-collapsed .ss-side .ss-side-logout:hover i {
   gap: 14px;
 }
 
+/* The weekly plan is the second card in the editor grid; avoid the extra
+   top margin it carried when it sat below the form as a standalone card. */
+.ss-form-grid > .ss-plan {
+  margin-top: 0;
+}
+
+.ss-form-grid > .ss-plan .ss-plan-meta {
+  margin-top: auto;
+}
+
 .ss-form-sec {
   display: flex;
   flex-direction: column;
@@ -2216,6 +2239,16 @@ select.ss-input {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.ss-editor-scope {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.ss-editor-scope > .ss-field:first-child {
+  grid-column: 1 / -1;
 }
 
 .ss-note {
@@ -2551,6 +2584,13 @@ select.ss-input {
   margin-bottom: 10px;
 }
 
+.ss-plan-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .ss-plan-add .ss-btn {
   height: 32px;
 }
@@ -2648,6 +2688,20 @@ select.ss-input {
   color: var(--ss-red);
   font-size: 11px;
   font-weight: 600;
+}
+
+.ss-plan-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ss-text);
+}
+
+.ss-plan-cap b {
+  font-size: 10px;
+  color: var(--ss-muted);
 }
 
 .ss-plan-table tr.clash td {
@@ -2860,6 +2914,14 @@ select.ss-input {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
+  .ss-plan-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .ss-plan-fields .ss-field:first-child {
+    grid-column: 1 / -1;
+  }
+
   .ss-plan-add .ss-field:first-child {
     grid-column: 1 / -1;
   }
@@ -2902,11 +2964,16 @@ select.ss-input {
     grid-template-columns: 1fr;
   }
 
-  .ss-row {
+  .ss-row,
+  .ss-editor-scope {
     grid-template-columns: 1fr;
   }
 
   .ss-plan-add {
+    grid-template-columns: 1fr;
+  }
+
+  .ss-plan-fields {
     grid-template-columns: 1fr;
   }
 
@@ -3855,7 +3922,6 @@ select.ss-input {
 }
 
 [data-bs-theme="dark"] .ss-btn:not(.primary):not(.danger),
-[data-bs-theme="dark"] .ss-filter,
 [data-bs-theme="dark"] .ss-term,
 [data-bs-theme="dark"] .ss-yearpick,
 [data-bs-theme="dark"] .ss-icon-btn,
@@ -3891,6 +3957,24 @@ select.ss-input {
 [data-bs-theme="dark"] .ss-input {
   background-color: #2a3352;
   border: 1px solid #3a456b;
+}
+
+[data-bs-theme="dark"] .ss-filter select,
+[data-bs-theme="dark"] .ss-filter input {
+  background-color: #2a3352;
+  border-color: #3a456b;
+  color: var(--ss-text);
+}
+
+[data-bs-theme="dark"] .ss-filter select {
+  background-image: linear-gradient(45deg, transparent 50%, #9aa4ba 50%),
+    linear-gradient(135deg, #9aa4ba 50%, transparent 50%);
+}
+
+[data-bs-theme="dark"] .ss-filter select:disabled {
+  background-image: none;
+  background-color: #232b45;
+  color: var(--ss-muted);
 }
 
 [data-bs-theme="dark"] select.ss-input {

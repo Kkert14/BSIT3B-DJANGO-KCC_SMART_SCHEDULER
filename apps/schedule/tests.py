@@ -311,7 +311,27 @@ class ActiveTermTests(ReportTestMixin, TestCase):
         body = response.content.decode()
         self.assertIn('IT101', body)
         self.assertNotIn('OLD101', body)
-        self.assertIn('A.Y. 2025-2026 · 1st Sem', body)
+        self.assertIn('A.Y. 2025-2026', body)
+        self.assertIn('Semester 1', body)
+
+    def test_schedule_page_cache_remembers_the_last_faculty_for_a_course(self):
+        response = self.call(self.admin, 'schedule:schedule_list')
+        body = response.content.decode()
+        self.assertIn('id="course-teacher-map"', body)
+        self.assertIn(
+            f'"{self.subject.id}": "{self.teacher.id}"', body
+        )
+
+    def test_course_picker_waits_for_a_program_and_knows_year_levels(self):
+        response = self.call(self.admin, 'schedule:schedule_list')
+        body = response.content.decode()
+        self.assertIn('id="f_year_level" disabled', body)
+        self.assertIn('id="f_subject" name="subject" disabled', body)
+        self.assertIn(
+            f'<option value="{self.subject.id}" '
+            f'data-program="{self.program.id}" data-year="1"',
+            body,
+        )
 
     def test_batch_save_uses_the_active_term(self):
         self.client.force_login(self.admin)
@@ -352,6 +372,36 @@ class ActiveTermTests(ReportTestMixin, TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn('not offered in the active term', response.json()['error'])
+
+    def test_batch_save_keeps_a_class_type_per_row(self):
+        subject = Subject.objects.create(
+            code='IT102', name='Computer Systems', units=3,
+            lecture_hours=1, lab_hours=2, program=self.program,
+            semester=self.semester, year_level=1,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('schedule:schedule_batch_save_ajax'),
+            {
+                'teacher': str(self.teacher.id),
+                'subject': str(subject.id),
+                'section': str(self.section.id),
+                'room': str(self.room.id),
+                'rows': json.dumps([
+                    {'day': 6, 'start': '13:00', 'end': '14:00', 'classType': 'Lecture'},
+                    {'day': 6, 'start': '14:00', 'end': '16:00', 'classType': 'Laboratory'},
+                ]),
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        lecture = Schedule.objects.get(
+            subject=subject, day_of_week=6, start_time='13:00'
+        )
+        lab = Schedule.objects.get(
+            subject=subject, day_of_week=6, start_time='14:00'
+        )
+        self.assertEqual(lecture.class_type, 'Lecture')
+        self.assertEqual(lab.class_type, 'Laboratory')
 
 
 class NoActiveTermTests(ReportTestMixin, TestCase):
