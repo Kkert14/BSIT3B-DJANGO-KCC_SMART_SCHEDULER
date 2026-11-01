@@ -31,10 +31,6 @@
 <form class="ss-toolbar ss-reports-toolbar" method="get">
   {% if report %}<input type="hidden" name="report" value="{{ report }}">{% endif %}
   {% if filter_teacher and not is_teacher_view %}<input type="hidden" name="teacher" value="{{ filter_teacher }}">{% endif %}
-  <span class="ss-term">
-    <i class="fa-regular fa-calendar"></i>
-    {% if active_semester %}A.Y. {{ active_semester.curriculum.academic_year }} · {{ active_semester.short_label }}{% else %}No active term{% endif %}
-  </span>
   {% if report == 'master' or report == 'timetable' %}
   <label class="ss-filter" style="flex:0 1 180px; min-width:0;">
     <small>Program</small>
@@ -144,7 +140,6 @@
           <p class="report-scope">{{ sheet.scope }}</p>
         </div>
         <div class="report-meta">
-          <div><b>Term</b><span>{{ term_label }}</span></div>
           <div><b>Generated</b><span>{{ generated_at|date:"M d, Y H:i" }}</span></div>
           <div><b>Blocks</b><span>{{ sheet.totals.blocks }}</span></div>
           <div><b>Total hours</b><span>{{ sheet.totals.total_display }}h</span></div>
@@ -233,7 +228,7 @@
         <div>
           <div class="report-brand"><i class="fa-solid fa-user-group"></i> Smart Scheduler</div>
           <h2>Faculty load summary</h2>
-          <p class="report-scope">{{ term_label }} · All faculty</p>
+          <p class="report-scope">All faculty</p>
         </div>
         <div class="report-meta">
           <div><b>Generated</b><span>{{ generated_at|date:"M d, Y H:i" }}</span></div>

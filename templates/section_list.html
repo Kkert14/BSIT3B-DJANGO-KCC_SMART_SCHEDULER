@@ -22,10 +22,6 @@
 
   {% if active_semester %}
   <div class="ss-toolbar">
-    <span class="ss-term">
-      <i class="fa-solid fa-layer-group"></i>
-      A.Y. {{ active_curriculum.academic_year }} · {{ active_semester.get_semester_number_display }}
-    </span>
     <form method="GET" class="ss-search">
       <div class="input-group">
         <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
