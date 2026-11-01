@@ -1,14 +1,14 @@
 <aside class="ss-side" id="ss-side">
   <h6>Menu</h6>
   <a class="ss-nav-link {% if request.resolver_match.url_name == 'dashboard' %}on{% endif %}" href="{% url 'dashboard' %}">
-    <i class="fa-solid fa-gauge"></i>Dashboard
+    <i class="fa-solid fa-gauge"></i><span class="ss-nav-label">Dashboard</span>
   </a>
   {% if can_manage %}
     <a class="ss-nav-link {% if request.resolver_match.app_name == 'users' %}on{% endif %}" href="{% url 'users:user_list' %}">
-      <i class="fa-solid fa-users"></i>Users
+      <i class="fa-solid fa-users"></i><span class="ss-nav-label">Users</span>
     </a>
     <a class="ss-nav-link {% if request.resolver_match.url_name == 'curriculum_list' %}on{% endif %}" href="{% url 'curriculum:curriculum_list' %}">
-      <i class="fa-solid fa-gear"></i>Settings
+      <i class="fa-solid fa-gear"></i><span class="ss-nav-label">Settings</span>
     </a>
   {% endif %}
   <!-- <a class="ss-nav-link {% if request.resolver_match.app_name == 'info' %}on{% endif %}" href="{% url 'info:info_list' %}">
@@ -17,35 +17,35 @@
 
   <h6>Scheduling</h6>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'building' %}on{% endif %}" href="{% url 'building:building_list' %}">
-    <i class="fa-solid fa-building"></i>Buildings
+    <i class="fa-solid fa-building"></i><span class="ss-nav-label">Buildings</span>
   </a>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'program' %}on{% endif %}" href="{% url 'program:program_list' %}">
-    <i class="fa-solid fa-school"></i>Programs
+    <i class="fa-solid fa-school"></i><span class="ss-nav-label">Programs</span>
   </a>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'rooms' %}on{% endif %}" href="{% url 'rooms:room_list' %}">
-    <i class="fa-solid fa-door-open"></i>Rooms
+    <i class="fa-solid fa-door-open"></i><span class="ss-nav-label">Rooms</span>
   </a>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'faculty' %}on{% endif %}" href="{% url 'faculty:faculty_list' %}">
-    <i class="fa-solid fa-user-tie"></i>Faculty
+    <i class="fa-solid fa-user-tie"></i><span class="ss-nav-label">Faculty</span>
   </a>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'section' %}on{% endif %}" href="{% url 'section:section_list' %}">
-    <i class="fa-solid fa-layer-group"></i>Sections
+    <i class="fa-solid fa-layer-group"></i><span class="ss-nav-label">Sections</span>
   </a>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'schedule' %}on{% endif %}" href="{% url 'schedule:schedule_list' %}">
-    <i class="fa-solid fa-calendar-days"></i>Scheduling
+    <i class="fa-solid fa-calendar-days"></i><span class="ss-nav-label">Scheduling</span>
   </a>
 
   <div class="ss-side-user">
     <a class="ss-side-link" href="{% if can_manage %}{% url 'users:user_list' %}{% else %}{% url 'dashboard' %}{% endif %}">
       <b>{{ user.username|slice:":2"|upper }}</b>
-      <span>{{ user.username }}
+      <span class="ss-side-user-text">{{ user.username }}
         <small>
           {% if user_role == 'admin' %}Administrator{% elif user_role == 'teacher' %}Instructor{% elif user_role == 'student' %}Student{% else %}Guest{% endif %}
         </small>
       </span>
     </a>
     <a class="ss-side-logout" href="{% url 'logout' %}">
-      <i class="fa-solid fa-arrow-right-from-bracket"></i>Log out
+      <i class="fa-solid fa-arrow-right-from-bracket"></i><span class="ss-nav-label">Log out</span>
     </a>
   </div>
 </aside>

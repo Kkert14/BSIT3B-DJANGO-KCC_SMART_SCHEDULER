@@ -167,13 +167,19 @@ body.ss-body *::after {
 
 @media (min-width: 901px) {
   html.ss-side-collapsed body.ss-body {
-    grid-template-columns: 0 minmax(0, 1fr);
+    grid-template-columns: minmax(64px, auto) minmax(0, 1fr);
   }
 
   html.ss-side-collapsed .ss-side {
-    width: 0;
-    opacity: 0;
-    overflow: hidden;
+    width: 64px;
+    opacity: 1;
+    overflow: visible;
+    z-index: 10;
+  }
+
+  html.ss-side-collapsed .ss-side:hover {
+    width: 190px;
+    z-index: 15;
   }
 
   html.ss-side-collapsed .ss-main {
@@ -537,6 +543,76 @@ body.ss-body *::after {
   display: block;
   color: #8f9ab3;
   font-size: 9px;
+}
+
+/* Collapsed sidebar: icons only, expand on hover */
+html.ss-side-collapsed .ss-side h6 {
+  display: none;
+}
+
+html.ss-side-collapsed .ss-side .ss-nav-label {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+html.ss-side-collapsed .ss-side .ss-side-user-text {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+html.ss-side-collapsed .ss-side:hover .ss-nav-label {
+  display: inline;
+  opacity: 1;
+}
+
+html.ss-side-collapsed .ss-side:hover .ss-side-user-text {
+  display: block;
+  opacity: 1;
+}
+
+html.ss-side-collapsed .ss-side .ss-nav-link:hover {
+  justify-content: flex-start;
+  padding: 9px 10px;
+}
+
+html.ss-side-collapsed .ss-side .ss-nav-link i {
+  transition: transform 0.15s ease, color 0.15s ease;
+  margin-right: 0;
+}
+
+html.ss-side-collapsed .ss-side .ss-nav-link:hover i {
+  transform: scale(1.15);
+  margin-right: 8px;
+}
+
+html.ss-side-collapsed .ss-side .ss-side-link {
+  justify-content: center;
+  padding: 2px 0;
+}
+
+html.ss-side-collapsed .ss-side .ss-side-link i {
+  transition: transform 0.15s ease, color 0.15s ease;
+  margin-right: 0;
+}
+
+html.ss-side-collapsed .ss-side .ss-side-link:hover i {
+  transform: scale(1.15);
+}
+
+html.ss-side-collapsed .ss-side .ss-side-logout {
+  justify-content: center;
+  padding: 5px 0;
+}
+
+html.ss-side-collapsed .ss-side .ss-side-logout i {
+  transition: transform 0.15s ease, color 0.15s ease;
+  margin-right: 0;
+}
+
+html.ss-side-collapsed .ss-side .ss-side-logout:hover i {
+  transform: scale(1.15);
 }
 
 .ss-side-user em {
