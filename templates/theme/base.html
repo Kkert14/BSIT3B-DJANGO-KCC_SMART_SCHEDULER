@@ -6,6 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>{% block title %}Smart Scheduler{% endblock %}</title>
+  {% if appearance.logo_url %}
+  <link rel="icon" href="{{ appearance.logo_url }}">
+  {% else %}
+  <link rel="icon" href="{% static 'favicon.ico' %}">
+  {% endif %}
 
   {% if appearance.font == 'inter' or appearance.font == 'poppins' %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
