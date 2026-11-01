@@ -1,9 +1,5 @@
 {% if request.user.is_authenticated %}
 <header class="ss-top">
-  <button class="ss-burger" type="button" id="ss-burger" aria-label="Toggle navigation" aria-controls="ss-side" aria-expanded="false">
-    <i class="fa-solid fa-bars"></i>
-  </button>
-
   <a class="ss-brand" href="{% url 'dashboard' %}">
     <span class="ss-brand-mark" id="ssBrandMark">
       <i class="fa-solid {{ appearance.brand_icon_class }}" id="ssBrandIcon"{% if appearance.logo %} hidden{% endif %}></i>
@@ -14,6 +10,10 @@
       <span class="ss-brand-sub" id="ssBrandTagline">{{ appearance.brand_tagline }}</span>
     </span>
   </a>
+
+  <button class="ss-burger" type="button" id="ss-burger" aria-label="Toggle navigation" aria-controls="ss-side" aria-expanded="false">
+    <i class="fa-solid fa-bars"></i>
+  </button>
 
   <div class="ss-pickers">
     <div class="ss-ctx" data-ss-ctx>

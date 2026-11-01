@@ -171,7 +171,9 @@ body.ss-body *::after {
   }
 
   html.ss-side-collapsed .ss-side {
-    display: none;
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
   }
 
   html.ss-side-collapsed .ss-main {
@@ -421,6 +423,8 @@ body.ss-body *::after {
   border-right: 1px solid var(--ss-shell-line);
   overflow-y: auto;
   min-height: 0;
+  width: 190px;
+  transition: width 0.2s ease, opacity 0.2s ease;
 }
 
 .ss-side h6 {
@@ -2733,15 +2737,18 @@ select.ss-input {
   }
 
   .ss-side-backdrop {
-    display: none;
     position: fixed;
     inset: 56px 0 0;
     background: rgba(15, 20, 34, 0.45);
     z-index: 65;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
   }
 
   .ss-side-backdrop.open {
-    display: block;
+    opacity: 1;
+    visibility: visible;
   }
 
   .ss-main {
