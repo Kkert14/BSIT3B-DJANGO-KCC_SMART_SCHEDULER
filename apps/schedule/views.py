@@ -303,11 +303,11 @@ def _parse_schedule_target(request):
     except (Faculty.DoesNotExist, ValueError, TypeError):
         return None, 'Invalid teacher.'
     try:
-        subject = Subject.objects.get(pk=int(subject_id))
+        subject = Subject.objects.select_related('semester').get(pk=int(subject_id))
     except (Subject.DoesNotExist, ValueError, TypeError):
         return None, 'Invalid subject.'
-    if subject.semester_id != semester.id:
-        return None, 'That course is not offered in the active term.'
+    if subject.semester.curriculum_id != semester.curriculum_id:
+        return None, 'That course is not part of the active academic year.'
     try:
         section = Section.objects.get(pk=int(section_id))
     except (Section.DoesNotExist, ValueError, TypeError):
@@ -538,19 +538,17 @@ def schedule_list_page(request):
         })
 
     teachers = Faculty.objects.filter(is_active=True).order_by('last_name', 'first_name')
-    subjects = Subject.objects.select_related('program').order_by('code')
+    subjects = Subject.objects.select_related('program', 'semester').order_by('code')
     sections = term_sections.select_related('program').order_by('name')
     if active_semester:
-        subjects = subjects.filter(semester=active_semester)
+        subjects = subjects.filter(semester__curriculum=active_semester.curriculum)
     else:
         subjects = subjects.none()
     rooms = Room.objects.filter(is_active=True).select_related('building').order_by(
         'building__code', 'room_name'
     )
     buildings = Building.objects.order_by('code')
-    programs = Program.objects.filter(
-        id__in=term_sections.values('program_id')
-    ).order_by('program_code')
+    programs = Program.objects.filter(is_active=True).order_by('program_code')
 
     hours_map = {}
     term_schedules = Schedule.objects.all()
@@ -607,7 +605,7 @@ def schedule_list_page(request):
     course_teacher_map = {}
     if active_semester:
         recent_assignments = (
-            Schedule.objects.filter(semester=active_semester)
+            Schedule.objects.filter(semester__curriculum=active_semester.curriculum)
             .order_by('-updated_at')
             .values_list('subject_id', 'section_id', 'teacher_id')
         )

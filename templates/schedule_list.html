@@ -94,7 +94,7 @@
             <select class="ss-input" id="f_subject" name="subject" disabled>
               <option value="">Select a program first</option>
               {% for subject in subjects %}
-                <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-year="{{ subject.year_level }}" data-lecture="{{ subject.lecture_hours }}" data-lab-hours="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}</option>
+                <option value="{{ subject.id }}" data-program="{{ subject.program_id }}" data-year="{{ subject.year_level }}" data-lecture="{{ subject.lecture_hours }}" data-lab-hours="{{ subject.lab_hours }}">{{ subject.code }} — {{ subject.name }}{% if subject.semester_id != active_semester.id %} · {{ subject.semester.short_label }}{% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -105,7 +105,7 @@
         <section class="ss-plan">
           <div class="ss-plan-head">
             <div class="ss-form-k"><span>2</span><h2>Weekly plan</h2><small>Venue, time blocks, class type and assigned faculty</small></div>
-            <button type="button" class="ss-btn primary" id="openPlan"><i class="fa-solid fa-calendar-plus"></i> Set times</button>
+            <button type="button" class="ss-btn primary" id="openPlan" disabled title="Pick the section and course first"><i class="fa-solid fa-calendar-plus"></i> Set times</button>
           </div>
           <div class="ss-plan-slots" id="planChips"></div>
           <div class="ss-plan-meta">
@@ -697,6 +697,7 @@
   var originalKey = "";
 
   function findOption(select, value) {
+    if (value === "" || value === null || value === undefined) return null;
     for (var i = 0; i < select.options.length; i += 1) {
       if (select.options[i].value === String(value)) return select.options[i];
     }
@@ -972,18 +973,37 @@
     }
 
     subject.disabled = !ready;
-    if (subject.options.length) {
-      subject.options[0].textContent = ready
-        ? "Select a course…"
-        : "Select a program first";
-    }
     filterOptions(subject, function (option) {
       if (!ready) return false;
       if (scopeProgram && option.dataset.program !== scopeProgram) return false;
       if (scopeYear && option.dataset.year !== scopeYear) return false;
       return true;
     });
+
+    var visibleCourses = 0;
+    var programHasCourses = false;
+    Array.prototype.forEach.call(subject.options, function (option) {
+      if (!option.value) return;
+      if (option.dataset.program === scopeProgram) programHasCourses = true;
+      if (!option.hidden) visibleCourses += 1;
+    });
+    if (subject.options.length) {
+      subject.options[0].textContent = !ready
+        ? "Select a program first"
+        : visibleCourses
+          ? "Select a course…"
+          : programHasCourses
+            ? "No courses for this year"
+            : "No courses in this academic year";
+    }
+    syncPlanButton();
     updateHours();
+  }
+
+  function syncPlanButton() {
+    var ready = !!(section.value && subject.value);
+    openPlanBtn.disabled = !ready;
+    openPlanBtn.title = ready ? "" : "Pick the section and course first";
   }
 
   function refreshRooms() {
@@ -1009,6 +1029,7 @@
   });
   building.addEventListener("change", refreshRooms);
   subject.addEventListener("change", function () {
+    syncPlanButton();
     updateHours();
     prefillCourseTeacher();
   });
@@ -1356,6 +1377,10 @@
   }
 
   function openPlanModal() {
+    if (!section.value || !subject.value) {
+      showAlert("Pick the section and course before planning time slots.");
+      return;
+    }
     draftPlan = appliedPlan.map(function (slot) {
       return {
         day: String(slot.day),
@@ -1689,6 +1714,7 @@
     refreshSections();
 
     subject.value = data.subject;
+    syncPlanButton();
     var roomOption = findOption(room, data.room);
     if (roomOption) {
       building.value = roomOption.dataset.building;

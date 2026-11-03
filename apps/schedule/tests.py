@@ -260,6 +260,14 @@ class ActiveTermTests(ReportTestMixin, TestCase):
             lecture_hours=3, program=cls.program, semester=cls.semester,
             year_level=1,
         )
+        cls.same_year_semester = Semester.objects.create(
+            curriculum=cls.curriculum, semester_number=2, is_active=False,
+        )
+        cls.same_year_subject = Subject.objects.create(
+            code='IT150', name='Same Year Course', units=3,
+            lecture_hours=3, program=cls.program, semester=cls.same_year_semester,
+            year_level=1,
+        )
         cls.building = Building.objects.create(code='B1', name='Main Building')
         cls.room = Room.objects.create(
             building=cls.building, room_name='101', capacity=45,
@@ -327,11 +335,55 @@ class ActiveTermTests(ReportTestMixin, TestCase):
         body = response.content.decode()
         self.assertIn('id="f_year_level" disabled', body)
         self.assertIn('id="f_subject" name="subject" disabled', body)
+        self.assertIn('id="openPlan" disabled', body)
         self.assertIn(
             f'<option value="{self.subject.id}" '
             f'data-program="{self.program.id}" data-year="1"',
             body,
         )
+
+    def test_program_picker_lists_programs_without_sections_in_the_term(self):
+        other_program = Program.objects.create(
+            program_code='BSBA', program_description='BS Business Administration',
+        )
+        Program.objects.create(
+            program_code='BSIS', program_description='BS Information Systems',
+            is_active=False,
+        )
+        response = self.call(self.admin, 'schedule:schedule_list')
+        body = response.content.decode()
+        self.assertIn(f'<option value="{other_program.id}"', body)
+        self.assertNotIn('BSIS — BS Information Systems', body)
+
+    def test_course_picker_lists_courses_from_the_whole_academic_year(self):
+        response = self.call(self.admin, 'schedule:schedule_list')
+        body = response.content.decode()
+        self.assertIn(
+            f'<option value="{self.same_year_subject.id}"', body
+        )
+        self.assertIn('IT150 — Same Year Course · 2nd Sem', body)
+        self.assertNotIn('OLD101', body)
+
+    def test_batch_save_accepts_a_course_from_another_semester_in_the_year(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('schedule:schedule_batch_save_ajax'),
+            {
+                'teacher': str(self.teacher.id),
+                'subject': str(self.same_year_subject.id),
+                'section': str(self.section.id),
+                'room': str(self.room.id),
+                'class_type': 'Lecture',
+                'rows': json.dumps([
+                    {'day': 4, 'start': '10:00', 'end': '11:00'},
+                ]),
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        saved = Schedule.objects.get(
+            subject=self.same_year_subject, day_of_week=4, start_time='10:00'
+        )
+        self.assertEqual(saved.semester_id, self.semester.id)
 
     def test_batch_save_uses_the_active_term(self):
         self.client.force_login(self.admin)
@@ -371,7 +423,7 @@ class ActiveTermTests(ReportTestMixin, TestCase):
             },
         )
         self.assertEqual(response.status_code, 400)
-        self.assertIn('not offered in the active term', response.json()['error'])
+        self.assertIn('not part of the active academic year', response.json()['error'])
 
     def test_batch_save_keeps_a_class_type_per_row(self):
         subject = Subject.objects.create(

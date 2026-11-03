@@ -90,40 +90,26 @@ def program_courses_page(request, pk):
         'semester__curriculum', 'prerequisite'
     )
 
-    program_year_ids = list(
-        subjects_qs.values_list('semester__curriculum_id', flat=True).distinct()
-    )
     curriculum_ids = set(Curriculum.objects.values_list('id', flat=True))
 
     filter_year = request.GET.get('year', '').strip()
     if not filter_year.isdigit() or int(filter_year) not in curriculum_ids:
-        # Prefer the active curriculum, then the newest one holding this
-        # program's courses, then any curriculum, so the page opens populated.
+        # Follow the navbar's active curriculum by default; fall back to the
+        # newest curriculum only when no year is active.
         active_year_id = (
             Curriculum.objects.filter(is_active=True)
             .values_list('id', flat=True)
             .first()
         )
-        if active_year_id in program_year_ids:
+        if active_year_id:
             filter_year = str(active_year_id)
         else:
             newest_year_id = (
-                Curriculum.objects.filter(id__in=program_year_ids)
-                .order_by('-academic_year')
+                Curriculum.objects.order_by('-academic_year')
                 .values_list('id', flat=True)
                 .first()
             )
-            if newest_year_id:
-                filter_year = str(newest_year_id)
-            elif active_year_id:
-                filter_year = str(active_year_id)
-            else:
-                newest_year_id = (
-                    Curriculum.objects.order_by('-academic_year')
-                    .values_list('id', flat=True)
-                    .first()
-                )
-                filter_year = str(newest_year_id) if newest_year_id else ''
+            filter_year = str(newest_year_id) if newest_year_id else ''
 
     selected_curriculum = (
         Curriculum.objects.filter(pk=int(filter_year)).first() if filter_year else None
