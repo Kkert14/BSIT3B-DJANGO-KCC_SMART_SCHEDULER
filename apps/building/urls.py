@@ -5,6 +5,7 @@ app_name = 'building'
 
 urlpatterns = [
     path('', views.building_list_page, name='building_list'),
+    path('<int:pk>/rooms/', views.building_rooms_page, name='building_rooms'),
     path('ajax/list/', views.building_list_ajax, name='building_list_ajax'),
     path('ajax/get/<int:pk>/', views.building_get_ajax, name='building_get_ajax'),
     path('ajax/save/', views.building_save_ajax, name='building_save_ajax'),

@@ -13,7 +13,7 @@
     <form method="GET" class="ss-search">
       <div class="input-group">
         <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by code or name...">
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search buildings or rooms...">
         {% if query %}
         <a href="{% url 'building:building_list' %}" class="btn btn-outline-secondary">Clear</a>
         {% endif %}
@@ -57,10 +57,9 @@
             <th>#</th>
             <th>Code</th>
             <th>Name</th>
+            <th>Rooms</th>
             <th>Status</th>
-            {% if can_manage %}
             <th class="w-1">Actions</th>
-            {% endif %}
           </tr>
         </thead>
         <tbody id="buildingTableBody">
@@ -69,6 +68,7 @@
             <td class="text-muted">{{ forloop.counter0|add:buildings.start_index }}</td>
             <td class="fw-semibold">{{ building.code }}</td>
             <td class="text-muted">{{ building.name }}</td>
+            <td class="text-muted">{{ building.rooms.count }}</td>
             <td>
               {% if building.is_active %}
               <span class="badge bg-success-lt text-success">Active</span>
@@ -76,22 +76,25 @@
               <span class="badge bg-danger-lt text-danger">Inactive</span>
               {% endif %}
             </td>
-            {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'building:building_rooms' building.id %}{% if query %}?q={{ query|urlencode }}{% endif %}" title="Open this building's rooms">
+                  <i class="fas fa-door-open me-1"></i>Rooms
+                </a>
+                {% if can_manage %}
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#buildingModal" data-mode="edit" data-id="{{ building.id }}" data-code="{{ building.code }}" data-name="{{ building.name }}" data-active="{{ building.is_active|yesno:'true,false' }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteBuildingModal" data-id="{{ building.id }}" data-code="{{ building.code }}" title="Delete">
                   <i class="fas fa-trash-alt text-danger"></i>
                 </button>
+                {% endif %}
               </div>
             </td>
-            {% endif %}
         </tr>
         {% empty %}
         <tr>
-            <td colspan="{% if can_manage %}5{% else %}4{% endif %}">
+            <td colspan="6">
                 <div class="empty py-5">
                     <div class="empty-icon">
                         <i class="fas fa-building fa-2x text-muted"></i>

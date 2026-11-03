@@ -22,9 +22,6 @@
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'program' %}on{% endif %}" href="{% url 'program:program_list' %}">
     <i class="fa-solid fa-school"></i><span class="ss-nav-label">Programs</span>
   </a>
-  <a class="ss-nav-link {% if request.resolver_match.app_name == 'rooms' %}on{% endif %}" href="{% url 'rooms:room_list' %}">
-    <i class="fa-solid fa-door-open"></i><span class="ss-nav-label">Rooms</span>
-  </a>
   <a class="ss-nav-link {% if request.resolver_match.app_name == 'faculty' %}on{% endif %}" href="{% url 'faculty:faculty_list' %}">
     <i class="fa-solid fa-user-tie"></i><span class="ss-nav-label">Faculty</span>
   </a>

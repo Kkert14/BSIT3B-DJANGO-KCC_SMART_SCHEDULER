@@ -1,10 +1,8 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from django.core.paginator import Paginator
-from django.db.models import Q
 from django.db import IntegrityError
 
 from apps.building.models import Building
@@ -14,54 +12,9 @@ from apps.users.decorators import admin_required, admin_required_api
 
 @login_required(login_url='login')
 def room_list_page(request):
-    query = request.GET.get('q', '').strip()
-    rooms_list = Room.objects.select_related('building').all()
-    if query:
-        rooms_list = rooms_list.filter(
-            Q(room_name__icontains=query) |
-            Q(building__code__icontains=query) |
-            Q(building__name__icontains=query) |
-            Q(room_type__icontains=query)
-        )
-    paginator = Paginator(rooms_list, 10)
-    page_number = request.GET.get('page', 1)
-    rooms = paginator.get_page(page_number)
-    buildings = Building.objects.filter(is_active=True).order_by('code')
-    return render(request, 'room_list.html', {
-        'rooms': rooms,
-        'query': query,
-        'buildings': buildings,
-    })
+    """Rooms live inside each building now; send old links there."""
+    return redirect('building:building_list')
 
-
-@login_required(login_url='login')
-def room_list_ajax(request):
-    query = request.GET.get('q', '').strip()
-    rooms_list = Room.objects.select_related('building').all()
-    if query:
-        rooms_list = rooms_list.filter(
-            Q(room_name__icontains=query) |
-            Q(building__code__icontains=query) |
-            Q(building__name__icontains=query) |
-            Q(room_type__icontains=query)
-        )
-    paginator = Paginator(rooms_list, 10)
-    page_number = request.GET.get('page', 1)
-    rooms = paginator.get_page(page_number)
-    data = list(rooms.object_list.values(
-        'id', 'room_name', 'room_type', 'capacity', 'is_active', 'building_id',
-    ))
-    for item in data:
-        building = Building.objects.filter(pk=item.pop('building_id')).first()
-        item['building'] = str(building) if building else ''
-    return JsonResponse({
-        'data': data,
-        'has_next': rooms.has_next(),
-        'has_prev': rooms.has_previous(),
-        'page': rooms.number,
-        'pages': rooms.paginator.num_pages,
-        'total': rooms.paginator.count,
-    })
 
 
 @login_required(login_url='login')

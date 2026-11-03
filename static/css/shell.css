@@ -2779,6 +2779,10 @@ select.ss-input {
   margin-top: 12px;
 }
 
+.ss-editor-foot + .ss-conflict {
+  margin-top: 10px;
+}
+
 .ss-editor-alerts {
   flex: 1 1 420px;
   display: flex;

@@ -50,7 +50,6 @@ WRITE_ENDPOINTS = [
 READ_PAGES = [
     'building:building_list',
     'program:program_list',
-    'rooms:room_list',
     'schedule:schedule_list',
     'section:section_list',
     'faculty:faculty_list',
@@ -222,6 +221,22 @@ class ReadAccessTests(RoleTestMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('program:program_list'))
 
+    def test_retired_rooms_page_redirects_to_buildings(self):
+        """Rooms live on each building's own rooms page."""
+        response = self.call(self.admin, 'get', 'rooms:room_list')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('building:building_list'))
+
+    def test_building_rooms_page_is_readable(self):
+        building = Building.objects.create(code='RBAC_B1', name='RBAC Building')
+
+        for user in (self.student, self.teacher, self.admin):
+            with self.subTest(role=user.username):
+                response = self.call(
+                    user, 'get', 'building:building_rooms', pk=building.id,
+                )
+                self.assertEqual(response.status_code, 200)
+
     def test_program_courses_page_is_readable(self):
         curriculum = Curriculum.objects.create(academic_year='2025-2026', is_active=True)
         Semester.objects.create(curriculum=curriculum, semester_number=1, is_active=True)
@@ -306,9 +321,11 @@ class TemplateGatingTests(RoleTestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b'data-mode="create"', response.content)
 
-    def test_student_does_not_see_the_actions_column(self):
+    def test_student_sees_rooms_but_not_building_write_controls(self):
         response = self.call(self.student, 'get', 'building:building_list')
-        self.assertNotIn(b'<th class="w-1">Actions</th>', response.content)
+        self.assertIn(b'<th class="w-1">Actions</th>', response.content)
+        self.assertNotIn(b'data-mode="edit"', response.content)
+        self.assertNotIn(b'data-bs-target="#deleteBuildingModal"', response.content)
 
     def test_student_does_not_see_the_users_nav_link(self):
         response = self.call(self.student, 'get', 'building:building_list')

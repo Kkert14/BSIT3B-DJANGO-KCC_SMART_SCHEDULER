@@ -17,13 +17,36 @@ def building_list_page(request):
     buildings_list = Building.objects.all()
     if query:
         buildings_list = buildings_list.filter(
-            Q(code__icontains=query) | Q(name__icontains=query)
-        )
+            Q(code__icontains=query)
+            | Q(name__icontains=query)
+            | Q(rooms__room_name__icontains=query)
+            | Q(rooms__room_type__icontains=query)
+        ).distinct()
     paginator = Paginator(buildings_list, 10)
     page_number = request.GET.get('page', 1)
     buildings = paginator.get_page(page_number)
     return render(request, 'building_list.html', {
         'buildings': buildings,
+        'query': query,
+    })
+
+
+@login_required(login_url='login')
+def building_rooms_page(request, pk):
+    """Rooms that belong to one building."""
+    building = get_object_or_404(Building, pk=pk)
+    query = request.GET.get('q', '').strip()
+    rooms_list = building.rooms.all()
+    if query:
+        rooms_list = rooms_list.filter(
+            Q(room_name__icontains=query) | Q(room_type__icontains=query)
+        )
+    paginator = Paginator(rooms_list, 10)
+    page_number = request.GET.get('page', 1)
+    rooms = paginator.get_page(page_number)
+    return render(request, 'building_rooms.html', {
+        'building': building,
+        'rooms': rooms,
         'query': query,
     })
 

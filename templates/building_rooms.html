@@ -1,11 +1,18 @@
 {% extends "theme/base.html" %}
+{% block title %}{{ building.code }} Rooms · Smart Scheduler{% endblock %}
+
 {% block content %}
 <div class="container-xl">
   <div class="ss-page-head">
     <div>
-      <div class="ss-ov">Facilities</div>
-      <h1 class="ss-page-title">Rooms</h1>
-      <p class="ss-sub">Rooms and laboratories that can be booked for classes.</p>
+      <div class="ss-ov">Facilities / Buildings</div>
+      <h1 class="ss-page-title">{{ building.code }} — Rooms</h1>
+      <p class="ss-sub">{{ building.name }} · Rooms and laboratories that can be booked for classes.</p>
+    </div>
+    <div class="ss-actions">
+      <a class="ss-btn" href="{% url 'building:building_list' %}">
+        <i class="fa-solid fa-arrow-left"></i> Back to Buildings
+      </a>
     </div>
   </div>
 
@@ -13,9 +20,9 @@
     <form method="GET" class="ss-search">
       <div class="input-group">
         <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by room name or building...">
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search rooms in this building...">
         {% if query %}
-        <a href="{% url 'rooms:room_list' %}" class="btn btn-outline-secondary">Clear</a>
+        <a href="{% url 'building:building_rooms' building.id %}" class="btn btn-outline-secondary">Clear</a>
         {% endif %}
         <button type="submit" class="btn btn-primary">Search</button>
       </div>
@@ -44,7 +51,7 @@
   <div class="card">
     <div class="card-header">
       <div class="card-title">
-        All Rooms
+        Rooms in {{ building.code }}
         {% if query %}
         <span class="text-muted fw-normal">— search results for "{{ query }}"</span>
         {% endif %}
@@ -55,7 +62,6 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Building</th>
             <th>Room Name</th>
             <th>Type</th>
             <th>Capacity</th>
@@ -69,7 +75,6 @@
         {% for room in rooms %}
         <tr data-row-id="{{ room.id }}">
             <td class="text-muted">{{ forloop.counter0|add:rooms.start_index }}</td>
-            <td class="text-muted">{{ room.building.code }}</td>
             <td class="fw-semibold">{{ room.room_name }}</td>
             <td class="text-muted">{{ room.room_type }}</td>
             <td>{{ room.capacity }}</td>
@@ -83,7 +88,7 @@
             {% if can_manage %}
             <td>
               <div class="d-flex gap-1">
-                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#roomModal" data-mode="edit" data-id="{{ room.id }}" data-building="{{ room.building.id }}" data-room-name="{{ room.room_name }}" data-room-type="{{ room.room_type }}" data-capacity="{{ room.capacity }}" data-active="{{ room.is_active|yesno:'true,false' }}" title="Edit">
+                <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#roomModal" data-mode="edit" data-id="{{ room.id }}" data-room-name="{{ room.room_name }}" data-room-type="{{ room.room_type }}" data-capacity="{{ room.capacity }}" data-active="{{ room.is_active|yesno:'true,false' }}" title="Edit">
                   <i class="fas fa-edit text-primary"></i>
                 </button>
                 <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteRoomModal" data-id="{{ room.id }}" data-name="{{ room.room_name }}" title="Delete">
@@ -95,13 +100,13 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="{% if can_manage %}7{% else %}6{% endif %}">
+            <td colspan="{% if can_manage %}6{% else %}5{% endif %}">
                 <div class="empty py-5">
                     <div class="empty-icon">
                         <i class="fas fa-door-open fa-2x text-muted"></i>
                     </div>
                     <p class="empty-title">No rooms found</p>
-                    <p class="empty-subtitle">Try adjusting your search or add a new room.</p>
+                    <p class="empty-subtitle">Try adjusting your search or add the first room to this building.</p>
                 </div>
             </td>
         </tr>
@@ -153,17 +158,13 @@
       <form id="roomForm">
         {% csrf_token %}
         <input type="hidden" name="id" id="room_id">
+        <input type="hidden" name="building" value="{{ building.id }}">
         <div class="modal-body">
           <div id="roomFormError" class="alert alert-danger d-none"></div>
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label">Building</label>
-              <select name="building" id="room_building" class="form-select" required>
-                <option value="">Select building</option>
-                {% for b in buildings %}
-                <option value="{{ b.id }}">{{ b.code }} — {{ b.name }}</option>
-                {% endfor %}
-              </select>
+              <input type="text" class="form-control" value="{{ building.code }} — {{ building.name }}" readonly>
             </div>
             <div class="col-12">
               <label class="form-label">Room Name</label>
@@ -216,8 +217,6 @@
     </div>
   </div>
 </div>
-
-<!-- Room Import Modal -->
 {% endblock %}
 
 {% block extra_js %}
@@ -251,24 +250,18 @@
 
   modalEl.addEventListener('show.bs.modal', function(event) {
     const button = event.relatedTarget;
-    if (!button) {
+    if (!button || button.getAttribute('data-mode') !== 'edit') {
       resetForm();
       return;
     }
-    const mode = button.getAttribute('data-mode');
-    if (mode === 'edit') {
-      title.textContent = 'Edit Room';
-      submitBtn.textContent = 'Update Room';
-      currentId = button.getAttribute('data-id');
-      document.getElementById('room_id').value = currentId;
-      document.getElementById('room_building').value = button.getAttribute('data-building');
-      document.getElementById('room_room_name').value = button.getAttribute('data-room-name');
-      document.getElementById('room_room_type').value = button.getAttribute('data-room-type');
-      document.getElementById('room_capacity').value = button.getAttribute('data-capacity');
-      document.getElementById('room_is_active').checked = button.getAttribute('data-active') === 'true';
-    } else {
-      resetForm();
-    }
+    title.textContent = 'Edit Room';
+    submitBtn.textContent = 'Update Room';
+    currentId = button.getAttribute('data-id');
+    document.getElementById('room_id').value = currentId;
+    document.getElementById('room_room_name').value = button.getAttribute('data-room-name');
+    document.getElementById('room_room_type').value = button.getAttribute('data-room-type');
+    document.getElementById('room_capacity').value = button.getAttribute('data-capacity');
+    document.getElementById('room_is_active').checked = button.getAttribute('data-active') === 'true';
   });
 
   deleteModalEl.addEventListener('show.bs.modal', function(event) {
@@ -306,7 +299,7 @@
 
   deleteBtn.addEventListener('click', function() {
     if (!currentId) return;
-    fetch('/rooms/ajax/delete/' + currentId + '/', {
+    fetch("{% url 'rooms:room_delete_ajax' 0 %}".replace('/0/', '/' + currentId + '/'), {
       method: 'POST',
       headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
     })
@@ -317,7 +310,6 @@
       }
     });
   });
-
 })();
 </script>
 {% endblock %}
