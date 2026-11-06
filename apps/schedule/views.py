@@ -493,6 +493,9 @@ def schedule_list_page(request):
 
     grid_schedules = list(schedules_list)
     slot_cells = [[None for _ in DAYS] for _ in time_slots]
+    slot_owner = [[None for _ in DAYS] for _ in time_slots]
+    grid_overlaps = []
+    day_names = dict(DAYS)
     for sched in grid_schedules:
         start_index = (sched.start_time.hour * 60 + sched.start_time.minute - GRID_START_MINUTES) // 30
         if start_index < 0 or start_index >= len(time_slots):
@@ -503,10 +506,18 @@ def schedule_list_page(request):
         end_index = min(max(end_index, start_index + 1), len(time_slots))
         column = sched.day_of_week - 1
         if slot_cells[start_index][column] is not None:
+            other = slot_owner[start_index][column]
+            if other is not None:
+                grid_overlaps.append({
+                    'schedule': sched,
+                    'other': other,
+                    'day_name': day_names.get(sched.day_of_week, ''),
+                })
             continue
         slot_cells[start_index][column] = {'schedule': sched, 'rowspan': end_index - start_index}
-        for row in range(start_index + 1, end_index):
-            if slot_cells[row][column] is None:
+        for row in range(start_index, end_index):
+            slot_owner[row][column] = sched
+            if row > start_index and slot_cells[row][column] is None:
                 slot_cells[row][column] = 'skip'
 
     timetable_rows = []
@@ -639,6 +650,7 @@ def schedule_list_page(request):
         'year_level_choices': year_level_choices,
         'active_semester': active_semester,
         'has_grid_events': any(value not in (None, 'skip') for row in slot_cells for value in row),
+        'grid_overlaps': grid_overlaps,
         'time_slots': time_slots,
     })
 

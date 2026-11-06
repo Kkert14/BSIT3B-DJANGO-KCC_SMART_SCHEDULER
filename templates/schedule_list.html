@@ -237,6 +237,22 @@
     </label>
   </form>
 
+  {% if grid_overlaps %}
+  <div style="padding:12px 16px 0;">
+    <div class="ss-alert warn">
+      <b>Some classes share a slot</b>
+      <div style="margin-top:4px;">The grid draws the first class and hides the rest. Open the Tabular view to see every class.</div>
+      {% for item in grid_overlaps %}
+      <div style="margin-top:3px;">
+        {{ item.day_name }} {{ item.schedule.start_time|time:'H:i' }}–{{ item.schedule.end_time|time:'H:i' }} ·
+        {{ item.schedule.subject.code }} ({{ item.schedule.section.program.program_code }} {{ item.schedule.section.year_level }} {{ item.schedule.section.name }}) is hidden behind
+        {{ item.other.subject.code }} ({{ item.other.section.program.program_code }} {{ item.other.section.year_level }} {{ item.other.section.name }})
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div id="viewGrid">
     <div class="ss-wk-scroll">
       <table class="ss-wk-table">
@@ -249,7 +265,7 @@
         <tbody>
           {% for row in timetable_rows %}
             <tr>
-              <td class="t"><span class="time-display{% if not row.major %} minor{% endif %}" data-start="{{ row.start }}" data-end="{{ row.end }}" data-mode="start">{{ row.start }}</span></td>
+              <td class="t">{% if row.major %}<span class="time-display" data-start="{{ row.start }}" data-end="{{ row.end }}" data-mode="start">{{ row.start }}</span>{% endif %}</td>
               {% for cell in row.cells %}
                 {% if cell.kind == 'skip' %}
                 {% elif cell.kind == 'event' %}
@@ -265,8 +281,11 @@
                             data-day="{{ cell.schedule.day_of_week }}"
                             data-start="{{ cell.schedule.start_time|time:'H:i' }}"
                             data-end="{{ cell.schedule.end_time|time:'H:i' }}"
-                            data-label="{{ cell.schedule.subject.code }} · {{ cell.schedule.section.name }}">
+                            data-label="{{ cell.schedule.subject.code }} · {{ cell.schedule.section.name }}"
+                            title="{{ cell.schedule.subject.code }} — {{ cell.schedule.subject.name }} · {{ cell.schedule.section.program.program_code }} {{ cell.schedule.section.year_level }}{{ cell.schedule.section.name }} · {{ cell.schedule.room.building.code }} {{ cell.schedule.room.room_name }} · {{ cell.schedule.teacher.last_name }}">
+                      <span class="ss-ev-time time-display" data-start="{{ cell.schedule.start_time|time:'H:i' }}" data-end="{{ cell.schedule.end_time|time:'H:i' }}">{{ cell.schedule.start_time|time:'H:i' }} – {{ cell.schedule.end_time|time:'H:i' }}</span>
                       <b>{{ cell.schedule.subject.code }}<u>{% if cell.schedule.class_type == 'Laboratory' %}LAB{% else %}LEC{% endif %}</u></b>
+                      <span class="ss-ev-sec">{{ cell.schedule.section.program.program_code }} · {{ cell.schedule.section.year_level }} · {{ cell.schedule.section.name }}</span>
                       <span class="ss-ev-sub">{{ cell.schedule.subject.name }}</span>
                       <span>{{ cell.schedule.room.building.code }} {{ cell.schedule.room.room_name }} · {{ cell.schedule.teacher.last_name }}</span>
                     </button>
@@ -431,7 +450,7 @@
         <input type="time" class="ss-input" id="slot_end">
       </div>
       <div class="ss-plan-add-actions">
-        <button type="button" class="ss-btn" id="addSlot"><i class="fa-solid fa-plus"></i> Add slot</button>
+        <button type="button" class="ss-btn primary" id="addSlot"><i class="fa-solid fa-plus"></i> Add slot</button>
         <button type="button" class="ss-plan-linkbtn d-none" id="cancelSlotEdit">Cancel edit</button>
       </div>
     </div>
@@ -1614,7 +1633,8 @@
   function showConflicts(data) {
     alertEl.classList.add("d-none");
     conflictsEl.textContent = "";
-    conflictsEl.classList.remove("d-none");
+    conflictsEl.classList.remove("d-none", "ok");
+    conflictsEl.classList.add("warn");
 
     var title = document.createElement("b");
     title.textContent = "Cannot save this plan";
@@ -1637,6 +1657,10 @@
     label.textContent = "Try one of these slots";
     conflictsEl.appendChild(label);
 
+    var clashWindows = (data.conflicts || []).map(function (conflict) {
+      return { day: String(conflict.clash_day), start: conflict.clash_start, end: conflict.clash_end };
+    });
+
     var wrap = document.createElement("div");
     wrap.className = "ss-sugg";
     alternatives.forEach(function (item) {
@@ -1644,11 +1668,37 @@
       button.type = "button";
       button.textContent = item.day_name + " " + item.start + "–" + item.end;
       button.addEventListener("click", function () {
-        openPlanModal();
-        slotDay.value = item.day;
-        slotStart.value = item.start;
-        slotEnd.value = item.end;
-        slotStart.focus();
+        var removedTypes = [];
+        appliedPlan = appliedPlan.filter(function (slot) {
+          var clashes = clashWindows.some(function (win) {
+            return slot.day === win.day && slot.start < win.end && win.start < slot.end;
+          });
+          if (clashes) {
+            removedTypes.push(slot.classType || "Lecture");
+            return false;
+          }
+          return true;
+        });
+        appliedPlan.push({
+          day: String(item.day),
+          start: item.start,
+          end: item.end,
+          classType: removedTypes.length === 1 ? removedTypes[0] : (slotClassType.value || "Lecture")
+        });
+        appliedPlan.sort(byDayTime);
+        editingSlot = null;
+        syncSlotEditor();
+        updateHours();
+        conflictsEl.classList.remove("warn");
+        conflictsEl.classList.add("ok");
+        conflictsEl.textContent = "";
+        var okTitle = document.createElement("b");
+        okTitle.textContent = "Plan updated";
+        conflictsEl.appendChild(okTitle);
+        conflictsEl.appendChild(document.createTextNode(
+          " — the block now runs " + item.day_name + " " + item.start + "–" + item.end + ". Save again to confirm."
+        ));
+        focusEditor();
       });
       wrap.appendChild(button);
     });

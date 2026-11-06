@@ -128,6 +128,7 @@ TEMPLATES = [
                 'apps.users.context_processors.role_context',
                 'apps.curriculum.context_processors.active_curriculum_semester',
                 'apps.core.context_processors.appearance',
+                'apps.core.context_processors.static_version',
             ],
         },
     },
